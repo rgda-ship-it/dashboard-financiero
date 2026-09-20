@@ -72,7 +72,7 @@ Si solo se leen cinco párrafos de este documento, que sean estos:
                   │                                        │
   ┌───────────────▼──┐  ┌──────────────────┐               │
   │ posiciones_reales│  │ registro_        │               │
-  │  (CIFRADA) 🔒    │  │ consentimiento   │               │
+  │  importes en claro│ │ consentimiento   │               │
   └──────────────────┘  └──────────────────┘               │
                                                             │
   SIMULADOR                                                 │
@@ -111,8 +111,13 @@ Si solo se leen cinco párrafos de este documento, que sean estos:
 **Leyenda de los avisos**:
 `⚠ rango_real` — sin esta columna se pierde la disciplina de la Fase 1 sobre
 la vela reconstruida de cripto. `⚠ clave_dedup` — sin ella los agentes
-inundan el backlog con la misma petición cada ciclo. `🔒` — única tabla con
-cifrado aplicativo (decisión D3).
+inundan el backlog con la misma petición cada ciclo.
+
+**Sobre los importes**: por la decisión D3, firmada el 2026-09-20, **no se
+cifra ninguno** — ni en el simulador ni en la cartera importada. El
+supuesto es que ningún importe del sistema es dinero real. Si algún día
+se cargan cifras reales de patrimonio, esa decisión hay que revisarla
+antes de importarlas.
 
 ---
 
@@ -279,17 +284,22 @@ aprobado. `'simulador'` es la que se vincula a una `cuentas_simulacion`.
 Tabla puente N:M. `cartera_id`, `activo_id` (PK compuesta), `añadido_en`,
 `notas`. **Aquí muere el `UNIVERSO_ACCIONES` hardcodeado de `escaner.js`.**
 
-#### `posiciones_reales` 🔒 *(sucesora de `cartera_posiciones` de la Fase 1)*
-La cartera real importada por CSV. **Única tabla que conserva el cifrado
-AES-256-GCM** (decisión D3).
+#### `posiciones_reales` *(sucesora de `cartera_posiciones` de la Fase 1)*
+La cartera importada por CSV. **Importes en claro** por la decisión D3.
 
-`id`, `usuario_id`, `activo_id`, `precio_compra_cifrado text NOT NULL`,
-`monto_cifrado text NOT NULL`, `creado_en`.
+`id`, `usuario_id`, `activo_id`, `precio_compra numeric(20,8) NOT NULL`,
+`monto numeric(20,2) NOT NULL`, `creado_en`.
 
-Se mantiene el diseño de la Fase 1 al pie de la letra, con una sola
-diferencia: gana `usuario_id`, que era exactamente lo que el comentario de
-`persistenciaCartera.js` anticipaba («si en el futuro se soporta más de un
-usuario, esta es la primera tabla que necesita esa columna»).
+Dos diferencias respecto a la Fase 1. La primera: gana `usuario_id`, que
+era exactamente lo que el comentario de `persistenciaCartera.js`
+anticipaba («si en el futuro se soporta más de un usuario, esta es la
+primera tabla que necesita esa columna»). La segunda: los dos campos de
+texto cifrado pasan a ser numéricos.
+
+> El nombre `posiciones_reales` se queda por continuidad con la Fase 1,
+> pero significa «posiciones que el usuario declara tener», no «importes
+> reales». Bajo D3 el sistema asume que ninguna cifra lo es. Si eso deja
+> de ser cierto, hay que revisar la decisión **antes** de cargar los datos.
 
 ---
 

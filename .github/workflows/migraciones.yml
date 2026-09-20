@@ -75,6 +75,9 @@ jobs:
           # solo existen en Supabase. Están en su propia migración
           # justamente para que el resto del esquema sea verificable
           # sobre un Postgres cualquiera, sin filtrar líneas con sed.
+          #
+          # La semilla del universo (0003) SÍ se aplica: es una migración
+          # como las demás porque son datos de referencia, no de ejemplo.
           for f in supabase/migrations/*.sql; do
             case "$(basename "$f")" in
               0002_extensiones.sql)
@@ -84,9 +87,6 @@ jobs:
             echo "  aplicando $(basename "$f")"
             psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$f"
           done
-
-      - name: Cargar la semilla
-        run: psql "$PGURL" -v ON_ERROR_STOP=1 -q -f supabase/seed.sql
 
       - name: Invariantes del esquema
         run: |

@@ -105,27 +105,60 @@ supabase link --project-ref <REF_DE_PRODUCCION>
 supabase db push
 ```
 
-Aplica las tres migraciones: `0000_base_fase1.sql` (schema heredado),
-`0001_catalogo.sql` (catálogo, precios, señales y vistas) y
-`0002_extensiones.sql` (`pg_cron` y `pg_net`).
+Y ya está. Eso aplica las cuatro migraciones:
 
-> Las extensiones viven en su propia migración a propósito: son lo único
-> del esquema que necesita un PostgreSQL de Supabase y no vale uno
-> cualquiera. Separarlas es lo que permite que la CI aplique el resto
-> sobre un Postgres limpio sin filtrar líneas con `sed`.
+| Migración | Qué hace |
+|-----------|----------|
+| `0000_base_fase1.sql` | Port del `schema.sql` de la Fase 1 + `usuario_id` |
+| `0001_catalogo.sql` | `activos`, `precios_diarios`, `indicadores_diarios`, `senales`, vistas, retención |
+| `0002_extensiones.sql` | `pg_cron` y `pg_net` |
+| `0003_semilla_universo_fase1.sql` | Los 24 activos del universo de la Fase 1 |
 
-Después, la semilla con los 24 activos del universo de la Fase 1:
+> **No hace falta `psql`.** La semilla es una migración y no un
+> `seed.sql` precisamente por esto: `supabase/seed.sql` solo lo aplica
+> `supabase db reset` en local, y cargarlo en el proyecto remoto habría
+> exigido instalar el cliente de PostgreSQL en Windows solo para
+> insertar 24 filas. Además, esos 24 símbolos no son datos de ejemplo:
+> son datos de referencia sin los cuales el ETL no tiene nada que
+> escanear, y eso es exactamente lo que va en una migración.
 
-```bash
-psql "<SUPABASE_DB_URL>" -f supabase/seed.sql
+**Verificación** — en el panel del proyecto → **SQL Editor**, pega esto:
+
+```sql
+select
+  (select count(*) from public.activos)                          as activos,
+  (select count(*) from public.activos where clase = 'accion')   as acciones,
+  (select count(*) from public.activos where clase = 'cripto')   as criptos,
+  (select count(*) from public.activos
+    where estado = 'pendiente_backfill')                         as pendientes;
 ```
 
-**Verificación**: en el panel → Table Editor debe haber 7 tablas y la
-tabla `activos` con 24 filas, todas en estado `pendiente_backfill`.
+Debe devolver `24 | 21 | 3 | 24`.
 
 > Si `0002_extensiones.sql` falla, habilita `pg_cron` y `pg_net` desde el
 > panel → Database → Extensions y vuelve a lanzar `supabase db push`. No
 > los necesita nada del Sprint 1; los necesita el monitor del Sprint 5.
+
+### Si prefieres usar `psql` de todos modos
+
+No hace falta para nada de este runbook, pero si lo quieres para trastear:
+
+```powershell
+winget install PostgreSQL.PostgreSQL.16
+```
+
+Y **la cadena de conexión no es la URL de la API**. Son dos cosas
+distintas y confundirlas es el error más común aquí:
+
+| | Para qué sirve | Aspecto |
+|---|---|---|
+| **Project URL** | El cliente JavaScript y el ETL, por HTTPS | `https://<ref>.supabase.co` |
+| **Connection string** | `psql`, `pg_dump`, cualquier cliente de PostgreSQL | `postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres` |
+
+`psql` habla el protocolo de PostgreSQL por el puerto 5432, no HTTPS:
+apuntarlo a `https://<ref>.supabase.co/rest/v1/` no puede funcionar ni
+con el cliente instalado. La cadena buena está en el panel →
+**Settings → Database → Connection string → URI**.
 
 ---
 
@@ -144,6 +177,11 @@ Panel → **Settings → Database → Connection string → URI**:
 | Qué copiar |
 |------------|
 | La URI con tu contraseña del paso 1 → `SUPABASE_DB_URL` |
+
+> `SUPABASE_DB_URL` **solo** la usa el workflow `keep-alive.yml`, que
+> corre en Linux y sí tiene `psql` y `pg_dump` instalados. Tú no la
+> necesitas en tu máquina: va directa a los secretos de GitHub en el
+> paso 6.
 
 > **La `service_role key` elude Row Level Security por diseño.** No la
 > pegues nunca en una variable que empiece por `VITE_`, ni en Vercel, ni
@@ -187,7 +225,7 @@ tickers y, por cada uno, el número de velas y si quedó operable.
 
 Luego lo mismo con **etl-cripto** (sin marcar nada).
 
-**Verificación en la base de datos**:
+**Verificación** — otra vez en el **SQL Editor** del panel:
 
 ```sql
 -- Los 24 activos deben haber pasado a 'activo'.

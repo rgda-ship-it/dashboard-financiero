@@ -136,6 +136,67 @@ máquina de nadie. El repositorio fija LF. **Los dos ficheros sucios no
 están incluidos en ningún commit de este sprint** — ver el runbook para
 limpiarlos.
 
+### Cambiado — D3 firmada: no se cifra ningún importe
+
+La regla protegida nº7 de la Fase 1 («cualquier dato de cartera que se
+persista pasa por AES-256-GCM») queda **retirada en la Fase 2** por
+decisión del dueño, el 2026-09-20.
+
+El equipo proponía una excepción parcial: cifrar solo la cartera
+importada y dejar en claro los saldos ficticios del simulador. El dueño
+resolvió de forma más simple y más coherente: **en este sistema ningún
+importe es dinero real**, ni los del simulador ni los de la cartera. Si
+el dato no es real, cifrarlo no protege nada y sí cuesta bastante.
+
+- `cartera_posiciones` pasa de `precio_compra_cifrado text` y
+  `monto_cifrado text` a `precio_compra numeric(20,8)` y
+  `monto numeric(20,2)`, ambos con `CHECK` de rango.
+- Lo que se gana, comprobado: `select sum(monto)` funciona. Con importes
+  cifrados, el corte semanal de los agentes y el P&L habrían tenido que
+  descifrar la tabla entera en aplicación en cada evaluación, y además
+  habría sido imposible indexar u ordenar por importe.
+- `services/cifrado.js` deja de tener destino en la nube. Su último uso
+  es descifrar las filas que existan en el PostgreSQL local al migrarlas
+  (H-16); después, `PORTFOLIO_ENCRYPTION_KEY` se puede borrar.
+
+**La condición que sostiene la decisión** queda escrita en tres sitios —
+el comentario de la tabla, el doc 00 §4 y la regla nº7 del README — para
+quien la lea dentro de un año: el supuesto es que ningún importe
+corresponde a una posición real. Si algún día se cargan cifras reales de
+patrimonio, la decisión deja de ser válida y hay que revisarla ANTES de
+importarlas. Lo que queda protegiendo esos datos es RLS más el cifrado en
+reposo del proveedor: protege frente a terceros, no frente a una consulta
+autorizada. Por eso H-21 y H-33 obligan a decírselo al usuario en la
+propia pantalla.
+
+### Cambiado — la semilla pasa a ser una migración, y `psql` sale del arranque
+
+`supabase/seed.sql` se convierte en
+`supabase/migrations/0003_semilla_universo_fase1.sql`.
+
+El motivo inmediato fue práctico: `seed.sql` solo lo aplica
+`supabase db reset` en local, así que cargarlo en el proyecto remoto
+exigía `psql`, que en Windows no viene instalado. El arranque pedía
+instalar un cliente de PostgreSQL entero para insertar 24 filas.
+
+El argumento de fondo es mejor: esos 24 símbolos **no son datos de
+ejemplo**, son datos de referencia sin los cuales el ETL no tiene nada
+que escanear. Eso es exactamente lo que va en una migración. El
+`on conflict do nothing` la hace idempotente, así que reaplicarla nunca
+duplica ni pisa lo que el usuario haya cambiado desde la interfaz.
+
+Con esto, **todo el paso 3 del runbook es un solo `supabase db push`** y
+las verificaciones se hacen desde el SQL Editor del panel. `psql` ya no
+aparece en el camino crítico; solo lo usa `keep-alive.yml`, que corre en
+Linux.
+
+El runbook gana además una nota sobre el error más común aquí: la URL del
+proyecto (`https://<ref>.supabase.co`, para el cliente y el ETL) y la
+cadena de conexión (`postgresql://postgres:…@db.<ref>.supabase.co:5432/…`,
+para `psql` y `pg_dump`) son dos cosas distintas. `psql` habla el
+protocolo de PostgreSQL por el puerto 5432, no HTTPS: apuntarlo a la URL
+de la API no puede funcionar ni con el cliente instalado.
+
 ### Añadido — puerta de migraciones, porque no hay staging
 
 Restricción descubierta al arrancar el despliegue: el tier gratuito de

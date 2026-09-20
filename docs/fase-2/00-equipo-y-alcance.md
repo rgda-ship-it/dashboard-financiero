@@ -38,9 +38,10 @@ decisión contraria si nadie le dice que ya se discutió:
    simulador. Data Engineer objetó que un `monto_cifrado TEXT` impide
    `SUM()`, `ORDER BY` y cualquier evaluación de meta diaria en SQL: el
    corte semanal de los agentes pasaría a resolverse en aplicación,
-   descifrando toda la tabla en cada pasada. **Gana Data Engineer**, con la
-   condición de que el cifrado se mantenga intacto para la cartera real
-   importada (decisión D3).
+   descifrando toda la tabla en cada pasada. **Gana Data Engineer**, y el
+   dueño fue más lejos que el equipo al firmar D3 el 2026-09-20: no se
+   cifra **nada**, tampoco la cartera importada, porque en este sistema
+   ningún importe corresponde a una posición real.
 2. **Risk Manager vs. PM — metas diarias.** El PM quería las metas tal cual
    las pidió el dueño. El Risk Manager demostró (§4 del doc C) que sin techo
    de riesgo por operación la estrategia óptima para el agente del 7 % es
@@ -130,7 +131,7 @@ coste 0.
 | `routes/portfolio.js` | **Se porta** a RPCs de PostgreSQL | La regla «el monto nunca viaja al motor de rotación» se traduce a que la vista de rotación no expone `monto` |
 | `services/clienteMotorAnalitico.js` | **Muere** | El motor ya no se invoca en vivo: escribe en la BD |
 | `services/circuitBreaker.js` | **Se porta a Python** | Sigue haciendo falta ante caídas de proveedor, pero dentro del ETL, con el último dato válido en la BD en vez de en memoria |
-| `services/cifrado.js` | **Se porta** (uso reducido) | Solo para `posiciones_reales` — ver decisión D3 |
+| `services/cifrado.js` | **Muere** | Decisión D3: no se cifra ningún importe. Sigue existiendo en el stack local de la Fase 1 y se retira con él |
 | `services/websocket.js` | **Muere** | Supabase Realtime sobre `postgres_changes` da lo mismo sin servidor |
 | `middleware/sanitizacionArchivos.js` | **Se porta a Edge Function** | Imprescindible: la carga de histórico del simulador es un CSV de usuario. La lógica anti-fórmula-maliciosa se traduce a Deno/TS tal cual |
 | `db/schema.sql` | **Se extiende**, no se reemplaza | Las dos tablas actuales ganan `usuario_id`; el resto es nuevo |
@@ -164,7 +165,7 @@ intactas; dos quedan tocadas** y necesitan tu aprobación explícita.
 | 4 | Modo degradado **hacia el riesgo mínimo** ante volatilidad ausente | ✅ **Intacta y extendida** | `senales.operable = false` cuando falta ATR, y `rpc_abrir_orden` **rechaza** cualquier orden sobre una señal no operable. Se extiende al monitor: un precio con más de N minutos de antigüedad no cierra posiciones |
 | 5 | Fase 2 → Fase 1 solo por acción **manual** explícita | ⚠️ **Intacta, con tensión nueva** | Un agente que alcance 3× su capital queda topado a 3× **para siempre** salvo que un humano lo revierta. Es coherente con la regla, pero frena la meta del millón: el agente lo detectará y abrirá un `agente_backlog` de tipo `reversion_fase`. **Ninguna reversión es automática** |
 | 6 | El monto invertido **nunca** viaja al motor de decisión de rotación | ✅ **Intacta** | La vista que alimenta la rotación (`v_candidatos_rotacion`) no expone ninguna columna de importe. Se vuelve verificable por RLS y por test, no por convención |
-| 7 | Todo dato de cartera persistido pasa por AES-256-GCM | 🔴 **TOCADA — requiere decisión D3** | Los saldos del simulador son **dinero ficticio** y deben ser agregables en SQL. Propuesta: cifrado **solo** en `posiciones_reales` (la cartera real importada); saldos y órdenes del simulador en `numeric` plano, protegidos por RLS + TLS + cifrado en reposo del proveedor |
+| 7 | Todo dato de cartera persistido pasa por AES-256-GCM | ⚫ **RETIRADA — decisión D3 firmada el 2026-09-20** | El dueño declara que **ningún importe del sistema es dinero real**. Todos los importes pasan a `numeric` en claro, protegidos por RLS + TLS + cifrado en reposo del proveedor. Lo que se gana: agregación en SQL, que es lo que necesitan el corte semanal de los agentes y el P&L. **La condición que sostiene la decisión**: si algún día se cargan cifras reales de patrimonio, hay que revisarla ANTES de importarlas |
 | 8 | El borrado es físico (`DELETE`), nunca soft-delete | ✅ **Intacta** | `ON DELETE CASCADE` desde `perfiles` hacia todo lo del usuario. Se documenta la excepción: las órdenes de los **agentes** no se borran, porque son el registro del experimento, no datos personales |
 
 > **Regla nueva nº9 que la Fase 2 añade al contrato**: el saldo de una cuenta
@@ -200,19 +201,32 @@ media de Wilder del ATR sobre un subconjunto de velas, que el
 Ese cálculo es reproducible hoy; una reimplementación movería el ATR% de
 tramo sin que nada falle de forma visible. No merece el riesgo.
 
-### D3 — Cifrado aplicativo de los importes del simulador 🔴
-**Recomendación: NO cifrar los importes del simulador; mantener el cifrado
-en la cartera real importada.**
-Esto toca la regla protegida nº7, por eso es una decisión y no un detalle
-de implementación. El argumento: el simulador necesita `SUM(pnl)` por día y
-por agente para evaluar la meta diaria y el corte semanal. Con importes
-cifrados, cada evaluación exige descifrar la tabla completa en aplicación.
-Y el dato protegido no es comparable: la cartera real de la Fase 1 es tu
-patrimonio; el saldo del simulador es un número inventado que empieza en
-500 y cuyo interés es justamente que se pueda graficar y comparar entre
-agentes. Si prefieres mantener la regla nº7 sin excepciones, el impacto es
-+21 puntos de estimación y las metas se evalúan en una Edge Function en
-vez de en SQL.
+### D3 — Cifrado de importes ✅ *firmada el 2026-09-20*
+**No se cifra ningún importe. La regla protegida nº7 queda retirada.**
+
+El equipo proponía una excepción parcial —cifrar solo la cartera
+importada—. El dueño resolvió de forma más simple y más coherente: **en
+este sistema ningún importe es dinero real**, ni los del simulador, que
+son ficticios por definición, ni los de la cartera importada. Si el dato
+no es real, cifrarlo no protege nada y sí cuesta bastante.
+
+Lo que se gana es concreto: el corte semanal de los agentes, el P&L y
+cualquier agregación se resuelven con un `SUM()` en SQL. Con importes
+cifrados habría que descifrar la tabla entera en aplicación en cada
+evaluación, y además sería imposible indexar u ordenar por importe.
+
+**La condición que sostiene la decisión**, escrita aquí y en el comentario
+de la propia tabla para quien la lea dentro de un año: el supuesto es que
+ningún importe corresponde a una posición real del usuario. Si algún día
+se cargan cifras reales de patrimonio, la decisión deja de ser válida y
+hay que revisarla **antes** de importarlas, no después. Lo que queda
+protegiendo esos datos es RLS más el cifrado en reposo del proveedor: eso
+protege frente a terceros, no frente a una consulta autorizada.
+
+Consecuencia visible en el producto: la pantalla de importación de CSV
+debe decir que los importes se guardan en claro (H-21), y el aviso legal
+debe recoger el supuesto (H-33).
+
 
 ### D4 — Cerebro de los agentes
 **Recomendación: determinista, con capa LLM opcional y aislada.**

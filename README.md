@@ -30,6 +30,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 90 casos como puerta de merge
+│   ├── migraciones.yml        # El esquema desde cero + 12 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -38,10 +39,12 @@ dashboard-financiero/
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
 │   ├── config.toml
-│   ├── seed.sql               # El universo de la Fase 1 como datos, no como código
+│   ├── pruebas/               # Invariantes del esquema, que corre la CI
 │   └── migrations/
 │       ├── 0000_base_fase1.sql  # Port del schema.sql de la Fase 1 + usuario_id
-│       └── 0001_catalogo.sql    # activos, precios, indicadores, señales, vistas
+│       ├── 0001_catalogo.sql    # activos, precios, indicadores, señales, vistas
+│       ├── 0002_extensiones.sql # pg_cron y pg_net (lo único que exige Supabase)
+│       └── 0003_semilla_...sql  # Los 24 activos del universo de la Fase 1
 │
 ├── scripts/
 │   └── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -539,6 +542,16 @@ código cerca de ellas, vale la pena recordarlas:
 7. **Cifrado**: cualquier dato de cartera que se persista en PostgreSQL
    pasa por `services/cifrado.js` (AES-256-GCM) — nunca se guarda en
    texto plano, ni siquiera corriendo en localhost.
+
+   > **RETIRADA EN LA FASE 2** por la decisión D3, firmada el 2026-09-20.
+   > En la nube no se cifra ningún importe: el supuesto es que **ninguna
+   > cifra de este sistema es dinero real**, ni en el simulador ni en la
+   > cartera importada. Cifrar un dato inventado no protege nada y sí
+   > impide agregarlo en SQL, que es justo lo que necesitan el P&L y el
+   > corte semanal de los agentes. La regla **sigue vigente en el stack
+   > local de la Fase 1** mientras `cifrado.js` exista. Si algún día se
+   > cargan cifras reales de patrimonio, hay que revisar D3 **antes** de
+   > importarlas.
 8. **Borrado**: `borrarCarteraReal()` hace `DELETE` físico, nunca
    soft-delete.
 

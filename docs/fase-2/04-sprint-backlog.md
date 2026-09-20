@@ -348,7 +348,7 @@ empezar de cero.
 **Tareas técnicas**
 - Script que asigna las filas existentes de `cartera_posiciones` y `registro_consentimiento` al perfil admin.
 - Renombrar `cartera_posiciones` → `posiciones_reales` y añadir `usuario_id`, `activo_id`.
-- Verificar que el descifrado AES-256-GCM sigue funcionando tras el cambio de esquema.
+- **Descifrar al migrar**: las filas que existan en el PostgreSQL local de la Fase 1 están cifradas con AES-256-GCM. El script de migración las pasa por `backend/src/services/cifrado.js` para leerlas y las inserta como `numeric` (decisión D3). Es el ÚNICO uso que le queda a `PORTFOLIO_ENCRYPTION_KEY`, y después se puede retirar.
 
 **Criterios de aceptación**
 - Las posiciones preexistentes se descifran correctamente y quedan atribuidas al admin.
@@ -443,7 +443,7 @@ mi situación real en el simulador.
 **Tareas técnicas**
 - Portar `middleware/sanitizacionArchivos.js` a una Edge Function en Deno, **conservando** la protección contra fórmulas maliciosas y el formato numérico con punto decimal.
 - **Validar por contenido, no por `file.mimetype`** — el cliente controla el MIME declarado (deuda técnica nº7).
-- Cifrado AES-256-GCM en la Edge Function; la clave vive en Function Secrets.
+- **Sin cifrado** (decisión D3): los importes se guardan como `numeric`. La pantalla de importación debe decirlo con todas las letras — «los importes se guardan sin cifrar; este sistema asume que ninguna cifra es dinero real».
 - Resolver cada ticker del CSV contra `activos`, disparando backfill si hace falta.
 - Conservar el comportamiento de la Fase 1: las filas inválidas se excluyen con su motivo, **nunca** rompen la carga.
 - Conservar la plantilla `cartera-modelo.csv` de `plantillaCartera.js`.
@@ -452,7 +452,7 @@ mi situación real en el simulador.
 - Un CSV con una celda `=1+1` se importa con esa celda neutralizada.
 - Un `.exe` renombrado a `.csv` es rechazado por contenido.
 - 10 filas válidas y 2 inválidas → 10 posiciones creadas y 2 motivos de exclusión mostrados.
-- Los importes siguen sin aparecer en texto plano en ninguna consulta a `posiciones_reales`.
+- La pantalla de importación advierte de que los importes no se cifran, antes de que el usuario suelte el fichero.
 
 ---
 
@@ -686,12 +686,13 @@ exponer el sistema ni inducir a error.
 - Revisión de las cabeceras de seguridad en Vercel (CSP, `X-Frame-Options`, `Referrer-Policy`).
 - Rate limiting en las Edge Functions públicas (`resolver-activo` es la superficie más golpeable).
 - Revisión de las funciones `SECURITY DEFINER`: todas con `SET search_path` explícito.
-- **Aviso legal permanente**: el sistema es una simulación educativa, no asesoramiento financiero; los importes son ficticios. Visible en el simulador y en la vista de agentes, no escondido en un pie.
+- **Aviso legal permanente**: el sistema es una simulación educativa, no asesoramiento financiero. Visible en el simulador y en la vista de agentes, no escondido en un pie.
+- **El supuesto de D3, por escrito**: «ninguna cifra de este sistema es dinero real; los importes se guardan sin cifrar». No es una formalidad — es la condición que hace segura la decisión de no cifrar, y tiene que estar donde el usuario la vea antes de introducir un importe.
 - Actualizar la sección «Límites que conviene conocer» de `guia.js` con las limitaciones nuevas: precisión del monitor de ~1 minuto, señales con la edad del ETL, sin cierre parcial ni trailing stop.
 
 **Criterios de aceptación**
 - Ninguna función `SECURITY DEFINER` sin `search_path` (consulta sobre `pg_proc` que lo verifica).
-- El aviso legal es visible sin desplazarse en las dos pantallas.
+- El aviso legal es visible sin desplazarse en las dos pantallas, y recoge el supuesto de D3.
 - `resolver-activo` limita a 30 peticiones por minuto y usuario.
 
 ---

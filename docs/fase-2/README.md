@@ -53,9 +53,10 @@ autónomo y tiene un destinatario distinto:
    están ocupados** — uno por otra aplicación del dueño, el otro por
    producción. Sin staging, la puerta de migraciones de la CI pasa de
    buena práctica a control compensatorio.
-9. **Dos reglas protegidas de la Fase 1 quedan tocadas** (cifrado de cartera
-   y monousuario). Están aisladas como decisiones D3 y D5 para que las
-   apruebes o rechaces por separado.
+9. **Una regla protegida de la Fase 1 queda retirada**: el cifrado de los
+   importes (nº7), por la decisión D3 ya firmada — ningún importe del
+   sistema es dinero real. Las otras siete se mantienen intactas y
+   auditadas una a una en el doc 0 §3.
 10. **Estimación**: 34 historias, 179 puntos, 6 sprints. El simulador es
     jugable al final del Sprint 5; los agentes arrancan en el Sprint 6.
 
@@ -70,7 +71,7 @@ El detalle y el razonamiento de cada una está en `00-equipo-y-alcance.md` §4.
 |----|----------|---------------|
 | D1 | Proveedor cloud ✅ firmada | Supabase (datos + auth + cron) + Vercel (frontend) + GitHub Actions (motor). **Un solo proyecto: sin staging remoto** |
 | D2 | El motor Python se mantiene | **Sí** — contenedorizado como job programado |
-| D3 | Cifrado aplicativo de importes del simulador | **No** — son importes ficticios; rompe toda agregación SQL. Se mantiene solo para la cartera real importada |
+| D3 ✅ | Cifrado de importes | **No se cifra nada.** Ningún importe del sistema es dinero real; cifrarlo no protege nada y rompe toda agregación SQL |
 | D4 | Cerebro de los agentes | Determinista; capa LLM opcional y aislada para redactar racionales |
 | D5 | Repo público o privado | Privado + presupuesto de 993 min/mes (público elimina el límite) |
 | D6 | Sesgo corto para los agentes | **No en Fase 2** — la regla protegida nº2 se mantiene; los agentes lo pedirán vía backlog |

@@ -1,5 +1,19 @@
 -- ─────────────────────────────────────────────────────────────────────
--- Semilla del catálogo: el universo de la Fase 1, tal cual.
+-- 0003 — Semilla del catálogo: el universo de la Fase 1, tal cual.
+--
+-- ES UNA MIGRACIÓN Y NO UN `seed.sql` A PROPÓSITO.
+--
+-- `supabase/seed.sql` solo lo aplica `supabase db reset` en local; para
+-- cargarlo en el proyecto remoto haría falta `psql`, que en Windows no
+-- viene instalado y obligaría a añadir una dependencia al arranque solo
+-- para insertar 24 filas.
+--
+-- Y el argumento de fondo es mejor que el práctico: estos 24 símbolos no
+-- son datos de ejemplo, son DATOS DE REFERENCIA que el sistema necesita
+-- para funcionar — sin ellos el ETL no tiene nada que escanear. Eso es
+-- exactamente lo que va en una migración. El `on conflict do nothing`
+-- final la hace idempotente, así que reaplicarla nunca duplica ni pisa
+-- lo que el usuario haya cambiado desde la interfaz.
 --
 -- Estos 24 símbolos son exactamente los que hoy viven hardcodeados en
 -- backend/src/routes/escaner.js como UNIVERSO_ACCIONES y UNIVERSO_CRIPTO.
