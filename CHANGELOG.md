@@ -4,6 +4,175 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-20 — Fase 2, Sprint 1
+
+### Añadido — el motor deja de ser un servidor y pasa a escribir
+
+Implementa el Sprint 1 de `docs/fase-2/` (firmado por el dueño), con las
+decisiones D1, D2, D4 y D5 cerradas: Supabase + Vercel + GitHub Actions,
+el motor Python intacto, agentes deterministas y repositorio privado.
+
+**El cambio de fondo es la dirección del flujo.** En la Fase 1 el motor
+respondía a la pregunta del navegador; ahora escribe en PostgreSQL y el
+navegador lee de ahí. Eso elimina la necesidad de tener un proceso Python
+vivo y a la escucha —que es lo que ningún tier gratuito ofrece bien— y
+convierte el primer escaneo en frío del bloque cripto, que rondaba el
+medio minuto, en la lectura de una fila ya calculada.
+
+- **El esquema, versionado** (`supabase/migrations/`). `0000_base_fase1.sql`
+  es un port literal de `backend/db/schema.sql` más `usuario_id` —
+  exactamente la columna que anticipaba el comentario de
+  `persistenciaCartera.js` («si en el futuro se soporta más de un usuario,
+  esta es la primera tabla que necesita esa columna»). `0001_catalogo.sql`
+  trae `activos`, `precios_diarios`, `indicadores_diarios` y `senales`.
+  Verificado aplicando las dos migraciones y la semilla sobre un
+  PostgreSQL limpio: 24 activos insertados, cero errores.
+
+- **`senales` es el payload de `/internal/scan` persistido**: mismos 20
+  campos, mismos nombres. Y la invariante que `test_contrato_scan.py`
+  verifica en Python se traduce a un `CHECK` de la base de datos
+  (`senales_contrato_operable`), así que `operable`, `leverage_recomendado`,
+  `sl` y `tp` son nulos o no nulos los cuatro a la vez **por ninguna vía de
+  escritura**: ni un ETL con un bug, ni un `INSERT` a mano en la consola.
+  Comprobado: un `INSERT` con `operable = true` y `tp = NULL` es rechazado.
+
+- **`precios_diarios.rango_real`**, la columna que no se puede olvidar.
+  `false` para las velas de cripto reconstruidas sin máximo y mínimo
+  reales. El CHANGELOG del 2026-09-20 midió lo que pasa si se ignora:
+  calcular el ATR sobre el frame completo **inflaba el ATR de BTC un 16 %**
+  y le cambiaba el tramo de volatilidad, es decir, cambiaba el
+  apalancamiento recomendado. Se blinda además con la vista
+  `v_velas_con_rango`, que es la única puerta legítima para calcular
+  indicadores: `select * from precios_diarios` para un ATR reintroduce el
+  bug en silencio.
+
+- **`motor-analitico/etl.py` y `escritor_supabase.py`**: el punto de
+  entrada del job y el adaptador de salida. Ninguno contiene lógica de
+  análisis — reutilizan `_escanear_ticker()` tal cual, que es lo que hace
+  que la decisión D2 («el motor no se toca») se cumpla de verdad. La
+  memoización de `_obtener_ohlcv` existe por una razón concreta: el ETL
+  necesita las velas dos veces —para escribir `precios_diarios` y dentro
+  de `_escanear_ticker`— y sin caché de pasada cada cripto costaría
+  **cuatro** llamadas a CoinGecko en vez de dos. Es el mismo error que ya
+  ocurrió en la Fase 1 y que disparaba el 429 en el último ticker del
+  universo; no se repite por la puerta de atrás del ETL.
+
+- **`motor-analitico/ventana_mercado.py`**, en su propio fichero por el
+  mismo criterio con que se separó `riesgo/rotacion.py`: es lógica pura y
+  dejarla dentro de `etl.py` obligaría a importar FastAPI, yfinance y los
+  conectores solo para comprobar si el sábado cuenta como día de mercado.
+
+- **Seis workflows.** `tests.yml` convierte la suite en puerta de merge;
+  `etl-acciones.yml` y `etl-cripto.yml` ejecutan el motor; `backfill.yml`
+  atiende el alta de un activo nuevo bajo demanda; `keep-alive.yml` hace
+  latido, respaldo y retención; `frontend.yml` compila y vigila.
+
+- **21 casos de prueba nuevos, sin red. 90 en total, todos en verde**, y
+  los 69 anteriores pasan sin tocar ni una línea de test. Los dos que de
+  verdad importan: que `rango_real` se decida **por fila y no por
+  proveedor** (una cripto tiene ~30 filas con rango real y cientos sin él,
+  en la misma tabla), y que la misma hora UTC dé respuestas distintas en
+  verano y en invierno — si ese segundo test se pusiera en rojo,
+  significaría que alguien sustituyó la conversión de zona por una
+  comparación en UTC, y el efecto sería invisible hasta el siguiente
+  cambio de hora.
+
+### Añadido — router y navegación en el frontend
+
+- **`App.jsx` pasa a ser el router** y el armazón de la Fase 1 se muda
+  intacto a `rutas/Escaner.jsx`. Los componentes **no cambian**:
+  `ScannerTable.jsx`, `MetricsStrip.jsx` y `formato.js` siguen recibiendo
+  exactamente la misma forma de objeto que devolvía
+  `GET /api/scanner/signals`, porque `datos/senales.js` la reconstruye
+  desde la vista `senales_vigentes`.
+
+- **Los módulos que no existen se declaran, no se esconden.** Cartera,
+  Simulador, Agentes y Admin aparecen en la navegación con su distintivo
+  de sprint —en latón, que en este sistema marca lo fijado por una
+  decisión— y una pantalla que dice qué habrá ahí y qué historias lo
+  entregan. Un enlace ausente del menú es indistinguible de un módulo que
+  nadie ha planificado.
+
+- **La cartera y el stream de eventos se declaran pendientes de migración**
+  cuando no hay backend alcanzable, en vez de reintentar contra
+  `localhost:3000` cada pocos segundos desde una URL pública.
+
+- Verificado con un build real: 100 módulos transformados, 447 KB de JS
+  (132 KB comprimido) y 33 KB de CSS.
+
+### Cambiado — el `.env`, los secretos y lo que el subtítulo dice
+
+- **Sigue habiendo un único `.env` en la raíz.** `vite.config.js` lleva
+  `envDir: ".."` a propósito: sin eso, Vite habría buscado su propio
+  `.env` en `frontend/` y habría reabierto exactamente el agujero del
+  `backend/.env` duplicado al que el README dedica una sección entera de
+  diagnóstico.
+
+- **`SESSION_SECRET` y `ANALYTICS_SERVICE_INTERNAL_TOKEN` no existen en la
+  nube** —no hay sesión de Express que firmar ni servicio interno que
+  autenticar— pero **se conservan en `.env.example`** porque
+  `backend/src/server.js` lanza una excepción al arrancar sin la primera,
+  y borrarlas de la plantilla rompería el desarrollo local antes de que
+  los Sprints 4 y 6 retiren esos servicios. El bloque está etiquetado
+  como «en retirada» y dice qué lo sustituye.
+
+- **El subtítulo de la barra superior decía «localhost»** desde el primer
+  commit. Con el dashboard servido desde una URL pública eso era
+  simplemente falso, y todo el sistema de diseño se sostiene sobre que lo
+  escrito coincida con lo que hace el código. Ahora sale de
+  `VITE_ENTORNO`.
+
+### Añadido — `.gitattributes`
+
+El árbol de trabajo llegó al Sprint 1 con `backend/src/server.js` y
+`motor-analitico/indicadores/tecnicos.py` marcados como modificados **sin
+un solo cambio de contenido**: 359 inserciones y 359 borrados de las
+mismas líneas. Era LF reescrito a CRLF por el editor o por la
+sincronización de OneDrive.
+
+En la Fase 1 eso era ruido molesto. En la Fase 2 es un problema real: la
+CI corre en Linux y los runners no comparten el `core.autocrlf` de la
+máquina de nadie. El repositorio fija LF. **Los dos ficheros sucios no
+están incluidos en ningún commit de este sprint** — ver el runbook para
+limpiarlos.
+
+### Detectado — dos hallazgos del presupuesto de cuotas
+
+Ninguno de los dos se ve diseñando sobre pizarra; los dos aparecen al
+poner números.
+
+- **La tabla `senales` con histórico completo revienta el tier gratuito en
+  menos de un año.** Con 150 activos y 48 pasadas diarias son ~2,6 M de
+  filas y ~600 MB, y Supabase da 500 MB. Sin corregirlo, el sistema
+  funciona seis meses y luego deja de escribir señales sin explicación
+  aparente. `fn_retencion_senales()` aplica una política por ventanas —30
+  días completos, un año comprimido a una señal por activo y día, después
+  se borra— con una excepción inviolable: **una señal referenciada por una
+  orden es evidencia del experimento y nunca se borra**. Verificado con
+  datos sintéticos: de 3 señales del mismo día a 60 días quedó 1, de 2
+  señales a 400 días quedó solo la atada a una orden.
+
+- **El ETL de cripto a 20 monedas por pasada excede los 2.000 min/mes de
+  GitHub Actions** (~2.880). Cada moneda cuesta dos llamadas con 6 s de
+  espaciado. El ETL prioriza: las criptos con una posición abierta se
+  actualizan en **todas** las pasadas; el resto rota por antigüedad de
+  `ultimo_etl_en`, máximo 5. Consumo total estimado del sistema:
+  **1.078 min/mes, el 54 % de la cuota.**
+
+### Detectado — pendiente de decisión
+
+- **D3 sigue abierta y es la que bloquea el Sprint 5**: si los importes
+  del simulador se cifran como exige la regla protegida nº7, el corte
+  semanal de los agentes no se puede evaluar en SQL. La recomendación del
+  equipo es no cifrar dinero ficticio y mantener el cifrado solo en la
+  cartera real importada. Rechazarla cuesta +21 puntos de estimación.
+- **La ventana de cron de acciones es ancha a propósito** (13:00-21:00 UTC)
+  y la decisión real la toma `ventana_mercado.py` en hora de Nueva York.
+  Los festivos de NYSE **no** se contemplan: en un festivo yfinance
+  devuelve la última sesión válida y la pasada reescribe la misma vela por
+  `UPSERT`. Es idempotente, pero conviene saberlo antes de investigar por
+  qué el 4 de julio hay una pasada que no cambió nada.
+
 ## [Sin publicar] - 2026-09-20
 
 ### Añadido — borrado de cartera, registro persistente y `.env.example`

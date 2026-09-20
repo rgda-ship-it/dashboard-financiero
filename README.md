@@ -3,11 +3,19 @@
 Terminal de inteligencia financiera para uso 100% personal: escanea un
 universo de acciones/cripto en busca de confluencia técnica/fundamental,
 calcula apalancamiento recomendado dentro de un tope duro de seguridad, y
-diagnostica la salud de tu cartera cargada por CSV/Excel — todo corriendo
-en tu propio `localhost`, sin costos de licencia.
+diagnostica la salud de tu cartera cargada por CSV/Excel — sin costos de
+licencia ni de infraestructura.
 
 > Este documento es el mapa del proyecto: qué hace cada carpeta, cómo
 > levantar cada servicio, y dónde va cada nuevo archivo que agregues.
+
+**Estado: en migración a la nube (Fase 2).** El sistema arranca igual que
+siempre en `localhost`, y además se despliega en un entorno cloud de
+coste 0. La diferencia de fondo es la dirección del flujo: el motor
+analítico ha dejado de RESPONDER peticiones para pasar a ESCRIBIR en
+PostgreSQL, y el navegador lee de ahí. El análisis completo está en
+[`docs/fase-2/`](docs/fase-2/); el arranque paso a paso, en
+[`docs/fase-2/RUNBOOK-sprint-1.md`](docs/fase-2/RUNBOOK-sprint-1.md).
 
 ---
 
@@ -16,15 +24,38 @@ en tu propio `localhost`, sin costos de licencia.
 ```
 dashboard-financiero/
 ├── .env.example              # Plantilla de variables de entorno — copiar a .env
+├── .gitattributes             # LF en el repositorio (cierra el ruido CRLF de Windows)
 ├── .gitignore                 # Protege .env y artefactos generados
 ├── README.md                  # Este archivo
 │
+├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
+│   ├── tests.yml              # Los 90 casos como puerta de merge
+│   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
+│   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
+│   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
+│   ├── backfill.yml           # Alta de un activo nuevo, bajo demanda
+│   └── keep-alive.yml         # Latido semanal + respaldo + retención
+│
+├── supabase/                 # FASE 2 — el esquema, versionado
+│   ├── config.toml
+│   ├── seed.sql               # El universo de la Fase 1 como datos, no como código
+│   └── migrations/
+│       ├── 0000_base_fase1.sql  # Port del schema.sql de la Fase 1 + usuario_id
+│       └── 0001_catalogo.sql    # activos, precios, indicadores, señales, vistas
+│
+├── scripts/
+│   └── resumen_tests.py       # Resumen de la suite para el job summary de Actions
+│
 ├── docs/                      # Análisis y propuestas técnicas (no código)
-│   └── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
+│   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
+│   └── fase-2/                # Análisis completo de la Fase 2 (6 documentos)
 │
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt
 │   ├── servicio_interno.py    # FastAPI — expone el motor a Node.js
+│   ├── etl.py                 # FASE 2 — punto de entrada del job programado
+│   ├── escritor_supabase.py   # FASE 2 — adaptador de salida hacia PostgreSQL
+│   ├── ventana_mercado.py     # FASE 2 — ¿está abierta la bolsa? (lógica pura)
 │   ├── conectores/
 │   │   ├── yahoo_finance.py   # Acciones (vía yfinance, no oficial — aislado como adaptador)
 │   │   └── coingecko.py       # Cripto (API pública gratuita)
@@ -64,9 +95,16 @@ dashboard-financiero/
     ├── package.json
     ├── vite.config.js
     ├── index.html              # Carga las dos familias tipográficas del sistema
+    ├── vercel.json          # FASE 2 — SPA fallback y cabeceras de seguridad
     └── src/
         ├── main.jsx
-        ├── App.jsx             # Armazón: barra fija, franja de KPIs, rejilla de trabajo
+        ├── App.jsx             # FASE 2 — router de los seis módulos
+        ├── supabase.js         # FASE 2 — cliente único (solo anon key)
+        ├── datos/
+        │   └── senales.js      # FASE 2 — lectura de senales_vigentes
+        ├── rutas/
+        │   ├── Escaner.jsx     # El armazón de la Fase 1, ahora una ruta
+        │   └── Proximamente.jsx # Módulos pendientes, con su sprint y sus historias
         ├── useApi.js           # Hooks: useEscaner, useCartera, useEventLog
         ├── formato.js          # Formato numérico (punto decimal), símbolos de activo, etiquetas
         ├── guia.js             # Contenido de la guía de lectura (fórmulas e interpretación)
@@ -85,6 +123,7 @@ dashboard-financiero/
             ├── PortfolioPanel.jsx # Carga (arrastrar/soltar), consentimiento, diagnóstico
             ├── EventLog.jsx       # Stream de eventos en tiempo real
             ├── HelpDrawer.jsx     # Guía de lectura + descarga del CSV modelo
+            ├── Navegacion.jsx     # FASE 2 — tira de navegación entre módulos
             └── ui/                # Primitivas: Panel, Chip, medidores, iconos, marca
 ```
 
@@ -278,6 +317,12 @@ puerto (`uvicorn servicio_interno:app --port 8002`) y ajusta
 
 #### El motor responde 401 y el dashboard sale vacío
 
+> **Solo aplica al stack local.** En la nube no hay servicio interno que
+> autenticar: el motor no responde por HTTP, escribe en PostgreSQL. Por
+> eso `ANALYTICS_SERVICE_INTERNAL_TOKEN` no existe en ningún secreto de
+> GitHub Actions ni de Vercel. El fallo equivalente allí es un 401 de
+> PostgREST, y significa que falta o está mal `SUPABASE_SERVICE_ROLE_KEY`.
+
 Si el escáner no muestra datos y en la terminal del motor ves:
 
 ```
@@ -333,6 +378,96 @@ Abre la URL que muestra Vite (por defecto `http://localhost:5173`).
 
 ---
 
+## Despliegue en la nube (Fase 2)
+
+Tres plataformas, ninguna con tarjeta en el camino crítico. El reparto no
+es una preferencia: es lo que hace que «coste 0» signifique que el
+servicio **se detiene** al agotar una cuota, en vez de que llegue una
+factura.
+
+| Pieza | Dónde corre | Por qué ahí |
+|-------|-------------|-------------|
+| Datos, autenticación, cron | **Supabase** (free) | Es el mismo PostgreSQL de la Fase 1; el `schema.sql` se extiende, no se migra de motor. Trae `pg_cron`, `pg_net` y RLS sin instalar nada |
+| Frontend | **Vercel** (Hobby) | Build de Vite nativo, HTTPS y dominio gratis. Sirve ficheros estáticos y nada más: **no hay backend en Vercel** |
+| Motor analítico | **GitHub Actions** | Es lo único que necesita `pandas-ta` y ventanas de 2 años de velas. Corre como job programado, arranca, calcula, escribe y muere |
+
+### El motor ya no es un servidor
+
+```
+FASE 1 (pull, síncrono)              FASE 2 (push, asíncrono)
+─────────────────────────            ────────────────────────────
+usuario → frontend                   motor (job programado)
+        → Express                            ↓ escribe
+        → FastAPI                     PostgreSQL (senales, precios)
+        → yfinance/CoinGecko                  ↑ lee
+        ← espera ~30 s el bloque      frontend → usuario (instantáneo)
+          cripto en frío
+```
+
+Tres consecuencias:
+
+1. **No hay servidor Python que pagar.** `motor-analitico/etl.py` es el
+   punto de entrada del job; `escritor_supabase.py` traduce la salida de
+   `_escanear_ticker()` a filas. **Ninguno de los dos contiene lógica de
+   análisis**: reutilizan la del Sprint 1 al completo.
+2. **La latencia de usuario desaparece.** El primer escaneo en frío del
+   bloque cripto rondaba el medio minuto; ahora el navegador lee una fila
+   ya calculada.
+3. **El circuit breaker en memoria deja de hacer falta.** El «último dato
+   válido» ya no es una variable de un proceso vivo: es la tabla
+   `senales` con su `calculado_en`. Lo que se paga es que las señales
+   tienen la edad de la última pasada, así que la interfaz muestra esa
+   edad y avisa cuando el dato está añejo.
+
+### Por qué `pg_cron` y no el cron de Vercel
+
+Porque **el plan Hobby de Vercel limita los cron jobs a una ejecución al
+día**, y una expresión más frecuente falla en el despliegue. Para un
+monitor de Take Profit y Stop Loss eso es inservible. `pg_cron`, dentro
+de Postgres, admite intervalos de segundos. Reparto final:
+
+| Trabajo | Planificador | Cadencia |
+|---------|--------------|----------|
+| Monitor de órdenes (Sprint 5) | `pg_cron` | cada minuto |
+| Ciclo de agentes (Sprint 6) | `pg_cron` | cada 5 minutos |
+| ETL de acciones | GitHub Actions | cada 30 min, ventana UTC ancha |
+| ETL de cripto | GitHub Actions | cada hora, máximo 6 monedas por pasada |
+
+La ventana de cron de acciones es ancha **a propósito**: los cron de
+GitHub Actions se evalúan en UTC y no entienden el horario de verano, así
+que la decisión real la toma `motor-analitico/ventana_mercado.py` en hora
+de Nueva York. Una pasada fuera de sesión termina en segundos.
+
+### El presupuesto de cuotas, en una tabla
+
+| Recurso | Límite del tier gratuito | Uso estimado |
+|---------|--------------------------|--------------|
+| Supabase — tamaño de BD | 500 MB | ~80 MB con retención de señales activa |
+| Supabase — proyectos activos | 2 | 2 (producción + staging): **no hay un tercero** |
+| Supabase — invocaciones Edge | 500.000/mes | ~52.000 |
+| GitHub Actions (repo privado) | 2.000 min/mes | ~1.078 min/mes |
+| CoinGecko (free, sin clave) | ~10-15 req/min | 12 req por pasada, espaciadas 6 s |
+
+> **El coste 0 no lo limita la nube, lo limita CoinGecko.** Supabase y
+> GitHub Actions quedan con holgura del 50-90 %; el número de
+> criptomonedas que el sistema puede seguir está fijado por una API
+> gratuita que permite 15 peticiones por minuto y cobra dos por moneda.
+> De ahí el techo de 20 criptos globales.
+>
+> Y un hallazgo que solo aparece al presupuestar: la tabla `senales` con
+> histórico completo alcanza ~600 MB en un año y el tier gratuito da 500.
+> Por eso `fn_retencion_senales()` existe desde el primer día — sin ella
+> el sistema funciona seis meses y luego deja de escribir señales sin
+> explicación aparente.
+
+### Arranque
+
+Los once pasos que requieren credenciales están en
+[`docs/fase-2/RUNBOOK-sprint-1.md`](docs/fase-2/RUNBOOK-sprint-1.md), con
+la lista de verificación de los criterios de aceptación.
+
+---
+
 ## Correr los tests del motor analítico
 
 No requieren `pytest` instalado — corren con `assert` simples:
@@ -346,8 +481,14 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son 47 casos y
-todos pasan. `test_contrato_scan.py` no toca ninguna API externa: sustituye
+Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **90 casos**
+y todos pasan — 69 heredados de la Fase 1 y 21 del Sprint 1 de la Fase 2
+(`test_escritor_supabase.py` y `test_ventana_mercado.py`). La cota está
+fijada en `scripts/resumen_tests.py`: si la suite recolecta MENOS casos de
+los esperados, la CI falla aunque todo esté en verde, porque un fichero de
+test que deja de importarse hace que pytest termine con éxito y menos
+pruebas — y eso es indistinguible del éxito si solo se mira el código de
+salida. `test_contrato_scan.py` no toca ninguna API externa: sustituye
 el conector por un doble y verifica sobre series sintéticas las invariantes
 del payload (entre ellas que `operable`, `leverage_recomendado`, `sl` y `tp`
 son consistentes entre sí, y que la respuesta no contiene `NaN` — que no es
@@ -407,7 +548,9 @@ código cerca de ellas, vale la pena recordarlas:
 
 - El registro de eventos se guarda en el `localStorage` del navegador
   (últimos 50), así que sobrevive a una recarga pero no viaja entre
-  dispositivos ni llega al servidor. Son avisos de sistema, no datos de
+  dispositivos ni llega al servidor. **En la Fase 2 esto cambia**: la
+  tabla `eventos_sistema` ya existe y el ETL escribe en ella; la
+  suscripción en tiempo real del frontend llega en el Sprint 6 (H-32). Son avisos de sistema, no datos de
   cartera: no hay nada que cifrar ni que persistir en PostgreSQL por
   ellos. El pie del panel ofrece vaciarlo.
 - `yfinance` no es una API oficial — si Yahoo cambia su estructura interna,
