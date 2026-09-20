@@ -1,0 +1,50 @@
+# ETL de cripto: el cuello de botella real del coste 0.
+#
+# CoinGecko en tier gratuito admite del orden de 10-15 peticiones por
+# minuto, y cada moneda cuesta DOS llamadas (/market_chart para cierres,
+# precio vivo y volumen; /ohlc a 4 h para máximos y mínimos). El conector
+# espacia sus llamadas 6 s y respeta `Retry-After` ante un 429.
+#
+# Con 20 criptos en el catálogo, recorrerlas todas en cada pasada serían
+# ~4 minutos de reloj y 2.880 min/mes: POR ENCIMA de los 2.000 del tier
+# gratuito. De ahí el `--max 6` y la priorización de `seleccionar_activos`:
+#   1. criptos con una posición abierta -> en TODAS las pasadas
+#   2. el resto -> rotación por antigüedad de `ultimo_etl_en`
+#
+# Estimado: 720 pasadas/mes × ~60 s = 720 min/mes.
+
+name: etl-cripto
+
+on:
+  schedule:
+    # Cada hora. Cripto cotiza 24/7, así que no hay ventana que respetar.
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: etl-cripto
+  cancel-in-progress: false
+
+jobs:
+  escanear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - run: pip install -r motor-analitico/requirements.txt
+
+      - name: Escanear y escribir
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LEVERAGE_HARD_CAP_FASE1: '5'
+          VERSION_MOTOR: ${{ github.sha }}
+        run: python etl.py --clase cripto --max 6
