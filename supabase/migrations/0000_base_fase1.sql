@@ -17,13 +17,11 @@
 -- `perfiles` sin pérdida de datos.
 -- ─────────────────────────────────────────────────────────────────────
 
--- ── Extensiones ─────────────────────────────────────────────────────
--- pg_cron dispara el monitor de órdenes y el ciclo de agentes. Es la
--- pieza que sustituye al cron de Vercel, cuyo plan Hobby está limitado
--- a UNA ejecución diaria (doc 02 §4.2) — inútil para vigilar un TP.
--- pg_net permite que un job de SQL llame por HTTP a una Edge Function.
-create extension if not exists pg_cron;
-create extension if not exists pg_net with schema extensions;
+-- Las extensiones (pg_cron, pg_net) viven en su propia migración,
+-- `0002_extensiones.sql`, porque solo existen en Supabase. Separarlas
+-- permite aplicar 0000 y 0001 sobre un PostgreSQL limpio en la CI, que
+-- es la red que sustituye al proyecto de staging que el tier gratuito no
+-- da (ver .github/workflows/migraciones.yml).
 
 -- ── Cartera real importada (cifrada) ────────────────────────────────
 -- Se conserva el nombre `cartera_posiciones` en esta migración para que

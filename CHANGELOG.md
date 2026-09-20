@@ -136,6 +136,43 @@ máquina de nadie. El repositorio fija LF. **Los dos ficheros sucios no
 están incluidos en ningún commit de este sprint** — ver el runbook para
 limpiarlos.
 
+### Añadido — puerta de migraciones, porque no hay staging
+
+Restricción descubierta al arrancar el despliegue: el tier gratuito de
+Supabase da **dos proyectos activos** y uno ya lo ocupa otra aplicación.
+El dashboard se queda con uno, que es producción. **No hay staging.**
+
+Eso cambia el modo de trabajo: cada migración que se mergea llega a
+producción sin escala intermedia, y el plan gratuito tampoco incluye
+recuperación a un punto en el tiempo, así que una migración destructiva
+no se deshace.
+
+- **`.github/workflows/migraciones.yml`** ocupa ese hueco. Levanta un
+  PostgreSQL 15 limpio en cada pull request, aplica las migraciones
+  **desde cero** junto con la semilla, y ejecuta doce invariantes.
+
+- **`supabase/pruebas/01_invariantes.sql`** las contiene, escritas con
+  `raise exception` en vez de con pgTAP para no añadir una dependencia.
+  Las que de verdad protegen algo: que el `CHECK` del contrato rechace
+  una señal incoherente en las dos direcciones; que `ratio_rr` calcule
+  `(tp−precio)/(precio−sl)`; que una señal no operable conserve
+  soporte y resistencia pero no tenga `sl`/`tp`; que
+  `v_velas_con_rango` deje fuera las velas reconstruidas; que ninguna
+  tabla se quede sin RLS; que ninguna `SECURITY DEFINER` se quede sin
+  `search_path`; y que la retención **nunca** borre una señal
+  referenciada por una orden.
+
+- **Verificado en negativo, que es lo que distingue una puerta de un
+  adorno**: quitar el `CHECK` del contrato, olvidar un
+  `ENABLE ROW LEVEL SECURITY` o resetear el `search_path` de una
+  `SECURITY DEFINER` ponen el job en rojo con el mensaje que nombra la
+  invariante rota.
+
+- **Las extensiones se separan a `0002_extensiones.sql`.** `pg_cron` y
+  `pg_net` son lo único del esquema que necesita un PostgreSQL de
+  Supabase y no vale uno cualquiera. Aislarlas es lo que permite aplicar
+  el resto sobre un Postgres limpio sin filtrar líneas con `sed` en la CI.
+
 ### Detectado — dos hallazgos del presupuesto de cuotas
 
 Ninguno de los dos se ve diseñando sobre pizarra; los dos aparecen al

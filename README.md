@@ -443,7 +443,7 @@ de Nueva York. Una pasada fuera de sesión termina en segundos.
 | Recurso | Límite del tier gratuito | Uso estimado |
 |---------|--------------------------|--------------|
 | Supabase — tamaño de BD | 500 MB | ~80 MB con retención de señales activa |
-| Supabase — proyectos activos | 2 | 2 (producción + staging): **no hay un tercero** |
+| Supabase — proyectos activos | 2 | **1** — el otro lo usa otra aplicación, así que **no hay staging** |
 | Supabase — invocaciones Edge | 500.000/mes | ~52.000 |
 | GitHub Actions (repo privado) | 2.000 min/mes | ~1.078 min/mes |
 | CoinGecko (free, sin clave) | ~10-15 req/min | 12 req por pasada, espaciadas 6 s |

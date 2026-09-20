@@ -47,9 +47,12 @@ autónomo y tiene un destinatario distinto:
    concurrencia — si no, la decisión racional es apostar todo (doc C §4).
 7. **El monitor de TP/SL corre en Postgres, no en Vercel.** El plan Hobby de
    Vercel limita el cron a **una vez al día**; `pg_cron` baja a 30 segundos.
-8. **El coste 0 se sostiene, pero con dos cuellos de botella reales**:
-   la cuota de CoinGecko (~10-15 req/min, 2 llamadas por cripto) y los
-   2.000 min/mes de GitHub Actions. Ambos presupuestados en el doc B §6.
+8. **El coste 0 se sostiene, pero con tres cuellos de botella reales**:
+   la cuota de CoinGecko (~10-15 req/min, 2 llamadas por cripto), los
+   2.000 min/mes de GitHub Actions, y que **los dos proyectos de Supabase
+   están ocupados** — uno por otra aplicación del dueño, el otro por
+   producción. Sin staging, la puerta de migraciones de la CI pasa de
+   buena práctica a control compensatorio.
 9. **Dos reglas protegidas de la Fase 1 quedan tocadas** (cifrado de cartera
    y monousuario). Están aisladas como decisiones D3 y D5 para que las
    apruebes o rechaces por separado.
@@ -65,7 +68,7 @@ El detalle y el razonamiento de cada una está en `00-equipo-y-alcance.md` §4.
 
 | ID | Decisión | Recomendación |
 |----|----------|---------------|
-| D1 | Proveedor cloud | Supabase (datos + auth + cron) + Vercel (frontend) + GitHub Actions (motor) |
+| D1 | Proveedor cloud ✅ firmada | Supabase (datos + auth + cron) + Vercel (frontend) + GitHub Actions (motor). **Un solo proyecto: sin staging remoto** |
 | D2 | El motor Python se mantiene | **Sí** — contenedorizado como job programado |
 | D3 | Cifrado aplicativo de importes del simulador | **No** — son importes ficticios; rompe toda agregación SQL. Se mantiene solo para la cartera real importada |
 | D4 | Cerebro de los agentes | Determinista; capa LLM opcional y aislada para redactar racionales |

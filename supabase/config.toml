@@ -1,9 +1,18 @@
 # Configuración del proyecto Supabase.
 #
-# Este fichero gobierna el entorno LOCAL (`supabase start`). Los dos
-# proyectos remotos (producción y staging) se enlazan con
-# `supabase link --project-ref <ref>` y reciben el mismo esquema vía
-# `supabase db push`.
+# Este fichero gobierna el entorno LOCAL (`supabase start`), que es el
+# ÚNICO entorno de pruebas que tiene este proyecto.
+#
+# El tier gratuito de Supabase da dos proyectos activos: uno lo ocupa
+# otra aplicación y el otro es producción del dashboard. No hay staging
+# remoto, así que la cadena de validación es:
+#
+#   local (Docker)  ->  CI (.github/workflows/migraciones.yml)  ->  producción
+#
+# La CI levanta un PostgreSQL limpio, aplica las migraciones desde cero
+# y ejecuta las doce invariantes de supabase/pruebas/. Es lo que ocupa
+# el lugar del staging, y por eso ninguna migración se mergea sin pasar
+# por ahí.
 #
 # Regla de operación de la Fase 2: ningún cambio de esquema se hace
 # desde el editor SQL de la consola web. Todo va en

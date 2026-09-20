@@ -41,21 +41,49 @@ git add --renormalize .
 
 ---
 
-## Paso 1 — Crear los dos proyectos de Supabase
+## Paso 1 — El proyecto de Supabase
 
-El tier gratuito permite **exactamente dos proyectos activos**. No hay un
-tercero para experimentar, así que son estos dos y no más:
+Usa el proyecto libre que ya tienes, o crea uno nuevo si prefieres
+partir de cero. **Es el único que va a tener el dashboard**: el tier
+gratuito permite dos proyectos activos y el otro lo ocupa tu otra
+aplicación.
 
-| Proyecto | Nombre sugerido | Para qué |
-|----------|-----------------|----------|
-| 1 | `dashboard-financiero` | Producción |
-| 2 | `dashboard-financiero-staging` | Pruebas de migraciones |
+Si lo creas ahora, en [supabase.com](https://supabase.com) → **New
+project**, región Europa. Guarda la contraseña de la base de datos que
+te pide al crearlo: **no se puede volver a ver** y la necesitas en el
+paso 4.
 
-En [supabase.com](https://supabase.com) → **New project**. Región: la más
-cercana a ti (Europa). Guarda la contraseña de la base de datos que te
-pide al crearlo: **no se puede volver a ver** y la necesitas en el paso 4.
+> Anota el **Project Ref** (la cadena de la URL del panel).
 
-> Anota el **Project Ref** de cada uno (la cadena de la URL del panel).
+### Lo que implica no tener staging
+
+Esto no es un detalle administrativo: cambia cómo se trabaja a partir de
+ahora. **Cada migración que mergees a `master` llega a producción sin
+escala intermedia**, y el tier gratuito tampoco incluye recuperación a un
+punto en el tiempo, así que una migración destructiva no se deshace.
+
+La cadena de validación que ocupa ese hueco es:
+
+```
+  supabase start          ->   .github/workflows/      ->   supabase db push
+  (Docker, en tu máquina)      migraciones.yml              (producción)
+   opcional, recomendado        OBLIGATORIO, automático
+```
+
+`migraciones.yml` levanta un PostgreSQL 15 limpio en cada pull request,
+aplica las migraciones **desde cero** junto con la semilla, y ejecuta las
+doce invariantes de `supabase/pruebas/01_invariantes.sql`. Entre ellas:
+
+- el `CHECK` del contrato rechaza una señal incoherente;
+- `v_velas_con_rango` deja fuera las velas reconstruidas;
+- ninguna tabla se queda sin RLS;
+- ninguna `SECURITY DEFINER` se queda sin `search_path`;
+- la retención nunca borra una señal referenciada por una orden.
+
+Verificado también en negativo: quitar el `CHECK`, olvidar un
+`ENABLE ROW LEVEL SECURITY` o resetear un `search_path` ponen el job en
+rojo. **Si ese workflow está en verde, la migración es segura de aplicar;
+si no lo está, no la apliques aunque tengas prisa.**
 
 ---
 
@@ -77,8 +105,16 @@ supabase link --project-ref <REF_DE_PRODUCCION>
 supabase db push
 ```
 
-Aplica `0000_base_fase1.sql` y `0001_catalogo.sql`. Después, la semilla
-con los 24 activos del universo de la Fase 1:
+Aplica las tres migraciones: `0000_base_fase1.sql` (schema heredado),
+`0001_catalogo.sql` (catálogo, precios, señales y vistas) y
+`0002_extensiones.sql` (`pg_cron` y `pg_net`).
+
+> Las extensiones viven en su propia migración a propósito: son lo único
+> del esquema que necesita un PostgreSQL de Supabase y no vale uno
+> cualquiera. Separarlas es lo que permite que la CI aplique el resto
+> sobre un Postgres limpio sin filtrar líneas con `sed`.
+
+Después, la semilla con los 24 activos del universo de la Fase 1:
 
 ```bash
 psql "<SUPABASE_DB_URL>" -f supabase/seed.sql
@@ -87,9 +123,9 @@ psql "<SUPABASE_DB_URL>" -f supabase/seed.sql
 **Verificación**: en el panel → Table Editor debe haber 7 tablas y la
 tabla `activos` con 24 filas, todas en estado `pendiente_backfill`.
 
-> Si `pg_cron` falla al crearse, habilítalo desde el panel →
-> Database → Extensions y vuelve a lanzar `supabase db push`. No lo
-> necesita nada del Sprint 1; lo necesita el monitor del Sprint 5.
+> Si `0002_extensiones.sql` falla, habilita `pg_cron` y `pg_net` desde el
+> panel → Database → Extensions y vuelve a lanzar `supabase db push`. No
+> los necesita nada del Sprint 1; los necesita el monitor del Sprint 5.
 
 ---
 
@@ -244,7 +280,10 @@ Repositorio → **Settings → Branches → Add branch protection rule**:
 
 - Branch name pattern: `master`
 - ✅ Require status checks to pass before merging
-- Checks obligatorios: **`Motor analítico (69 casos)`** y **`Build y puerta anti-fuga`**
+- Checks obligatorios: **`Motor analítico (69 casos)`**, **`Build y puerta anti-fuga`** y **`Migraciones desde cero + invariantes`**
+
+El tercero es el que más importa aquí: sin staging, es lo único que se
+interpone entre un pull request y la base de datos de producción.
 
 Esto es lo que convierte los tests en una puerta y no en una costumbre.
 
@@ -255,6 +294,7 @@ Esto es lo que convierte los tests en una puerta y no en una costumbre.
 | Historia | Criterio | ✓ |
 |----------|----------|---|
 | H-01 | `supabase db push` reconstruye el esquema sin pasos manuales | ☐ |
+| H-01 | El workflow `migraciones` está en verde en la rama | ☐ |
 | H-01 | `activos` tiene 24 filas tras la semilla | ☐ |
 | H-02 | Un PR que rompa una regla protegida no se puede mergear | ☐ |
 | H-02 | El resumen del job informa de 90 casos, no solo del total | ☐ |
@@ -287,3 +327,9 @@ diseño**, no olvidadas:
 - **El monitor de órdenes y los agentes no existen.** Sprints 5 y 6.
 - **`pg_cron` está habilitado pero no dispara nada.** Su primer trabajo
   programado llega con el monitor del Sprint 5.
+- **No hay entorno de staging y no lo va a haber** mientras el tier
+  gratuito dé dos proyectos y el otro esté ocupado. La compensación es el
+  workflow `migraciones`, no un tercer proyecto. Si en algún momento
+  necesitas probar algo contra datos reales sin tocar producción, la vía
+  es `supabase start` en local más el volcado del respaldo semanal que
+  deja `keep-alive.yml` como artefacto.

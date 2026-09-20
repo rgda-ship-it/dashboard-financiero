@@ -295,7 +295,7 @@ optimismo.
 
 | Recurso | Límite | Uso estimado Fase 2 | Margen |
 |---------|--------|---------------------|--------|
-| Proyectos activos | 2 | 1 (producción) + 1 (staging) | Al límite: staging y producción caben, un tercero no |
+| Proyectos activos | 2 | **1** — el otro lo ocupa una aplicación distinta del usuario | **Agotado**: no hay proyecto de staging, ver §7 |
 | Tamaño de BD | 500 MB | ~15 MB con 150 activos, 2 años de velas, 3 agentes operando un año | **97 %** |
 | Usuarios activos/mes | 50.000 | < 20 | Irrelevante |
 | Invocaciones Edge Functions | 500.000/mes | 43.200 (monitor 1/min) + 8.640 (agentes 1/5 min) + 4 (corte semanal) + eventuales ≈ **52.000** | **90 %** |
@@ -391,8 +391,31 @@ personal por definición.
 | Entorno | Supabase | Frontend | Datos |
 |---------|----------|----------|-------|
 | **local** | `supabase start` (Docker) | `vite dev` | Semilla con los 21 activos del `UNIVERSO_ACCIONES` de la Fase 1 y 90 días de velas sintéticas |
-| **staging** | Proyecto Supabase #2 | Preview de Vercel por PR | Semilla + ETL manual |
-| **producción** | Proyecto Supabase #1 | `main` en Vercel | ETL programado |
+| **CI** | PostgreSQL 15 efímero en el runner | — | Migraciones desde cero + semilla, en cada PR |
+| **producción** | El único proyecto Supabase disponible | `master` en Vercel | ETL programado |
+
+> **No hay entorno de staging remoto, y eso cambia el modo de trabajo.**
+> El tier gratuito da dos proyectos activos: uno lo ocupa otra aplicación
+> y el otro es producción del dashboard. Cada migración que se mergea
+> llega a producción sin escala intermedia, y el tier gratuito tampoco
+> incluye recuperación a un punto en el tiempo, así que una migración
+> destructiva no se deshace.
+>
+> Lo que ocupa ese lugar es `.github/workflows/migraciones.yml`: levanta
+> un PostgreSQL 15 limpio, aplica las migraciones **desde cero** junto
+> con la semilla, y ejecuta las doce invariantes de `supabase/pruebas/`
+> — entre ellas que el `CHECK` del contrato rechace una señal
+> incoherente, que `v_velas_con_rango` deje fuera las velas
+> reconstruidas, que ninguna tabla se quede sin RLS, que ninguna
+> `SECURITY DEFINER` se quede sin `search_path`, y que la retención
+> nunca borre una señal referenciada por una orden. Verificado también
+> en negativo: quitar el `CHECK`, olvidar un `ENABLE ROW LEVEL SECURITY`
+> o resetear un `search_path` ponen el job en rojo.
+>
+> Las previsualizaciones de Vercel por pull request apuntan a
+> **producción** con la `anon key`. Es aceptable mientras RLS conceda
+> solo lectura a usuarios aprobados, y es una razón más para que las
+> políticas de H-14 se revisen con cuidado.
 
 Pipeline en `merge` a `main`:
 1. `pytest motor-analitico/tests/` — **los 69 casos de la Fase 1 son puerta de merge**.

@@ -65,7 +65,7 @@ esquema bajo control de versiones, **para** que ningún cambio de base de
 datos se haga a mano.
 
 **Tareas técnicas**
-- Crear proyecto Supabase de producción y de staging (son los 2 del tier gratuito).
+- Enlazar el proyecto Supabase de producción (el único disponible: el otro slot del tier gratuito lo ocupa otra aplicación del usuario).
 - `supabase init` en el repo; carpeta `supabase/migrations/`.
 - Migración `0000_base_fase1.sql`: portar `backend/db/schema.sql` tal cual, añadiendo `usuario_id` a las dos tablas existentes.
 - Migración `0001_catalogo.sql` (adelantada de H-08): `activos`, `precios_diarios`, `indicadores_diarios`, `senales`, las vistas `v_velas_con_rango` y `senales_vigentes`, el `CHECK senales_contrato_operable`, la columna generada `ratio_rr` y `fn_retencion_senales()`.
@@ -730,7 +730,8 @@ exponer el sistema ni inducir a error.
 
 1. Cerrar las **siete decisiones** del documento 0 §4, en especial **D3** y
    **D5**, que tocan reglas protegidas y no son reversibles a coste cero.
-2. Crear los dos proyectos de Supabase (son los dos del tier gratuito: no hay
-   un tercero para experimentar).
+2. Enlazar el proyecto de Supabase. **No hay staging**: el otro slot del tier
+   gratuito lo ocupa otra aplicación, así que la validación de migraciones vive
+   en `.github/workflows/migraciones.yml` y en `supabase start` local.
 3. **H-02 antes que nada**: con los 69 tests como puerta de merge desde el
    primer día, todo lo demás se construye sobre red.
