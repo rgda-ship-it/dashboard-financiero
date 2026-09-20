@@ -1,0 +1,29 @@
+# Normalización de fin de línea.
+#
+# Por qué existe este fichero: el working tree llegó al Sprint 1 con
+# `backend/src/server.js` y `motor-analitico/indicadores/tecnicos.py`
+# marcados como modificados sin un solo cambio de contenido — 359
+# inserciones y 359 borrados de las MISMAS líneas. Era LF reescrito a
+# CRLF por el editor (o por la sincronización de OneDrive).
+#
+# En la Fase 1 eso era ruido molesto. En la Fase 2 es un problema real:
+# la CI corre en Linux y los runners de GitHub Actions no comparten la
+# configuración de `core.autocrlf` de la máquina de nadie. Un fichero
+# con finales mezclados hace fallar comparaciones de texto y ensucia
+# todos los diffs, así que el repositorio fija la norma aquí.
+#
+# Regla: en el repositorio, LF siempre. En el disco de Windows, lo que
+# Git decida al extraer.
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Scripts de Windows: CRLF obligatorio o PowerShell protesta.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
