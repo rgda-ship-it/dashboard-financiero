@@ -1,0 +1,45 @@
+import { NavLink } from "react-router-dom";
+
+/**
+ * Navegación entre módulos.
+ *
+ * La Fase 1 era una sola pantalla y no necesitaba router. La Fase 2 tiene
+ * seis módulos, así que necesita uno — y necesita decir la verdad sobre
+ * cuáles existen ya: un enlace que lleva a una pantalla vacía es peor que
+ * un enlace marcado como pendiente.
+ *
+ * `sprint` es el sprint que entrega cada módulo. Se muestra como
+ * distintivo hasta que el módulo esté listo, así que la propia interfaz
+ * documenta el estado del proyecto mientras se construye.
+ */
+const MODULOS = [
+  { ruta: "/", etiqueta: "Escáner", listo: true },
+  { ruta: "/cartera", etiqueta: "Cartera", sprint: 4 },
+  { ruta: "/simulador", etiqueta: "Simulador", sprint: 5 },
+  { ruta: "/agentes", etiqueta: "Agentes", sprint: 6 },
+  { ruta: "/admin", etiqueta: "Admin", sprint: 3 },
+];
+
+export default function Navegacion() {
+  return (
+    <nav className="nav" aria-label="Módulos">
+      {MODULOS.map((modulo) => (
+        <NavLink
+          key={modulo.ruta}
+          to={modulo.ruta}
+          end={modulo.ruta === "/"}
+          className={({ isActive }) =>
+            `nav__enlace${isActive ? " is-activa" : ""}${modulo.listo ? "" : " nav__enlace--pendiente"}`
+          }
+        >
+          {modulo.etiqueta}
+          {!modulo.listo && (
+            <span className="nav__sprint" aria-label={`Previsto para el sprint ${modulo.sprint}`}>
+              S{modulo.sprint}
+            </span>
+          )}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
