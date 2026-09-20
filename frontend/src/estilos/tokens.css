@@ -1,0 +1,112 @@
+/**
+ * Design tokens — "Instrumento".
+ *
+ * Un único lugar donde vive la identidad visual. Ningún componente
+ * escribe un color literal: todos consumen variables de aquí. Cambiar
+ * la marca entera se hace tocando este archivo y nada más.
+ *
+ * Metáfora: instrumento de precisión. Tinta azul-negra casi opaca,
+ * cian de instrumental para lo estructural (marca, foco, señal viva)
+ * y latón para lo que el sistema protege y no se negocia (el tope duro
+ * de apalancamiento). El verde/rojo queda reservado en exclusiva a la
+ * semántica de mercado — nunca decora.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Tinta: superficies, de la más profunda a la más elevada ─────── */
+  --ink-1000: #05070a;
+  --ink-950: #080b10;
+  --ink-900: #0b0f15;
+  --ink-850: #0f141b;
+  --ink-800: #131922;
+  --ink-750: #18202a;
+  --ink-700: #1e2833;
+  --ink-600: #2b3846;
+
+  /* ── Texto: blanco cálido (hueso) contra tinta fría ──────────────── */
+  --tx-1: #eceae6;
+  --tx-2: #a7b0be;
+  --tx-3: #6f7a89;
+  --tx-4: #4c5665;
+
+  /* ── Acento de marca: cian de instrumental ───────────────────────── */
+  --acc-300: #7ee6f7;
+  --acc-400: #45d4ec;
+  --acc-500: #21c7e8;
+  --acc-600: #0e9cb9;
+  --acc-soft: rgba(33, 199, 232, 0.12);
+  --acc-line: rgba(33, 199, 232, 0.32);
+  --acc-glow: rgba(33, 199, 232, 0.22);
+
+  /* ── Latón: lo que el sistema protege (topes, límites, fases) ────── */
+  --brass-400: #dcb87a;
+  --brass-500: #c89b5a;
+  --brass-soft: rgba(200, 155, 90, 0.13);
+  --brass-line: rgba(200, 155, 90, 0.34);
+
+  /* ── Semántica de mercado — de uso exclusivo para dirección/salud ── */
+  --pos-500: #3fcf8e;
+  --pos-soft: rgba(63, 207, 142, 0.12);
+  --pos-line: rgba(63, 207, 142, 0.3);
+
+  --neg-500: #f26d78;
+  --neg-soft: rgba(242, 109, 120, 0.12);
+  --neg-line: rgba(242, 109, 120, 0.32);
+
+  --warn-500: #e9b949;
+  --warn-soft: rgba(233, 185, 73, 0.12);
+  --warn-line: rgba(233, 185, 73, 0.3);
+
+  /* ── Trazos ──────────────────────────────────────────────────────── */
+  --line-1: rgba(255, 255, 255, 0.06);   /* separadores internos */
+  --line-2: rgba(255, 255, 255, 0.1);    /* bordes de panel */
+  --line-3: rgba(255, 255, 255, 0.16);   /* bordes en hover */
+  --highlight: rgba(255, 255, 255, 0.05); /* filo superior de un panel */
+
+  /* ── Tipografía ──────────────────────────────────────────────────── */
+  --font-ui: "Space Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+
+  --fs-micro: 0.6875rem;  /* 11px — etiquetas versalita */
+  --fs-xs: 0.75rem;       /* 12px — metadatos */
+  --fs-sm: 0.8125rem;     /* 13px — cuerpo denso de tabla */
+  --fs-md: 0.875rem;      /* 14px — cuerpo */
+  --fs-lg: 1.0625rem;     /* 17px — cifra de fila */
+  --fs-xl: 1.5rem;        /* 24px — cifra de KPI */
+  --fs-2xl: 2rem;         /* 32px — cifra destacada */
+
+  --track-label: 0.09em;  /* interletraje de las etiquetas versalita */
+
+  /* ── Ritmo (base 4px) ────────────────────────────────────────────── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* ── Radios ──────────────────────────────────────────────────────── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+
+  /* ── Elevación ───────────────────────────────────────────────────── */
+  --sh-panel: 0 1px 0 var(--highlight) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.9);
+  --sh-pop: 0 1px 0 var(--highlight) inset, 0 24px 48px -20px rgba(0, 0, 0, 0.85);
+
+  /* ── Movimiento ──────────────────────────────────────────────────── */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 380ms;
+
+  /* ── Métricas de layout ──────────────────────────────────────────── */
+  --chrome-h: 56px;
+  --shell-max: 1560px;
+}

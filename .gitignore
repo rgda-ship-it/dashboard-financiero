@@ -1,0 +1,22 @@
+# Secretos — NUNCA versionar
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Datos locales / cartera persistida (si se usa SQLite o archivos locales de dev)
+*.sqlite3
+data/
+
+# Sistema
+.DS_Store

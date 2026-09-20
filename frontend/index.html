@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#05070a" />
+    <title>Terminal · Dashboard Financiero</title>
+
+    <!--
+      Dos familias, cada una con un trabajo:
+      Space Grotesk para la interfaz (le da carácter técnico al texto) y
+      JetBrains Mono para toda cifra comparable (cifras tabulares).
+      Si no hay red, las pilas de respaldo mantienen la jerarquía.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Evita el destello blanco entre el HTML y el primer render de React. -->
+    <style>
+      html { background: #05070a; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

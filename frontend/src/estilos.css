@@ -1,0 +1,14 @@
+/**
+ * Punto de entrada de estilos. El sistema visual vive repartido en
+ * `estilos/` por responsabilidad; este archivo solo define el orden en
+ * que se cargan las capas (de menos a más específico).
+ *
+ * Sistema de diseño "Instrumento" — ver `estilos/tokens.css` para la
+ * paleta, la tipografía y el resto de decisiones de marca.
+ */
+
+@import "./estilos/tokens.css";
+@import "./estilos/base.css";
+@import "./estilos/layout.css";
+@import "./estilos/componentes.css";
+@import "./estilos/guia.css";

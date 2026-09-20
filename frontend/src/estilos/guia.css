@@ -1,0 +1,384 @@
+/**
+ * Guía de lectura: panel lateral que se superpone al dashboard.
+ *
+ * Es documentación, no un módulo de datos, así que respira distinto —
+ * más aire, medida de línea corta y las fórmulas en bloques monoespaciados
+ * que se leen como lo que son: el código transcrito.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(3, 5, 8, 0.66);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: aparecer var(--dur-2) var(--ease);
+}
+
+@keyframes aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 81;
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--ink-900);
+  border-left: 1px solid var(--line-2);
+  box-shadow: var(--sh-pop);
+  animation: entrar-lateral var(--dur-3) var(--ease);
+}
+
+@keyframes entrar-lateral {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.drawer__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.drawer__title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--tx-1);
+}
+
+.drawer__title span {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--tx-4);
+}
+
+.drawer__close {
+  margin-left: auto;
+}
+
+/* Índice: fila de accesos directos que se desplaza en horizontal si no
+   cabe, en vez de partirse en dos líneas y robar altura de lectura. */
+.drawer__nav {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line-1);
+  background: color-mix(in srgb, var(--ink-950) 45%, transparent);
+  scrollbar-width: none;
+}
+
+.drawer__nav::-webkit-scrollbar { display: none; }
+
+.drawer__nav button {
+  flex: none;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  background: var(--ink-850);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tx-3);
+  white-space: nowrap;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+
+.drawer__nav button:hover {
+  color: var(--tx-1);
+  border-color: var(--line-3);
+}
+
+.drawer__nav button[aria-current="true"] {
+  color: var(--acc-300);
+  border-color: var(--acc-line);
+  background: var(--acc-soft);
+}
+
+.drawer__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-5) var(--sp-5) var(--sp-10);
+  scroll-behavior: smooth;
+}
+
+.drawer__foot {
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--line-1);
+  background: color-mix(in srgb, var(--ink-950) 45%, transparent);
+  font-size: var(--fs-xs);
+  color: var(--tx-4);
+}
+
+/* ══ Secciones ═════════════════════════════════════════════════════ */
+
+.guia__seccion {
+  scroll-margin-top: var(--sp-4);
+  padding-bottom: var(--sp-8);
+}
+
+.guia__seccion + .guia__seccion {
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--line-1);
+}
+
+.guia__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--tx-1);
+}
+
+.guia__titulo::before {
+  content: "";
+  width: 2px;
+  height: 14px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--acc-500);
+  box-shadow: 0 0 10px -1px var(--acc-glow);
+}
+
+.guia__resumen {
+  margin: var(--sp-2) 0 var(--sp-4) 14px;
+  font-size: var(--fs-xs);
+  color: var(--tx-4);
+  max-width: 62ch;
+}
+
+.guia__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* ══ Entrada ═══════════════════════════════════════════════════════ */
+
+.guia__item {
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-1);
+  background: linear-gradient(180deg, var(--ink-850), var(--ink-900));
+}
+
+.guia__termino {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--tx-1);
+  margin-bottom: var(--sp-3);
+}
+
+/* La fórmula es código transcrito: se muestra como tal, con su propio
+   fondo y con scroll horizontal propio para no romper el panel. */
+.formula {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--ink-1000);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.75;
+  color: var(--acc-300);
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.guia__lectura {
+  font-size: var(--fs-sm);
+  line-height: 1.62;
+  color: var(--tx-2);
+  max-width: 66ch;
+}
+
+/* Matiz o excepción: se marca en latón porque es, casi siempre, un límite
+   del sistema y no una explicación más. */
+.guia__nota {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding-left: var(--sp-3);
+  border-left: 2px solid var(--brass-line);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--tx-3);
+  max-width: 64ch;
+}
+
+/* ══ Plantilla CSV ═════════════════════════════════════════════════ */
+
+.plantilla {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-1);
+  background: linear-gradient(180deg, var(--ink-850), var(--ink-900));
+}
+
+.plantilla__scroll {
+  overflow-x: auto;
+}
+
+.plantilla__tabla {
+  width: 100%;
+  min-width: 300px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xs);
+}
+
+.plantilla__tabla th {
+  text-align: left;
+  padding: 7px 10px;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--tx-4);
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+
+.plantilla__tabla td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line-1);
+  color: var(--tx-2);
+}
+
+.plantilla__tabla tr:last-child td { border-bottom: none; }
+
+.plantilla__reglas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--tx-3);
+}
+
+/* La viñeta va posicionada en vez de ser un elemento flex: con flex, el
+   texto de la regla forma un ítem anónimo que no baja de su min-content y
+   los <code> se salían del panel en pantallas estrechas. */
+.plantilla__reglas li {
+  position: relative;
+  padding-left: var(--sp-4);
+}
+
+.plantilla__reglas li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--tx-4);
+}
+
+.plantilla__reglas code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 1px 5px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--line-2);
+  background: var(--ink-1000);
+  color: var(--acc-300);
+}
+
+.plantilla__acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.plantilla__acciones span {
+  font-size: var(--fs-xs);
+  color: var(--tx-4);
+}
+
+@media (max-width: 720px) {
+  .drawer__head,
+  .drawer__nav,
+  .drawer__body,
+  .drawer__foot {
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-4);
+  }
+}
+
+/* ══ Accesos a la guía repartidos por la interfaz ══════════════════ */
+
+/* Botón de ayuda de un KPI: presente pero callado, se enciende al pasar
+   por la tarjeta. Estar siempre a la vista lo convertiría en ruido en una
+   franja cuyo trabajo es mostrar cuatro cifras. */
+.tile__ayuda {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  color: var(--tx-4);
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease), color var(--dur-1) var(--ease);
+}
+
+.tile:hover .tile__ayuda,
+.tile__ayuda:focus-visible {
+  opacity: 1;
+}
+
+.tile__ayuda:hover {
+  color: var(--acc-400);
+}
+
+/* Enlace de texto: para acciones que solo abren una explicación, nunca
+   para las que cambian datos. */
+.enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  text-align: left;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.enlace:hover {
+  color: var(--acc-300);
+}
+
+.footnote__enlace {
+  font-size: var(--fs-xs);
+  color: var(--tx-4);
+  text-decoration: underline;
+  text-decoration-color: var(--line-3);
+  text-underline-offset: 3px;
+  transition: color var(--dur-1) var(--ease);
+}
+
+.footnote__enlace:hover {
+  color: var(--acc-300);
+  text-decoration-color: var(--acc-line);
+}
