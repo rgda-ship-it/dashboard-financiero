@@ -1,0 +1,62 @@
+# Configuración del proyecto Supabase.
+#
+# Este fichero gobierna el entorno LOCAL (`supabase start`). Los dos
+# proyectos remotos (producción y staging) se enlazan con
+# `supabase link --project-ref <ref>` y reciben el mismo esquema vía
+# `supabase db push`.
+#
+# Regla de operación de la Fase 2: ningún cambio de esquema se hace
+# desde el editor SQL de la consola web. Todo va en
+# supabase/migrations/. Con retención de logs de un día en el tier
+# gratuito, un cambio manual no documentado es indepurable a las 48 h.
+
+project_id = "dashboard-financiero"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+# Tope de filas por respuesta de PostgREST. 1000 sobra: el escáner de un
+# usuario son 25 activos y la vista de agentes pagina.
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+# Captura de correos en local: sin esto no se puede probar la
+# verificación de email del Sprint 3 sin un servidor SMTP real.
+enabled = true
+port = 54324
+
+[storage]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/login"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+# La puerta de acceso real NO es esta: un usuario recién registrado
+# recibe un JWT válido de Supabase Auth. Quien decide si ve datos es
+# `perfiles.estado = 'aprobado'` comprobado en RLS (Sprint 3, H-14).
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[analytics]
+enabled = false
