@@ -155,3 +155,24 @@ export function IconoDescargar(props) {
     </Svg>
   );
 }
+
+export function IconoBorrar(props) {
+  return (
+    <Svg size={14} {...props}>
+      <path d="M4 7h16" />
+      <path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7" />
+      <path d="M6 7.5 6.8 19a1.5 1.5 0 0 0 1.5 1.4h7.4a1.5 1.5 0 0 0 1.5-1.4L18 7.5" />
+      <path d="M10.5 11v5.5M13.5 11v5.5" />
+    </Svg>
+  );
+}
+
+export function IconoLimpiar(props) {
+  return (
+    <Svg size={13} {...props}>
+      <path d="M4 7h16" />
+      <path d="M6 7.5 6.8 19a1.5 1.5 0 0 0 1.5 1.4h7.4a1.5 1.5 0 0 0 1.5-1.4L18 7.5" />
+      <path d="M9.5 7V5.5A1.5 1.5 0 0 1 11 4h2a1.5 1.5 0 0 1 1.5 1.5V7" />
+    </Svg>
+  );
+}

@@ -75,6 +75,7 @@ export default function App() {
               error={cartera.error}
               subirArchivo={cartera.subirArchivo}
               restaurarCartera={cartera.restaurarCartera}
+              borrarCartera={cartera.borrarCartera}
               alPedirAyuda={() => abrirGuia("cartera")}
               alPedirPlantilla={() => abrirGuia("plantilla")}
             />
@@ -84,6 +85,7 @@ export default function App() {
             <EventLog
               eventos={eventLog.eventos}
               conectado={eventLog.conectado}
+              alLimpiar={eventLog.limpiarEventos}
               alPedirAyuda={() => abrirGuia("eventos")}
             />
           </aside>

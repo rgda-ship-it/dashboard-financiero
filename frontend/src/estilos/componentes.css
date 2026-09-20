@@ -1083,3 +1083,65 @@
   .intake { grid-template-columns: minmax(0, 1fr); }
   .drop { flex-direction: column; align-items: flex-start; }
 }
+
+/* ══ Zona de acciones irreversibles ════════════════════════════════ */
+
+/* Separada del resto por una línea y con su propio color: el borrado de
+   cartera es físico y no tiene deshacer, así que no debe poder pulsarse
+   por inercia mientras se opera con lo cotidiano. */
+.peligro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line-1);
+}
+
+.peligro__aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--tx-2);
+  max-width: 78ch;
+}
+
+.peligro__aviso svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--neg-500);
+}
+
+.peligro__aviso strong {
+  color: var(--neg-500);
+  font-weight: 500;
+}
+
+.peligro__acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.btn--peligro {
+  border-color: var(--neg-line);
+  background: var(--neg-soft);
+  color: var(--neg-500);
+}
+
+.btn--peligro:hover:not(:disabled) {
+  border-color: var(--neg-500);
+  background: color-mix(in srgb, var(--neg-soft) 60%, var(--ink-800));
+  color: var(--neg-500);
+}
+
+.enlace--peligro {
+  color: var(--tx-4);
+}
+
+.enlace--peligro:hover {
+  color: var(--neg-500);
+}

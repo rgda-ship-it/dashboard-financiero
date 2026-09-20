@@ -6,6 +6,34 @@ Claude Code) para no perder contexto entre sesiones.
 
 ## [Sin publicar] - 2026-09-20
 
+### Añadido — borrado de cartera, registro persistente y `.env.example`
+
+- **Control visual para `DELETE /api/portfolio`**, el último endpoint que
+  seguía sin forma de invocarse desde la interfaz. Vive en una zona
+  separada del panel de cartera, con línea divisoria propia: el borrado es
+  físico y sin deshacer, así que no debe poder pulsarse por inercia
+  mientras se opera con lo cotidiano. Exige confirmación en dos pasos y
+  enumera antes qué va a destruir — las posiciones de la sesión **y** el
+  registro cifrado de PostgreSQL. Verificado: cancelar no envía ninguna
+  petición; confirmar envía exactamente un `DELETE` y deja el panel en su
+  estado vacío.
+- **El registro de eventos ya no se pierde al recargar.** Se guardan los
+  últimos 50 en `localStorage`, con cada lectura y escritura protegida
+  porque el almacenamiento puede estar bloqueado (ventana privada) y
+  quedarse sin historial nunca debe impedir que el panel monte. El pie del
+  panel ofrece vaciarlo. No viajan a ningún servidor: son avisos de
+  sistema, no datos de cartera.
+- **`.env.example`**, que el README mandaba copiar desde el primer día
+  pero no existía. Documenta solo las variables que el código lee de
+  verdad, y separa explícitamente las que están declaradas pero todavía
+  sin leer (`LEVERAGE_HARD_CAP_FASE2` y las `FASE_TRANSICION_*`, que hoy
+  viven como valores por defecto en `ParametrosRiesgo`): cambiarlas en el
+  `.env` no tiene efecto, y conviene que eso no sorprenda a nadie.
+- Corregido el pie del escáner, que seguía diciendo que las señales de
+  cripto se apoyan en menos indicadores. Ahora explica que la vela diaria
+  de cripto es reconstruida y que solo los últimos 30 días tienen rango
+  real, que es la limitación que de verdad queda.
+
 ### Cambiado — velas diarias coherentes entre acciones y cripto
 
 Implementa `docs/propuesta-velas-ventanas.md`, aprobada por el dueño

@@ -52,8 +52,40 @@ export function useEscaner() {
   };
 }
 
+const CLAVE_EVENTOS = "dashboard-financiero:eventos";
+const MAX_EVENTOS = 50;
+
+/**
+ * El registro solo vive en el navegador, nunca en el servidor: son avisos
+ * de sistema, no datos de cartera, así que no hay nada que cifrar ni que
+ * persistir en PostgreSQL por ellos.
+ *
+ * Cada acceso va protegido porque `localStorage` puede lanzar —ventana
+ * privada, almacenamiento bloqueado por el navegador— y quedarse sin
+ * historial nunca debe impedir que el panel se monte.
+ */
+function leerEventosGuardados() {
+  try {
+    const crudo = window.localStorage.getItem(CLAVE_EVENTOS);
+    if (!crudo) return [];
+    const guardados = JSON.parse(crudo);
+    return Array.isArray(guardados) ? guardados.slice(-MAX_EVENTOS) : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarEventos(eventos) {
+  try {
+    window.localStorage.setItem(CLAVE_EVENTOS, JSON.stringify(eventos));
+  } catch {
+    // Sin espacio o sin permiso: el stream en memoria sigue funcionando.
+  }
+}
+
 export function useEventLog() {
-  const [eventos, setEventos] = useState([]);
+  // Lazy initializer: se lee una sola vez, al montar, y no en cada render.
+  const [eventos, setEventos] = useState(leerEventosGuardados);
   const [conectado, setConectado] = useState(false);
 
   useEffect(() => {
@@ -64,7 +96,11 @@ export function useEventLog() {
     let caidaAnunciada = false;
 
     const agregar = (evento) =>
-      setEventos((prev) => [...prev.slice(-49), evento]); // últimos 50
+      setEventos((prev) => {
+        const siguientes = [...prev, evento].slice(-MAX_EVENTOS);
+        guardarEventos(siguientes);
+        return siguientes;
+      });
 
     function conectar() {
       socket = new WebSocket(WS_URL);
@@ -113,7 +149,12 @@ export function useEventLog() {
     };
   }, []);
 
-  return { eventos, conectado };
+  const limpiarEventos = useCallback(() => {
+    setEventos([]);
+    guardarEventos([]);
+  }, []);
+
+  return { eventos, conectado, limpiarEventos };
 }
 
 export function useCartera() {
@@ -204,5 +245,44 @@ export function useCartera() {
     }
   }, [analizar]);
 
-  return { diagnosticos, resumenCarga, cargando, error, subirArchivo, restaurarCartera };
+  /**
+   * Borrado REAL de la cartera: vacía la sesión en memoria y hace un
+   * DELETE físico en PostgreSQL, nunca un soft-delete (derecho de
+   * supresión, regla protegida nº8). No tiene vuelta atrás, así que la
+   * interfaz exige una confirmación explícita antes de llamar aquí.
+   */
+  const borrarCartera = useCallback(async () => {
+    setCargando(true);
+    setError(null);
+    try {
+      const resp = await fetch(`${API_BASE}/portfolio`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      // 204 No Content es la respuesta esperada: no hay cuerpo que leer.
+      if (!resp.ok) {
+        const detalle = await resp.json().catch(() => ({}));
+        throw new Error(detalle.error || `Error ${resp.status} al borrar la cartera`);
+      }
+      setDiagnosticos([]);
+      setResumenCarga(null);
+      nombreArchivo.current = null;
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    } finally {
+      setCargando(false);
+    }
+  }, []);
+
+  return {
+    diagnosticos,
+    resumenCarga,
+    cargando,
+    error,
+    subirArchivo,
+    restaurarCartera,
+    borrarCartera,
+  };
 }

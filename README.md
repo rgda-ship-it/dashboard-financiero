@@ -405,11 +405,11 @@ código cerca de ellas, vale la pena recordarlas:
 
 ## Pendientes conocidos (no bloqueantes)
 
-- El `EventLog` del frontend no persiste entre recargas de página.
-- `DELETE /api/portfolio` (borrado real, derecho de supresión) sigue sin
-  control visual. Se dejó fuera del rediseño a propósito: es una acción
-  destructiva e irreversible y merece su propio flujo de confirmación,
-  no un botón más en el panel de cartera.
+- El registro de eventos se guarda en el `localStorage` del navegador
+  (últimos 50), así que sobrevive a una recarga pero no viaja entre
+  dispositivos ni llega al servidor. Son avisos de sistema, no datos de
+  cartera: no hay nada que cifrar ni que persistir en PostgreSQL por
+  ellos. El pie del panel ofrece vaciarlo.
 - `yfinance` no es una API oficial — si Yahoo cambia su estructura interna,
   `conectores/yahoo_finance.py` lanzará `ErrorEsquemaInesperado`. Revisar
   ese archivo primero si el escáner empieza a fallar solo para acciones

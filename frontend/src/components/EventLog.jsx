@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import Panel from "./ui/Panel.jsx";
 import Chip from "./ui/Chip.jsx";
+import { IconoLimpiar } from "./ui/Iconos.jsx";
 import { horaCorta } from "../formato.js";
 
 /**
@@ -12,7 +13,7 @@ import { horaCorta } from "../formato.js";
  * aplica si el usuario ya estaba mirando el final — si subió a leer algo,
  * no se le arrastra la vista.
  */
-export default function EventLog({ eventos, conectado, alPedirAyuda }) {
+export default function EventLog({ eventos, conectado, alLimpiar, alPedirAyuda }) {
   const listaRef = useRef(null);
   const pegadoAlFinal = useRef(true);
 
@@ -40,7 +41,23 @@ export default function EventLog({ eventos, conectado, alPedirAyuda }) {
           vivo={conectado}
         />
       }
-      pie={<span>Últimos {Math.min(eventos.length, 50)} eventos · no persiste entre recargas</span>}
+      pie={
+        <>
+          <span>Últimos {Math.min(eventos.length, 50)} eventos · guardados en este navegador</span>
+          {eventos.length > 0 && (
+            <button
+              type="button"
+              className="enlace"
+              style={{ marginLeft: "auto" }}
+              onClick={alLimpiar}
+              title="Vaciar el historial guardado en este navegador"
+            >
+              <IconoLimpiar />
+              Limpiar
+            </button>
+          )}
+        </>
+      }
     >
       {eventos.length === 0 ? (
         <div className="empty">

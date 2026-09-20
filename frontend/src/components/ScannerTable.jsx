@@ -239,9 +239,10 @@ export default function ScannerTable({
       pie={
         hayCripto ? (
           <span>
-            Las señales de cripto se apoyan en menos indicadores que las de acciones: CoinGecko
-            no expone volumen y agrega las velas, así que las medias largas no llegan a
-            calcularse. Es una limitación del proveedor, no una lectura del mercado.
+            La vela diaria de cripto se reconstruye a partir de dos fuentes de CoinGecko, que no
+            sirve velas diarias con máximo y mínimo reales en su tier gratuito. Solo los últimos
+            30 días tienen rango real, así que el ATR de una cripto es más ruidoso que el de una
+            acción y puede moverla de tramo de volatilidad.
           </span>
         ) : null
       }

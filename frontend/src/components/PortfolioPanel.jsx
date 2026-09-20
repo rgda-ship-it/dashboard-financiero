@@ -6,6 +6,7 @@ import {
   IconoAlerta,
   IconoCartera,
   IconoDescargar,
+  IconoBorrar,
 } from "./ui/Iconos.jsx";
 import {
   simboloVisible,
@@ -32,10 +33,12 @@ export default function PortfolioPanel({
   restaurarCartera,
   alPedirAyuda,
   alPedirPlantilla,
+  borrarCartera,
 }) {
   const inputRef = useRef(null);
   const [guardarPersistente, setGuardarPersistente] = useState(false);
   const [arrastrando, setArrastrando] = useState(false);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
 
   function entregar(archivo) {
     if (archivo) subirArchivo(archivo, guardarPersistente);
@@ -145,6 +148,55 @@ export default function PortfolioPanel({
             Ver formato y descargar CSV modelo
           </button>
         </div>
+      </div>
+
+      {/* El borrado es físico e irreversible, así que no comparte fila con
+          las acciones cotidianas: vive aparte, pide confirmación explícita
+          y dice exactamente qué va a destruir antes de hacerlo. */}
+      <div className="peligro">
+        {confirmandoBorrado ? (
+          <>
+            <p className="peligro__aviso">
+              <IconoAlerta />
+              <span>
+                Se borrarán las posiciones de esta sesión <strong>y</strong> el registro
+                cifrado guardado en la base de datos. El borrado es físico y no se puede
+                deshacer: tendrás que volver a cargar el CSV.
+              </span>
+            </p>
+            <div className="peligro__acciones">
+              <button
+                type="button"
+                className="btn btn--peligro"
+                disabled={cargando}
+                onClick={async () => {
+                  const borrada = await borrarCartera();
+                  if (borrada) setConfirmandoBorrado(false);
+                }}
+              >
+                <IconoBorrar />
+                Sí, borrar definitivamente
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={cargando}
+                onClick={() => setConfirmandoBorrado(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="enlace enlace--peligro"
+            onClick={() => setConfirmandoBorrado(true)}
+          >
+            <IconoBorrar />
+            Borrar cartera de esta sesión y de la base de datos
+          </button>
+        )}
       </div>
 
       {error && (

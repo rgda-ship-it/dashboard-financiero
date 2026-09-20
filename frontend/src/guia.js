@@ -142,7 +142,7 @@ export const SECCIONES = [
         formula:
           "cian   · sistema (estado del stream)\námbar  · proveedor de datos (reintentos, 429)\nlatón  · cambio de fase de riesgo\nrojo   · deterioro detectado en una posición",
         lectura:
-          "Es una traza volátil: se conservan los últimos 50 y no sobrevive a una recarga de la página.",
+          "Se conservan los últimos 50 eventos en este navegador, así que sobreviven a una recarga. No viajan a ningún servidor: son avisos del sistema, no datos de cartera. El botón «Limpiar» del pie vacía ese historial.",
       },
       {
         termino: "Fases de riesgo",
