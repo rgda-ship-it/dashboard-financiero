@@ -1,0 +1,116 @@
+# Latido semanal: mantener vivo, respaldar y podar.
+#
+# Tres trabajos que el tier gratuito de Supabase obliga a hacer a mano:
+#
+# 1. KEEP-ALIVE. Supabase pausa un proyecto tras ~1 semana de baja
+#    actividad. `pg_cron` disparando cada minuto ya genera actividad
+#    continua por diseño, pero si los agentes se paran —o el proyecto se
+#    aparca unos meses— este latido lo detecta y avisa en vez de que todo
+#    se apague en silencio.
+#
+# 2. RESPALDO. El tier gratuito NO incluye descarga de backups ni
+#    recuperación a un punto en el tiempo. Se respaldan las tablas de
+#    gobierno y del experimento —las que no se pueden regenerar— y se
+#    dejan como artefacto con 90 días de retención. Las tablas de precios
+#    quedan FUERA a propósito: pesan y se pueden reconstruir desde los
+#    proveedores.
+#
+# 3. RETENCIÓN. Hallazgo del presupuesto de cuotas (doc 02 §6.1): la tabla
+#    `senales` con histórico completo alcanza ~600 MB en un año y el tier
+#    gratuito da 500 MB. Sin esta poda, el sistema funciona seis meses y
+#    luego deja de escribir señales sin explicación aparente.
+#
+# Este workflow también es el canario de los cron programados: GitHub
+# desactiva los `schedule` de un repositorio tras 60 días sin actividad.
+# Si deja de ejecutarse, es que se han desactivado todos.
+
+name: keep-alive
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # lunes 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  latido:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cliente de PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: 1. Latido
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$PGURL" ]; then
+            echo "::error::Falta el secreto SUPABASE_DB_URL."
+            exit 1
+          fi
+          # -v ON_ERROR_STOP=1 para que un fallo de conexión sea un fallo
+          # del job y no una línea perdida en el log.
+          psql "$PGURL" -v ON_ERROR_STOP=1 -c "select 1 as latido" \
+            || { echo "::error::El proyecto de Supabase no responde. Puede estar pausado."; exit 1; }
+          echo "Proyecto despierto."
+
+      - name: 2. Respaldo de lo irreemplazable
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p respaldo
+          # Se excluyen las tablas de precios, indicadores y señales: son
+          # las grandes y son REGENERABLES desde los proveedores. Lo que
+          # no se puede reconstruir es el gobierno (quién está aprobado) y
+          # el experimento (qué hicieron los agentes).
+          pg_dump "$PGURL" \
+            --schema=public \
+            --data-only \
+            --no-owner \
+            --no-privileges \
+            --exclude-table=public.precios_diarios \
+            --exclude-table=public.indicadores_diarios \
+            --exclude-table=public.senales \
+            > respaldo/gobierno-y-experimento.sql
+          gzip respaldo/gobierno-y-experimento.sql
+          ls -lh respaldo/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ github.run_id }}
+          path: respaldo/
+          retention-days: 90
+
+      - name: 3. Retención de señales
+        env:
+          PGURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          {
+            echo "### Latido semanal"
+            echo ""
+            echo "**Retención de \`senales\`**"
+            echo ""
+            echo '```json'
+            psql "$PGURL" -v ON_ERROR_STOP=1 -t -A -c "select fn_retencion_senales()"
+            echo '```'
+            echo ""
+            echo "**Tamaño de las tablas**"
+            echo ""
+            echo '```'
+            psql "$PGURL" -v ON_ERROR_STOP=1 -c "
+              select relname as tabla,
+                     pg_size_pretty(pg_total_relation_size(c.oid)) as tamano,
+                     n_live_tup as filas
+                from pg_class c
+                join pg_namespace n on n.oid = c.relnamespace
+                left join pg_stat_user_tables s on s.relid = c.oid
+               where n.nspname = 'public' and c.relkind = 'r'
+               order by pg_total_relation_size(c.oid) desc
+               limit 15"
+            echo '```'
+            echo ""
+            echo "> Recordatorio: el tier gratuito de Supabase da **500 MB**."
+          } >> "$GITHUB_STEP_SUMMARY"
