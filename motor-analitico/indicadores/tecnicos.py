@@ -12,7 +12,7 @@ from enum import Enum
 
 import numpy as np
 
-# pandas-ta 0.3.14b0 (sin actualizar desde 2021) todavía hace
+# pandas-ta 0.4.71b0 (la versión fijada en requirements.txt) todavía hace
 # `from numpy import NaN as npNaN` en su __init__. numpy>=2.0 eliminó ese
 # alias (solo queda `numpy.nan` en minúscula), así que importar pandas_ta
 # con un numpy moderno rompe con `ImportError: cannot import name 'NaN'`
@@ -26,6 +26,18 @@ if not hasattr(np, "NaN"):
 
 import pandas as pd
 import pandas_ta as ta
+
+
+# Longitudes de ventana, expresadas en VELAS y no en días de calendario.
+# Velas diarias: sesiones en acciones, días UTC en cripto. Esa es la
+# equivalencia que hace comparables los umbrales entre las dos clases de
+# activo — el 30/70 del RSI, el 14 de Wilder y los tramos de ATR% de
+# riesgo/apalancamiento.py están calibrados sobre N observaciones, no
+# sobre N días naturales. Estirar la ventana de cripto a 20 velas para
+# "igualar" 14 sesiones cambiaría la distribución del indicador y
+# obligaría a tener umbrales distintos por clase de activo.
+VENTANA_SOPORTE_RESISTENCIA = 20
+LONGITUD_ATR = 14
 
 
 class Direccion(str, Enum):
@@ -50,13 +62,69 @@ class ResultadoConfluencia:
     resumen: str
 
 
+def _atr_sobre_maximos_y_minimos_reales(marco: pd.DataFrame) -> pd.Series:
+    """ATR de Wilder calculado SOLO sobre las filas con High y Low reales.
+
+    El conector de cripto entrega un frame mixto: ~366 días con cierre y
+    volumen, pero solo los ~30 últimos con máximo y mínimo (las velas de
+    4 h de CoinGecko no llegan más atrás). Pasar ese frame entero a
+    `ta.atr` da un número mal, no un número con menos datos:
+
+    pandas-ta 0.4.71b0 siembra la media de Wilder con la SMA de las 14
+    primeras POSICIONES del frame (`presma`), que en el frame fusionado
+    son justo las NaN, y su `rma` no aplica `min_periods`. El resultado
+    es una media que arranca sin semilla y arrastra ese sesgo. Medido
+    sobre BTC: 2.618 (3,21 % del precio) con el frame entero frente a
+    2.253 (2,77 %) con el subconjunto — y esos dos valores caen en
+    TRAMOS DE VOLATILIDAD DISTINTOS de riesgo/apalancamiento.py (medio
+    frente a bajo), así que la diferencia no es cosmética: cambia el
+    apalancamiento que ve el usuario.
+
+    En acciones el subconjunto es el frame entero, así que el resultado
+    es idéntico al de siempre.
+    """
+    hay_rango_real = marco["High"].notna() & marco["Low"].notna()
+    subconjunto = marco.loc[hay_rango_real]
+
+    # Con 14 filas o menos no hay ATR de Wilder: solo saldría la semilla
+    # SMA sin un solo paso de suavizado. Antes que emitir esa cifra como
+    # si fuera volatilidad medida, se declara ausente — y el modo
+    # degradado de la regla 4 (apalancamiento al mínimo, fila no
+    # operable) hace el resto.
+    serie = pd.Series(np.nan, index=marco.index, dtype="float64")
+    if len(subconjunto) <= LONGITUD_ATR:
+        return serie
+
+    atr = ta.atr(
+        subconjunto["High"],
+        subconjunto["Low"],
+        subconjunto["Close"],
+        length=LONGITUD_ATR,
+    )
+    if atr is None:
+        return serie
+
+    # Reinserción POSICIONAL y no por índice: el frame de cripto se indexa
+    # por día UTC, pero los frames sintéticos de los tests usan un
+    # RangeIndex, y un `reindex` por etiquetas rompería con cualquier
+    # índice duplicado que llegue de un proveedor. Las posiciones son las
+    # mismas que se extrajeron, así que no hay ambigüedad posible.
+    serie.iloc[np.flatnonzero(hay_rango_real.to_numpy())] = atr.to_numpy()
+    return serie
+
+
 def calcular_indicadores(df: pd.DataFrame) -> pd.DataFrame:
     """Añade columnas de indicadores técnicos al DataFrame OHLCV.
 
     Espera columnas: Open, High, Low, Close (nombres de yfinance/
-    normalizador). "Volume" es OPCIONAL: el endpoint /ohlc de CoinGecko no
-    devuelve volumen, así que los DataFrames de cripto llegan sin esa
-    columna. No muta el DataFrame original.
+    normalizador). "Volume" es OPCIONAL y se degrada a NaN si falta.
+    Desde que el conector de cripto reconstruye la vela diaria con
+    /market_chart, las dos clases de activo SÍ traen volumen; la rama sin
+    volumen se conserva por si un proveedor futuro no lo expone.
+
+    High y Low pueden venir con NaN en las filas más antiguas (cripto):
+    ver `_atr_sobre_maximos_y_minimos_reales`. No muta el DataFrame
+    original.
     """
     resultado = df.copy()
 
@@ -72,14 +140,12 @@ def calcular_indicadores(df: pd.DataFrame) -> pd.DataFrame:
     if bbands is not None:
         resultado = resultado.join(bbands)
 
-    resultado["ATR_14"] = ta.atr(
-        resultado["High"], resultado["Low"], resultado["Close"], length=14
-    )
+    resultado["ATR_14"] = _atr_sobre_maximos_y_minimos_reales(resultado)
 
-    # CoinGecko sirve /ohlc como [timestamp, open, high, low, close] — sin
-    # volumen. Aquí se accedía a resultado["Volume"] sin comprobar que
-    # existiera, así que TODOS los tickers cripto del escáner morían con
-    # KeyError: 'Volume' y llegaban al frontend como
+    # Históricamente CoinGecko servía /ohlc como [timestamp, open, high,
+    # low, close] — sin volumen. Aquí se accedía a resultado["Volume"] sin
+    # comprobar que existiera, así que TODOS los tickers cripto del
+    # escáner morían con KeyError: 'Volume' y llegaban al frontend como
     # {"ticker": ..., "error": "fallo de datos: 'Volume'"}.
     # El volumen solo confirma la dirección dominante (ver
     # evaluar_confluencia), nunca la decide, así que su ausencia se degrada
@@ -182,13 +248,27 @@ def evaluar_confluencia(df_con_indicadores: pd.DataFrame) -> ResultadoConfluenci
 
 
 def calcular_soporte_resistencia(
-    df_con_indicadores: pd.DataFrame, ventana: int = 20
+    df_con_indicadores: pd.DataFrame, ventana: int = VENTANA_SOPORTE_RESISTENCIA
 ) -> tuple[float, float]:
     """Niveles técnicos genéricos del activo (soporte/resistencia por
     máximos/mínimos locales recientes). Usados como TP/SL genéricos —
     NUNCA derivados del monto invertido por un usuario específico.
+
+    La ventana son 20 VELAS: 20 sesiones en acciones, 20 días UTC en
+    cripto.
+
+    Si a alguna vela de la ventana le falta el máximo o el mínimo, se
+    devuelve (nan, nan) en vez de un nivel. `.min()`/`.max()` de pandas
+    saltan los NaN en silencio, así que una ventana con huecos habría
+    devuelto el rango de las velas que sí tienen dato — es decir, una
+    ventana MÁS CORTA que 20 presentada como si fueran 20. El llamador
+    (`_niveles_tecnicos`) lee el nan y cae al fallback por ATR, que al
+    menos declara su origen.
     """
     recientes = df_con_indicadores.tail(ventana)
+    if recientes["High"].isna().any() or recientes["Low"].isna().any():
+        return float("nan"), float("nan")
+
     soporte = float(recientes["Low"].min())
     resistencia = float(recientes["High"].max())
     return soporte, resistencia

@@ -1,9 +1,32 @@
 # Propuesta: velas y ventanas históricas coherentes entre acciones y cripto
 
-**Autor:** Especialista en Indicadores Técnicos · **Fecha:** 2026-09-19 · **Estado:** propuesta, pendiente de decisión del dueño
+**Autor:** Especialista en Indicadores Técnicos · **Fecha:** 2026-09-19 · **Estado:** **APROBADA** por el dueño el 2026-09-20 — ver decisiones abajo
 **Alcance:** `motor-analitico/conectores/`, `motor-analitico/indicadores/tecnicos.py` y documentación. No toca umbrales de riesgo. Sí cambia el apalancamiento que ve el usuario, y eso queda cuantificado en §5.
 
 Rutas relativas a `motor-analitico/` salvo indicación. Las comprobaciones empíricas se hicieron el 2026-09-19 hacia las 09:22 UTC con 4 peticiones sin clave a CoinGecko (todas 200 OK, espaciadas 13 s) y con Python de solo lectura sobre el `.venv` del proyecto. No se levantó ningún servicio.
+
+---
+
+## 0. Decisiones del dueño (2026-09-20)
+
+Respuestas a las siete preguntas abiertas de §10. Esta tabla manda sobre
+cualquier recomendación del documento.
+
+| # | Decisión | Respuesta |
+|---|---|---|
+| **D1** | Corrección del ATR% de cripto y subida de la base de apalancamiento | **Sí**, se acepta |
+| **D2** | Fuerza "alta" alcanzable, con filas en 5,0× | **Sí**, se acepta sin normalizar `fuerza` |
+| **D3** | Compensar el riesgo por tiempo de calendario de cripto (×1,18) | **No en este cambio**, según la recomendación del autor. El dueño no se pronunció explícitamente; queda documentado como pendiente de revisar |
+| **D4** | Cambiar de proveedor (Kraken) | **No**, se sigue con CoinGecko de momento |
+| **D5** | Pedir clave Demo de CoinGecko | **No** por ahora |
+| **D6** | Fallo de la llamada de 4 h | **Error de ticker**, no fila degradada |
+| **D7** | Aceptar ≈ 30 s de escaneo cripto en frío | **Sí**, se acepta |
+
+Con D1 y D2 aceptadas, el apalancamiento que ve el usuario **sube**: la
+base de cripto pasa de 2,0× a 3,0× y aparecen filas en 5,0×, el tope de
+Fase 1. No es un efecto secundario, es una consecuencia buscada de
+corregir la escala de la volatilidad — y el tope duro sigue siendo
+infranqueable (regla protegida nº1).
 
 ---
 

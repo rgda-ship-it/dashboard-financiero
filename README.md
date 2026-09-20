@@ -415,14 +415,20 @@ código cerca de ellas, vale la pena recordarlas:
   ese archivo primero si el escáner empieza a fallar solo para acciones
   (no para cripto).
 - CoinGecko (tier gratuito, sin clave de API) permite del orden de 10-15
-  req/min. El conector espacia sus llamadas 6 s, cachea velas 15 min y
-  fundamentales 5 min, y reintenta ante un `429` respetando `Retry-After`.
-  Si se amplía `UNIVERSO_CRIPTO` en `backend/src/routes/escaner.js`, el
-  primer escaneo en frío se alargará (~6 s por cripto nueva); a partir de
-  cierto tamaño conviene sacar una clave Demo de CoinGecko y subir el ritmo.
-- El endpoint `/ohlc` de CoinGecko **no devuelve volumen** y con
-  `days=180` agrega las velas de 4 en 4 días (45 velas en total). Por eso,
-  para cripto, el indicador de volumen relativo queda en `NaN` y `SMA_50`/
-  `SMA_200` nunca llegan a calcularse: las señales de cripto se apoyan en
-  menos indicadores que las de acciones. Es una limitación del proveedor,
-  no un fallo — tenerlo en cuenta al comparar confluencias entre ambos.
+  req/min. Cada cripto cuesta **dos peticiones** —`/market_chart` para
+  cierres, precio vivo y volumen, y `/ohlc` a 4 h para los máximos y
+  mínimos diarios—, con cachés independientes de 15 y 60 minutos. El
+  conector espacia sus llamadas 6 s y reintenta ante un `429` respetando
+  `Retry-After`, así que el primer escaneo en frío del bloque cripto ronda
+  el medio minuto. Si se amplía `UNIVERSO_CRIPTO` en
+  `backend/src/routes/escaner.js`, contar ~12 s por cripto nueva; a partir
+  de unas cinco monedas conviene reevaluar el proveedor (ver
+  `docs/propuesta-velas-ventanas.md`, D4).
+- **La vela diaria de cripto es reconstruida, no servida.** CoinGecko no
+  ofrece velas diarias con máximo y mínimo reales sin plan de pago, así
+  que el motor las arma con esas dos llamadas. Solo los últimos 30 días
+  tienen rango real: el ATR y el soporte/resistencia se calculan
+  únicamente sobre esas filas, nunca sobre el frame completo. Calcularlos
+  sobre todo el frame inflaba el ATR de BTC un 16 % y le cambiaba el tramo
+  de volatilidad, así que esa restricción no es un detalle de
+  implementación — es lo que hace que la cifra signifique algo.

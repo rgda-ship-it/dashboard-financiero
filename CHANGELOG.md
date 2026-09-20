@@ -6,11 +6,73 @@ Claude Code) para no perder contexto entre sesiones.
 
 ## [Sin publicar] - 2026-09-20
 
+### Cambiado — velas diarias coherentes entre acciones y cripto
+
+Implementa `docs/propuesta-velas-ventanas.md`, aprobada por el dueño
+(decisiones D1–D7 en su §0). Cierra los dos "pendientes de decisión" sobre
+velas del 2026-08-27 y del 2026-08-28.
+
+- **La vela diaria de cripto pasa a reconstruirse** con dos llamadas sin
+  clave por moneda (`conectores/coingecko.py`): `/market_chart` da
+  cierres, precio vivo y volumen; `/ohlc` a 4 h, agregado por día, da
+  máximos y mínimos de los últimos 30 días. CoinGecko no sirve velas
+  diarias con rango real en su tier gratuito, y una clave Demo tampoco lo
+  resolvería.
+- **El ATR y el soporte/resistencia se calculan solo sobre las filas con
+  máximo y mínimo reales.** No es un detalle: calcularlos sobre el frame
+  completo inflaba el ATR de BTC un 16 % y le cambiaba el tramo de
+  volatilidad.
+- **La ventana de acciones pasa de 6 meses a 2 años**, así que `SMA_200`
+  por fin se calcula y `cruce_medias` empieza a votar. Era un indicador
+  que existía en el código y no emitía señal nunca.
+- `requirements.txt` fija `pandas-ta==0.4.71b0`: el cálculo del ATR sobre
+  un subconjunto depende de cómo se toma la semilla, y estaba sin fijar.
+- 22 casos de prueba nuevos (`tests/test_velas_y_ventanas.py`), sin red.
+  **69 en total, todos en verde**, y los 47 anteriores pasan sin tocar ni
+  una línea.
+
+**Efecto medido sobre el riesgo — el apalancamiento sube.** Es consecuencia
+buscada de corregir la escala, no un efecto colateral, y el tope duro sigue
+siendo infranqueable.
+
+- **Cripto**: el ATR% cae a la mitad (BTC 5,48 → 2,61; ETH 6,86 → 3,65),
+  que es el factor ≈ √4 de pasar de velas de 4 días a diarias. La base de
+  apalancamiento sube un tramo en ambas.
+- **Acciones**: el ATR% **no se mueve ni una centésima** — ya estaba
+  convergido con 126 velas. Todo el aumento viene de que `cruce_medias`
+  empieza a votar. En una muestra de 6 tickers reales, 4 suben de tramo y
+  2 llegan al tope de 5,0×. Es una subida más amplia de lo que sugerían
+  los ejemplos de la propuesta.
+- **El precio de cripto deja de ir desfasado.** Era el cierre de la última
+  vela de 4 días completa, hasta 4 días por detrás del real; ahora son 15
+  minutos como máximo. Afectaba también al P&L de cartera.
+- **Los niveles de cripto se estrechan mucho**: la ventana de 20 velas son
+  ahora 20 días y no ~80. En BTC, el riel pasa de cubrir un 32,2 % del
+  precio a un 8,7 %, así que el stop queda mucho más cerca y la pérdida
+  hasta él no crece en proporción al apalancamiento.
+
+**Aviso de despliegue**: las señales cambian de forma visible el mismo día.
+En BTC, la fila pasa de «alcista, 2,0× operable» a «neutral, no operable»,
+porque el MACD cambia de signo al calcularse en diario. Es correcto, no es
+un fallo. Las cifras de cripto anteriores a este cambio no son comparables
+con las de ahora.
+
+- `soporte`/`resistencia` **pueden ser nulos** cuando no hay volatilidad
+  utilizable. El camino ya existía pero ningún test lo ejercitaba; el
+  frontend no debe asumirlos no nulos (ya degrada correctamente).
+- Se actualizaron las entradas de la guía de lectura que habían quedado
+  siendo falsas: cripto ya no «se apoya en menos indicadores», el cruce de
+  medias ya no «no aporta», y «confluencia alta» deja de ser excepcional.
+  En su lugar, la guía explica ahora que la vela de cripto es reconstruida
+  y que su ATR se apoya en solo 30 días.
+
 ### Añadido — `docs/` para análisis y propuestas
 
 - `docs/propuesta-velas-ventanas.md`: propuesta del especialista en
   indicadores para conseguir velas diarias coherentes entre acciones y
-  cripto. **Estado: pendiente de decisión** (D1–D7 en su §10). Incluye la
+  cripto. **Aprobada el mismo día**; las respuestas del dueño a D1–D7
+  quedan registradas en su §0 y mandan sobre el resto del documento.
+  Incluye la
   especificación por conector, 9 alternativas descartadas con su motivo,
   20 casos de prueba sin red y comprobaciones empíricas con peticiones
   reales a CoinGecko.
@@ -187,7 +249,7 @@ evitar.
 - **`MACDh == 0` cuenta como bajista.** El MACD no tiene banda neutra, a
   diferencia del RSI (que ignora 30-70): un histograma exactamente en cero
   vota bajista. Hace que el ámbar de salud sea casi el estado por defecto.
-- **Para cripto el riel cubre ~80 días, no 20.** CoinGecko agrega las velas
+- **[RESUELTO 2026-09-20 — velas diarias]** **Para cripto el riel cubre ~80 días, no 20.** CoinGecko agrega las velas
   de 4 en 4, así que la «ventana de 20 velas» de soporte/resistencia es
   cuatro veces más ancha en cripto que en acciones — y la guía de lectura
   dice 20 para ambos.
@@ -352,7 +414,7 @@ evitar.
 
 ### Detectado — pendiente de decisión
 
-- **CoinGecko devuelve velas de 4 días con `days=180`** (comportamiento
+- **[RESUELTO 2026-09-20 — velas diarias reconstruidas]** **CoinGecko devuelve velas de 4 días con `days=180`** (comportamiento
   documentado de su API pública para rangos de 31–365 días), es decir
   ~45 velas totales en vez de ~180 diarias. `SMA_50` y `SMA_200`
   necesitan 50/200 cierres válidos respectivamente para dar un solo

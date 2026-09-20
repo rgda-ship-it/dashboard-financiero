@@ -106,7 +106,7 @@ export default function MetricsStrip({ senales, cargando, diagnosticos, alPedirA
         alPedirAyuda={alPedirAyuda}
         valor={m.altas}
         unidad={m.validas.length ? `/ ${m.validas.length}` : ""}
-        sub={m.altas ? "señales con 3 indicadores alineados" : "ninguna señal alcanza fuerza alta"}
+        sub={m.altas ? "señales con 3 o más indicadores alineados" : "ninguna señal alcanza fuerza alta"}
         progreso={m.validas.length ? m.altas / m.validas.length : 0}
         tono={m.altas ? "pos" : ""}
       />

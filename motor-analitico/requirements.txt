@@ -1,6 +1,12 @@
 yfinance>=0.2.40
 pandas>=2.2.0
-pandas-ta>=0.3.14b0
+# Versión FIJADA, no un rango: el ATR de cripto se calcula sobre el
+# subconjunto de velas con máximo y mínimo reales (indicadores/tecnicos.py)
+# y ese cálculo depende de cómo 0.4.71b0 siembra la media de Wilder — con
+# la SMA de las 14 primeras POSICIONES de la serie que recibe. Otra
+# versión puede sembrarla de otro modo y mover el ATR% de tramo sin que
+# nada falle de forma visible.
+pandas-ta==0.4.71b0
 requests>=2.31.0
 pytest>=8.0.0
 fastapi>=0.110.0

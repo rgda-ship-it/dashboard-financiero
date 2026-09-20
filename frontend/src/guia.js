@@ -84,7 +84,8 @@ export const SECCIONES = [
         termino: "Confluencia alta",
         formula: "activos con fuerza «alta» / activos con datos",
         lectura:
-          "Que casi siempre sea 0 o 1 es lo esperable: hacen falta tres indicadores alineados a la vez. Un número alto de forma sostenida es más motivo de sospecha sobre los datos que de entusiasmo.",
+          "Hacen falta tres o más indicadores alineados en la misma dirección. Desde que acciones y cripto disponen de los cuatro indicadores, «alta» dejó de ser excepcional: en un mercado tranquilo y direccional, varios activos pueden alcanzarla a la vez, y con volatilidad baja eso son filas en el tope de 5.0×.",
+        nota: "Que suba este número no significa que el mercado mejore: significa que más activos tienen sus indicadores de acuerdo. Conviene mirarlo junto a la volatilidad, porque son las dos entradas del apalancamiento y la volatilidad pesa más.",
       },
       {
         termino: "Apalancamiento medio",
@@ -166,16 +167,18 @@ export const SECCIONES = [
     resumen: "Lo que el sistema no puede ver hoy, por el origen de los datos.",
     items: [
       {
-        termino: "Cripto se apoya en menos indicadores",
-        formula: null,
+        termino: "La vela de cripto es reconstruida",
+        formula:
+          "cierres, precio vivo y volumen  → /market_chart (365 días)\nmáximos y mínimos diarios       → /ohlc a 4 h, agregado (30 días)",
         lectura:
-          "CoinGecko no devuelve volumen y agrega las velas en tramos de varios días, así que ni el volumen relativo ni las medias largas llegan a calcularse. En la práctica una cripto cuenta como mucho con RSI y MACD, y por tanto nunca alcanza fuerza «alta» ni el bonus de +2.0× de apalancamiento.",
+          "CoinGecko no ofrece velas diarias con máximo y mínimo reales en su tier gratuito, así que el motor las reconstruye con dos peticiones por moneda. Consecuencia: solo los últimos 30 días tienen rango real, y el ATR y los niveles técnicos se calculan únicamente sobre esas filas. El resto de la serie sirve para las medias y el MACD, que solo necesitan el cierre.",
+        nota: "Antes se pedían velas de 4 días, y eso inflaba la volatilidad de cripto alrededor del doble y dejaba el precio mostrado hasta 4 días por detrás del real. Las cifras de cripto anteriores a septiembre de 2026 no son comparables con las de ahora.",
       },
       {
-        termino: "El cruce de medias hoy no aporta",
+        termino: "El ATR de cripto se apoya en 30 días",
         formula: null,
         lectura:
-          "La SMA 200 necesita 200 cierres y el conector de acciones pide seis meses (unas 126 velas). El indicador existe en el código pero todavía no genera señal: las acciones se están evaluando con RSI, MACD y volumen.",
+          "Con solo 30 filas con rango real, el ATR de una cripto es más ruidoso que el de una acción y puede moverla de tramo de volatilidad cuando está pegada al 3 % o al 6 % — justo los umbrales que deciden la base de apalancamiento. Los máximos y mínimos provienen además de velas de 4 horas agregadas, no del rango real de un mercado concreto, así que pueden quedarse algo cortos.",
       },
       {
         termino: "Una posición cripto nunca llega a «rojo»",
@@ -187,7 +190,7 @@ export const SECCIONES = [
         termino: "Fuentes no oficiales",
         formula: null,
         lectura:
-          "yfinance no es una API oficial de Yahoo: si cambian su estructura interna, las acciones dejan de escanearse (las criptos no). CoinGecko en tier gratuito permite del orden de 10-15 peticiones por minuto, y por eso el escaneo se espacia y se cachea.",
+          "yfinance no es una API oficial de Yahoo: si cambian su estructura interna, las acciones dejan de escanearse (las criptos no). CoinGecko en tier gratuito permite del orden de 10-15 peticiones por minuto, y como cada cripto necesita dos peticiones, el escaneo se espacia y se cachea: el primero en frío tarda alrededor de medio minuto.",
       },
       {
         termino: "Esto no es asesoramiento",

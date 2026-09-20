@@ -45,8 +45,15 @@ class ErrorEsquemaInesperado(Exception):
 class ConectorAccionesYahoo:
     """Adaptador de acciones sobre yfinance. Ver docstring del módulo."""
 
+    # "6mo" daba ~126 sesiones y con eso la SMA 200 NO tenía un solo valor
+    # válido: `cruce_medias` no se emitía nunca, ni en acciones ni en
+    # cripto, así que el indicador estaba en el código pero no votaba. Con
+    # "2y" (~502 sesiones) quedan ~303 valores de SMA 200 y más de 400 de
+    # convergencia para las EMA del MACD. "1y" (~251) dejaría solo ~52, y
+    # un par de festivos o una suspensión los acercan al límite. Solo
+    # crece el tamaño de la respuesta: sigue siendo 1 llamada por ticker.
     def obtener_ohlcv(
-        self, ticker: str, periodo: str = "6mo", intervalo: str = "1d"
+        self, ticker: str, periodo: str = "2y", intervalo: str = "1d"
     ) -> DatosOHLCV:
         try:
             activo = yf.Ticker(ticker)
