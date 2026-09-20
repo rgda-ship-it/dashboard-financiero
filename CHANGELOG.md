@@ -4,6 +4,23 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-20
+
+### Añadido — `docs/` para análisis y propuestas
+
+- `docs/propuesta-velas-ventanas.md`: propuesta del especialista en
+  indicadores para conseguir velas diarias coherentes entre acciones y
+  cripto. **Estado: pendiente de decisión** (D1–D7 en su §10). Incluye la
+  especificación por conector, 9 alternativas descartadas con su motivo,
+  20 casos de prueba sin red y comprobaciones empíricas con peticiones
+  reales a CoinGecko.
+- Los análisis que justifican cambios de reglas de riesgo pasan a
+  versionarse en `docs/`. Se estaban escribiendo en un directorio temporal
+  del sistema, y **la especificación que originó el cambio de sesgo
+  operativo del 2026-08-28 se perdió** cuando ese directorio se limpió.
+  Las decisiones que contenía sobrevivieron solo porque quedaron
+  registradas en este CHANGELOG y en los comentarios del código.
+
 ## [Sin publicar] - 2026-09-19
 
 ### Corregido — formato numérico del CSV de cartera

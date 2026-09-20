@@ -19,6 +19,9 @@ dashboard-financiero/
 ├── .gitignore                 # Protege .env y artefactos generados
 ├── README.md                  # Este archivo
 │
+├── docs/                      # Análisis y propuestas técnicas (no código)
+│   └── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
+│
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt
 │   ├── servicio_interno.py    # FastAPI — expone el motor a Node.js
@@ -91,6 +94,13 @@ dashboard-financiero/
 debería necesitar vivir en dos carpetas a la vez — si sientes que sí,
 probablemente falta una función intermedia que los conecte (como
 `clienteMotorAnalitico.js` conecta backend con motor analítico).
+
+**Dónde van los análisis y las propuestas**: en `docs/`, versionados junto
+al código. Un estudio que justifica un cambio de reglas de riesgo tiene
+que poder consultarse meses después, cuando ya nadie recuerde por qué se
+eligió una opción y no otra — si vive en un directorio temporal, se pierde.
+Cada documento lleva en su cabecera autor, fecha y estado (propuesta,
+aprobada, implementada).
 
 **Regla adicional para el frontend**: ningún componente escribe un color,
 un tamaño de fuente o un espaciado literal. Todo sale de una variable de
