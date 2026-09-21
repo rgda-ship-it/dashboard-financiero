@@ -4,6 +4,324 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-20 — Fase 2, Sprint 1
+
+### Añadido — el motor deja de ser un servidor y pasa a escribir
+
+Implementa el Sprint 1 de `docs/fase-2/` (firmado por el dueño), con las
+decisiones D1, D2, D4 y D5 cerradas: Supabase + Vercel + GitHub Actions,
+el motor Python intacto, agentes deterministas y repositorio privado.
+
+**El cambio de fondo es la dirección del flujo.** En la Fase 1 el motor
+respondía a la pregunta del navegador; ahora escribe en PostgreSQL y el
+navegador lee de ahí. Eso elimina la necesidad de tener un proceso Python
+vivo y a la escucha —que es lo que ningún tier gratuito ofrece bien— y
+convierte el primer escaneo en frío del bloque cripto, que rondaba el
+medio minuto, en la lectura de una fila ya calculada.
+
+- **El esquema, versionado** (`supabase/migrations/`). `0000_base_fase1.sql`
+  es un port literal de `backend/db/schema.sql` más `usuario_id` —
+  exactamente la columna que anticipaba el comentario de
+  `persistenciaCartera.js` («si en el futuro se soporta más de un usuario,
+  esta es la primera tabla que necesita esa columna»). `0001_catalogo.sql`
+  trae `activos`, `precios_diarios`, `indicadores_diarios` y `senales`.
+  Verificado aplicando las dos migraciones y la semilla sobre un
+  PostgreSQL limpio: 24 activos insertados, cero errores.
+
+- **`senales` es el payload de `/internal/scan` persistido**: mismos 20
+  campos, mismos nombres. Y la invariante que `test_contrato_scan.py`
+  verifica en Python se traduce a un `CHECK` de la base de datos
+  (`senales_contrato_operable`), así que `operable`, `leverage_recomendado`,
+  `sl` y `tp` son nulos o no nulos los cuatro a la vez **por ninguna vía de
+  escritura**: ni un ETL con un bug, ni un `INSERT` a mano en la consola.
+  Comprobado: un `INSERT` con `operable = true` y `tp = NULL` es rechazado.
+
+- **`precios_diarios.rango_real`**, la columna que no se puede olvidar.
+  `false` para las velas de cripto reconstruidas sin máximo y mínimo
+  reales. El CHANGELOG del 2026-09-20 midió lo que pasa si se ignora:
+  calcular el ATR sobre el frame completo **inflaba el ATR de BTC un 16 %**
+  y le cambiaba el tramo de volatilidad, es decir, cambiaba el
+  apalancamiento recomendado. Se blinda además con la vista
+  `v_velas_con_rango`, que es la única puerta legítima para calcular
+  indicadores: `select * from precios_diarios` para un ATR reintroduce el
+  bug en silencio.
+
+- **`motor-analitico/etl.py` y `escritor_supabase.py`**: el punto de
+  entrada del job y el adaptador de salida. Ninguno contiene lógica de
+  análisis — reutilizan `_escanear_ticker()` tal cual, que es lo que hace
+  que la decisión D2 («el motor no se toca») se cumpla de verdad. La
+  memoización de `_obtener_ohlcv` existe por una razón concreta: el ETL
+  necesita las velas dos veces —para escribir `precios_diarios` y dentro
+  de `_escanear_ticker`— y sin caché de pasada cada cripto costaría
+  **cuatro** llamadas a CoinGecko en vez de dos. Es el mismo error que ya
+  ocurrió en la Fase 1 y que disparaba el 429 en el último ticker del
+  universo; no se repite por la puerta de atrás del ETL.
+
+- **`motor-analitico/ventana_mercado.py`**, en su propio fichero por el
+  mismo criterio con que se separó `riesgo/rotacion.py`: es lógica pura y
+  dejarla dentro de `etl.py` obligaría a importar FastAPI, yfinance y los
+  conectores solo para comprobar si el sábado cuenta como día de mercado.
+
+- **Seis workflows.** `tests.yml` convierte la suite en puerta de merge;
+  `etl-acciones.yml` y `etl-cripto.yml` ejecutan el motor; `backfill.yml`
+  atiende el alta de un activo nuevo bajo demanda; `keep-alive.yml` hace
+  latido, respaldo y retención; `frontend.yml` compila y vigila.
+
+- **21 casos de prueba nuevos, sin red. 90 en total, todos en verde**, y
+  los 69 anteriores pasan sin tocar ni una línea de test. Los dos que de
+  verdad importan: que `rango_real` se decida **por fila y no por
+  proveedor** (una cripto tiene ~30 filas con rango real y cientos sin él,
+  en la misma tabla), y que la misma hora UTC dé respuestas distintas en
+  verano y en invierno — si ese segundo test se pusiera en rojo,
+  significaría que alguien sustituyó la conversión de zona por una
+  comparación en UTC, y el efecto sería invisible hasta el siguiente
+  cambio de hora.
+
+### Añadido — router y navegación en el frontend
+
+- **`App.jsx` pasa a ser el router** y el armazón de la Fase 1 se muda
+  intacto a `rutas/Escaner.jsx`. Los componentes **no cambian**:
+  `ScannerTable.jsx`, `MetricsStrip.jsx` y `formato.js` siguen recibiendo
+  exactamente la misma forma de objeto que devolvía
+  `GET /api/scanner/signals`, porque `datos/senales.js` la reconstruye
+  desde la vista `senales_vigentes`.
+
+- **Los módulos que no existen se declaran, no se esconden.** Cartera,
+  Simulador, Agentes y Admin aparecen en la navegación con su distintivo
+  de sprint —en latón, que en este sistema marca lo fijado por una
+  decisión— y una pantalla que dice qué habrá ahí y qué historias lo
+  entregan. Un enlace ausente del menú es indistinguible de un módulo que
+  nadie ha planificado.
+
+- **La cartera y el stream de eventos se declaran pendientes de migración**
+  cuando no hay backend alcanzable, en vez de reintentar contra
+  `localhost:3000` cada pocos segundos desde una URL pública.
+
+- Verificado con un build real: 100 módulos transformados, 447 KB de JS
+  (132 KB comprimido) y 33 KB de CSS.
+
+### Cambiado — el `.env`, los secretos y lo que el subtítulo dice
+
+- **Sigue habiendo un único `.env` en la raíz.** `vite.config.js` lleva
+  `envDir: ".."` a propósito: sin eso, Vite habría buscado su propio
+  `.env` en `frontend/` y habría reabierto exactamente el agujero del
+  `backend/.env` duplicado al que el README dedica una sección entera de
+  diagnóstico.
+
+- **`SESSION_SECRET` y `ANALYTICS_SERVICE_INTERNAL_TOKEN` no existen en la
+  nube** —no hay sesión de Express que firmar ni servicio interno que
+  autenticar— pero **se conservan en `.env.example`** porque
+  `backend/src/server.js` lanza una excepción al arrancar sin la primera,
+  y borrarlas de la plantilla rompería el desarrollo local antes de que
+  los Sprints 4 y 6 retiren esos servicios. El bloque está etiquetado
+  como «en retirada» y dice qué lo sustituye.
+
+- **El subtítulo de la barra superior decía «localhost»** desde el primer
+  commit. Con el dashboard servido desde una URL pública eso era
+  simplemente falso, y todo el sistema de diseño se sostiene sobre que lo
+  escrito coincida con lo que hace el código. Ahora sale de
+  `VITE_ENTORNO`.
+
+### Añadido — `.gitattributes`
+
+El árbol de trabajo llegó al Sprint 1 con `backend/src/server.js` y
+`motor-analitico/indicadores/tecnicos.py` marcados como modificados **sin
+un solo cambio de contenido**: 359 inserciones y 359 borrados de las
+mismas líneas. Era LF reescrito a CRLF por el editor o por la
+sincronización de OneDrive.
+
+En la Fase 1 eso era ruido molesto. En la Fase 2 es un problema real: la
+CI corre en Linux y los runners no comparten el `core.autocrlf` de la
+máquina de nadie. El repositorio fija LF. **Los dos ficheros sucios no
+están incluidos en ningún commit de este sprint** — ver el runbook para
+limpiarlos.
+
+### Corregido — el runbook no decía cómo subir el código a GitHub
+
+Los pasos 6, 7 y 8 del runbook daban por hecho que el código estaba en
+GitHub, pero **ningún paso lo subía**. La carpeta local no tenía remoto
+configurado y el repositorio de GitHub estaba vacío. De ahí salían dos
+síntomas que parecían problemas distintos:
+
+- Vercel solo ofrecía la raíz como *Root Directory*: no había ninguna
+  carpeta que ofrecer.
+- El paso 7 no podía ejecutarse: los workflows del ETL solo existían en
+  los commits locales, y GitHub solo muestra *Run workflow* para
+  workflows presentes en la rama por defecto.
+
+El runbook gana un **paso 5b** con la subida y un pull request de
+`fase-2/sprint-1` contra `master`. Ese PR es la primera ejecución real de
+las tres puertas de la CI —tests, frontend y migraciones— en el entorno
+de GitHub, y ninguna necesita secretos. Antes de escribir los comandos se
+comprobó que ninguna rama lleva un `.env`, que el historial no contiene
+secretos con forma real y que no se cuela ningún entorno virtual ni
+`node_modules`.
+
+### Cambiado — `vercel.json` a la raíz del repositorio
+
+El runbook pedía fijar *Root Directory = `frontend`* en el panel de
+Vercel. Ahora la configuración vive versionada en `vercel.json` en la
+raíz: instala y compila dentro de `frontend/`, sirve `frontend/dist`, y
+conserva las reescrituras SPA y las cabeceras de seguridad. *Root
+Directory* se queda en `./` y no hay que tocarlo. `frontend/vercel.json`
+se retira: dos ficheros de configuración para el mismo despliegue son
+dos fuentes de verdad, y Vercel solo lee el del *Root Directory*.
+
+Verificado simulando el build de Vercel desde la raíz, sin `.env` y con
+las `VITE_*` como variables de entorno: instala, compila, y las variables
+llegan al bundle aunque `envDir` apunte a una raíz sin `.env`, porque
+Vite las toma de `process.env`.
+
+### Añadido — `scripts/verificar_paso_7.sql`
+
+Consulta de solo lectura para el SQL Editor de Supabase que devuelve 15
+comprobaciones con su veredicto. Existe porque ni la máquina del dueño ni
+el entorno de trabajo pueden alcanzar Supabase directamente —la política
+de red lo bloquea en los dos lados— así que la verificación tiene que
+poder hacerla él en un paso y leerse sin interpretación.
+
+Distingue las tres situaciones que desde fuera parecen iguales («no veo
+datos»): el ETL nunca corrió, corrió y falló, o corrió bien. La
+comprobación 10 es la que importa: cada cripto debe tener ~30 velas con
+rango real y el resto reconstruidas. Si todas salen con rango real, el
+ATR se está calculando sobre velas sin recorrido intradía. Probada contra
+una base recién migrada y contra una pasada simulada correcta.
+
+### Cambiado — D3 firmada: no se cifra ningún importe
+
+La regla protegida nº7 de la Fase 1 («cualquier dato de cartera que se
+persista pasa por AES-256-GCM») queda **retirada en la Fase 2** por
+decisión del dueño, el 2026-09-20.
+
+El equipo proponía una excepción parcial: cifrar solo la cartera
+importada y dejar en claro los saldos ficticios del simulador. El dueño
+resolvió de forma más simple y más coherente: **en este sistema ningún
+importe es dinero real**, ni los del simulador ni los de la cartera. Si
+el dato no es real, cifrarlo no protege nada y sí cuesta bastante.
+
+- `cartera_posiciones` pasa de `precio_compra_cifrado text` y
+  `monto_cifrado text` a `precio_compra numeric(20,8)` y
+  `monto numeric(20,2)`, ambos con `CHECK` de rango.
+- Lo que se gana, comprobado: `select sum(monto)` funciona. Con importes
+  cifrados, el corte semanal de los agentes y el P&L habrían tenido que
+  descifrar la tabla entera en aplicación en cada evaluación, y además
+  habría sido imposible indexar u ordenar por importe.
+- `services/cifrado.js` deja de tener destino en la nube. Su último uso
+  es descifrar las filas que existan en el PostgreSQL local al migrarlas
+  (H-16); después, `PORTFOLIO_ENCRYPTION_KEY` se puede borrar.
+
+**La condición que sostiene la decisión** queda escrita en tres sitios —
+el comentario de la tabla, el doc 00 §4 y la regla nº7 del README — para
+quien la lea dentro de un año: el supuesto es que ningún importe
+corresponde a una posición real. Si algún día se cargan cifras reales de
+patrimonio, la decisión deja de ser válida y hay que revisarla ANTES de
+importarlas. Lo que queda protegiendo esos datos es RLS más el cifrado en
+reposo del proveedor: protege frente a terceros, no frente a una consulta
+autorizada. Por eso H-21 y H-33 obligan a decírselo al usuario en la
+propia pantalla.
+
+### Cambiado — la semilla pasa a ser una migración, y `psql` sale del arranque
+
+`supabase/seed.sql` se convierte en
+`supabase/migrations/0003_semilla_universo_fase1.sql`.
+
+El motivo inmediato fue práctico: `seed.sql` solo lo aplica
+`supabase db reset` en local, así que cargarlo en el proyecto remoto
+exigía `psql`, que en Windows no viene instalado. El arranque pedía
+instalar un cliente de PostgreSQL entero para insertar 24 filas.
+
+El argumento de fondo es mejor: esos 24 símbolos **no son datos de
+ejemplo**, son datos de referencia sin los cuales el ETL no tiene nada
+que escanear. Eso es exactamente lo que va en una migración. El
+`on conflict do nothing` la hace idempotente, así que reaplicarla nunca
+duplica ni pisa lo que el usuario haya cambiado desde la interfaz.
+
+Con esto, **todo el paso 3 del runbook es un solo `supabase db push`** y
+las verificaciones se hacen desde el SQL Editor del panel. `psql` ya no
+aparece en el camino crítico; solo lo usa `keep-alive.yml`, que corre en
+Linux.
+
+El runbook gana además una nota sobre el error más común aquí: la URL del
+proyecto (`https://<ref>.supabase.co`, para el cliente y el ETL) y la
+cadena de conexión (`postgresql://postgres:…@db.<ref>.supabase.co:5432/…`,
+para `psql` y `pg_dump`) son dos cosas distintas. `psql` habla el
+protocolo de PostgreSQL por el puerto 5432, no HTTPS: apuntarlo a la URL
+de la API no puede funcionar ni con el cliente instalado.
+
+### Añadido — puerta de migraciones, porque no hay staging
+
+Restricción descubierta al arrancar el despliegue: el tier gratuito de
+Supabase da **dos proyectos activos** y uno ya lo ocupa otra aplicación.
+El dashboard se queda con uno, que es producción. **No hay staging.**
+
+Eso cambia el modo de trabajo: cada migración que se mergea llega a
+producción sin escala intermedia, y el plan gratuito tampoco incluye
+recuperación a un punto en el tiempo, así que una migración destructiva
+no se deshace.
+
+- **`.github/workflows/migraciones.yml`** ocupa ese hueco. Levanta un
+  PostgreSQL 15 limpio en cada pull request, aplica las migraciones
+  **desde cero** junto con la semilla, y ejecuta doce invariantes.
+
+- **`supabase/pruebas/01_invariantes.sql`** las contiene, escritas con
+  `raise exception` en vez de con pgTAP para no añadir una dependencia.
+  Las que de verdad protegen algo: que el `CHECK` del contrato rechace
+  una señal incoherente en las dos direcciones; que `ratio_rr` calcule
+  `(tp−precio)/(precio−sl)`; que una señal no operable conserve
+  soporte y resistencia pero no tenga `sl`/`tp`; que
+  `v_velas_con_rango` deje fuera las velas reconstruidas; que ninguna
+  tabla se quede sin RLS; que ninguna `SECURITY DEFINER` se quede sin
+  `search_path`; y que la retención **nunca** borre una señal
+  referenciada por una orden.
+
+- **Verificado en negativo, que es lo que distingue una puerta de un
+  adorno**: quitar el `CHECK` del contrato, olvidar un
+  `ENABLE ROW LEVEL SECURITY` o resetear el `search_path` de una
+  `SECURITY DEFINER` ponen el job en rojo con el mensaje que nombra la
+  invariante rota.
+
+- **Las extensiones se separan a `0002_extensiones.sql`.** `pg_cron` y
+  `pg_net` son lo único del esquema que necesita un PostgreSQL de
+  Supabase y no vale uno cualquiera. Aislarlas es lo que permite aplicar
+  el resto sobre un Postgres limpio sin filtrar líneas con `sed` en la CI.
+
+### Detectado — dos hallazgos del presupuesto de cuotas
+
+Ninguno de los dos se ve diseñando sobre pizarra; los dos aparecen al
+poner números.
+
+- **La tabla `senales` con histórico completo revienta el tier gratuito en
+  menos de un año.** Con 150 activos y 48 pasadas diarias son ~2,6 M de
+  filas y ~600 MB, y Supabase da 500 MB. Sin corregirlo, el sistema
+  funciona seis meses y luego deja de escribir señales sin explicación
+  aparente. `fn_retencion_senales()` aplica una política por ventanas —30
+  días completos, un año comprimido a una señal por activo y día, después
+  se borra— con una excepción inviolable: **una señal referenciada por una
+  orden es evidencia del experimento y nunca se borra**. Verificado con
+  datos sintéticos: de 3 señales del mismo día a 60 días quedó 1, de 2
+  señales a 400 días quedó solo la atada a una orden.
+
+- **El ETL de cripto a 20 monedas por pasada excede los 2.000 min/mes de
+  GitHub Actions** (~2.880). Cada moneda cuesta dos llamadas con 6 s de
+  espaciado. El ETL prioriza: las criptos con una posición abierta se
+  actualizan en **todas** las pasadas; el resto rota por antigüedad de
+  `ultimo_etl_en`, máximo 5. Consumo total estimado del sistema:
+  **1.078 min/mes, el 54 % de la cuota.**
+
+### Detectado — pendiente de decisión
+
+- **D3 sigue abierta y es la que bloquea el Sprint 5**: si los importes
+  del simulador se cifran como exige la regla protegida nº7, el corte
+  semanal de los agentes no se puede evaluar en SQL. La recomendación del
+  equipo es no cifrar dinero ficticio y mantener el cifrado solo en la
+  cartera real importada. Rechazarla cuesta +21 puntos de estimación.
+- **La ventana de cron de acciones es ancha a propósito** (13:00-21:00 UTC)
+  y la decisión real la toma `ventana_mercado.py` en hora de Nueva York.
+  Los festivos de NYSE **no** se contemplan: en un festivo yfinance
+  devuelve la última sesión válida y la pasada reescribe la misma vela por
+  `UPSERT`. Es idempotente, pero conviene saberlo antes de investigar por
+  qué el 4 de julio hay una pasada que no cambió nada.
+
 ## [Sin publicar] - 2026-09-20
 
 ### Añadido — borrado de cartera, registro persistente y `.env.example`

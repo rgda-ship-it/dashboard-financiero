@@ -4,6 +4,12 @@ import Chip from "./ui/Chip.jsx";
 import { IconoRefrescar, IconoAyuda } from "./ui/Iconos.jsx";
 import { tiempoRelativo } from "../formato.js";
 
+// El subtítulo decía "localhost" desde el primer commit. Con el
+// dashboard servido desde una URL pública eso era simplemente falso, y
+// el sistema de diseño se sostiene sobre que lo que está escrito
+// coincide con lo que hace el código.
+const ENTORNO = import.meta.env.VITE_ENTORNO || "nube";
+
 /**
  * Barra superior: identidad a la izquierda, salud del sistema a la derecha.
  *
@@ -32,7 +38,7 @@ export default function StatusBar({ escaner, streamConectado, alAbrirGuia }) {
         <Marca />
         <div className="chrome__wordmark">
           <span className="chrome__title">Dashboard Financiero</span>
-          <span className="chrome__subtitle">Terminal personal · localhost</span>
+          <span className="chrome__subtitle">Terminal personal · {ENTORNO}</span>
         </div>
       </div>
 

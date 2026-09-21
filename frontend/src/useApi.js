@@ -1,7 +1,25 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { leerSenalesVigentes } from "./datos/senales.js";
 
-const API_BASE = "http://localhost:3000/api";
-const WS_URL = "ws://localhost:3000/ws/events";
+/**
+ * El backend Express de la Fase 1 sigue sirviendo la cartera y el stream
+ * de eventos, pero solo existe en localhost. En la nube no hay ningún
+ * proceso Node escuchando, así que estas dos URL son opcionales:
+ *
+ *   · cartera  -> se migra a Edge Functions y RPC en el Sprint 4 (H-21)
+ *   · eventos  -> se migra a Supabase Realtime en el Sprint 6 (H-32)
+ *
+ * Con `VITE_API_BASE` sin definir, los dos módulos se declaran pendientes
+ * de migración en la interfaz en vez de intentar una conexión que va a
+ * fallar. Un panel que dice "pendiente del Sprint 4" informa; un panel
+ * que reintenta contra localhost cada pocos segundos, no.
+ */
+const API_BASE = import.meta.env.VITE_API_BASE || null;
+const WS_URL = import.meta.env.VITE_WS_URL || null;
+
+const PENDIENTE_MIGRACION =
+  "Módulo pendiente de migración a la nube. En local, arranca el backend " +
+  "Node y define VITE_API_BASE en el .env de la raíz.";
 
 export function useEscaner() {
   const [senales, setSenales] = useState([]);
@@ -15,16 +33,16 @@ export function useEscaner() {
   const cargar = useCallback(async () => {
     setRefrescando(true);
     try {
-      const resp = await fetch(`${API_BASE}/scanner/signals`, {
-        credentials: "include",
-      });
-      if (!resp.ok) throw new Error(`API respondió ${resp.status}`);
-      const data = await resp.json();
-      setSenales(data.senales || []);
-      setDesdeCache(Boolean(data.desdeCache));
-      setMensaje(data.mensaje ?? null);
-      setUltimaActualizacion(data.ultimaActualizacion ?? null);
-      setError(null);
+      const resultado = await leerSenalesVigentes();
+      setSenales(resultado.senales);
+      // `desdeCache` pasa a significar "el dato es añejo". Se reutiliza el
+      // campo a propósito: StatusBar y ScannerTable ya saben pintar ese
+      // estado con su propio tratamiento visual, y en la Fase 1 significaba
+      // exactamente lo mismo — que lo que se ve no es de ahora mismo.
+      setDesdeCache(resultado.anejo);
+      setMensaje(resultado.aviso);
+      setUltimaActualizacion(resultado.calculadoEn);
+      setError(resultado.error);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,8 +53,12 @@ export function useEscaner() {
 
   useEffect(() => {
     cargar();
-    // Cadencia coherente con los rate limits de fuentes gratuitas (Sprint 2).
-    const intervalo = setInterval(cargar, 5 * 60 * 1000);
+    // Cadencia de RELECTURA, no de escaneo. Es una diferencia de fondo
+    // respecto a la Fase 1: antes cada refresco disparaba llamadas a
+    // Yahoo y CoinGecko desde el navegador y había que espaciarlas para
+    // no chocar con sus rate limits. Ahora quien habla con los
+    // proveedores es el ETL programado, y esto solo relee una tabla.
+    const intervalo = setInterval(cargar, 2 * 60 * 1000);
     return () => clearInterval(intervalo);
   }, [cargar]);
 
@@ -94,6 +116,25 @@ export function useEventLog() {
     let intentos = 0;
     let montado = true;
     let caidaAnunciada = false;
+
+    // Sin WebSocket configurado no hay nada a lo que conectarse: el
+    // servidor de eventos vive en el Express de localhost. Se deja un
+    // aviso en el propio stream y se sale, en vez de abrir un bucle de
+    // reconexión contra una URL que no existe.
+    if (!WS_URL) {
+      setEventos((prev) =>
+        prev.length
+          ? prev
+          : [
+              {
+                tipo: "sys",
+                mensaje: `[SYS] ${PENDIENTE_MIGRACION}`,
+                timestamp: new Date().toISOString(),
+              },
+            ]
+      );
+      return undefined;
+    }
 
     const agregar = (evento) =>
       setEventos((prev) => {
@@ -167,6 +208,7 @@ export function useCartera() {
   const nombreArchivo = useRef(null);
 
   const analizar = useCallback(async () => {
+    if (!API_BASE) throw new Error(PENDIENTE_MIGRACION);
     const resp = await fetch(`${API_BASE}/portfolio/analyze`, {
       credentials: "include",
     });
@@ -179,6 +221,12 @@ export function useCartera() {
     async (archivo, guardarPersistente) => {
       setCargando(true);
       setError(null);
+
+      if (!API_BASE) {
+        setError(PENDIENTE_MIGRACION);
+        setCargando(false);
+        return;
+      }
 
       const formData = new FormData();
       formData.append("archivo", archivo);
@@ -220,6 +268,7 @@ export function useCartera() {
    * era uno de los pendientes conocidos del README.
    */
   const restaurarCartera = useCallback(async () => {
+    if (!API_BASE) return setError(PENDIENTE_MIGRACION);
     setCargando(true);
     setError(null);
     try {
@@ -252,6 +301,10 @@ export function useCartera() {
    * interfaz exige una confirmación explícita antes de llamar aquí.
    */
   const borrarCartera = useCallback(async () => {
+    if (!API_BASE) {
+      setError(PENDIENTE_MIGRACION);
+      return false;
+    }
     setCargando(true);
     setError(null);
     try {

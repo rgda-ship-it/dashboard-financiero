@@ -1,0 +1,128 @@
+# Puerta de migraciones: la escala intermedia que no tenemos.
+#
+# POR QUÉ ESTE WORKFLOW ES CRÍTICO EN ESTE PROYECTO Y NO EN OTROS
+#
+# El tier gratuito de Supabase da dos proyectos activos. Uno lo ocupa
+# otra aplicación y el otro es producción del dashboard: **no hay
+# proyecto de staging**. Cada migración que se mergea a master llega a
+# producción sin escala intermedia, y el tier gratuito tampoco incluye
+# recuperación a un punto en el tiempo, así que una migración destructiva
+# no se deshace.
+#
+# Esto es lo que ocupa el lugar del staging: levanta un PostgreSQL 15
+# limpio, aplica las migraciones DESDE CERO junto con la semilla, y
+# ejecuta las doce invariantes del esquema. Si algo falla, la migración
+# no llega a master.
+#
+# Cuesta ~1 minuto por pull request.
+
+name: migraciones
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/migraciones.yml'
+  push:
+    branches: [master, 'fase-2/**']
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/migraciones.yml'
+  workflow_dispatch:
+
+jobs:
+  aplicar-desde-cero:
+    name: Migraciones desde cero + invariantes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        # 15 porque es la versión mayor que corre Supabase. Probar sobre
+        # 16 dejaría pasar sintaxis que allí fallaría.
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: prueba
+          POSTGRES_DB: dashboard_prueba
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    env:
+      PGURL: postgresql://postgres:prueba@localhost:5432/dashboard_prueba
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cliente de PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Dobles de lo que aporta Supabase
+        # auth.users y los tres roles. Nunca se aplican a un proyecto
+        # real: allí ya existen.
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/pruebas/00_stubs_supabase.sql
+
+      - name: Aplicar migraciones desde cero
+        run: |
+          # 0002_extensiones.sql se OMITE a propósito: pg_cron y pg_net
+          # solo existen en Supabase. Están en su propia migración
+          # justamente para que el resto del esquema sea verificable
+          # sobre un Postgres cualquiera, sin filtrar líneas con sed.
+          #
+          # La semilla del universo (0003) SÍ se aplica: es una migración
+          # como las demás porque son datos de referencia, no de ejemplo.
+          for f in supabase/migrations/*.sql; do
+            case "$(basename "$f")" in
+              0002_extensiones.sql)
+                echo "  omitida  $(basename "$f")  (necesita Supabase)"
+                continue ;;
+            esac
+            echo "  aplicando $(basename "$f")"
+            psql "$PGURL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Invariantes del esquema
+        run: |
+          psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/pruebas/01_invariantes.sql 2>&1 | tee /tmp/invariantes.log
+          # `psql` devuelve 0 aunque un RAISE NOTICE diga FALLO, así que
+          # se comprueba el texto además del código de salida. Un
+          # `raise exception` sí pone el código a 3, pero esta red extra
+          # cuesta una línea.
+          if grep -q "FALLO" /tmp/invariantes.log; then
+            echo "::error::Alguna invariante del esquema no se cumple."
+            exit 1
+          fi
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "### Migraciones aplicadas desde cero"
+            echo ""
+            echo '```'
+            sed 's/^psql:[^ ]* //' /tmp/invariantes.log 2>/dev/null | grep -E "PASS|FALLO|──" || echo "sin resultados"
+            echo '```'
+            echo ""
+            echo "> No hay proyecto de staging: el tier gratuito da dos proyectos"
+            echo "> y ambos están ocupados. Esta comprobación es la única validación"
+            echo "> automática entre un pull request y producción."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Estado final del esquema
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "**Tablas creadas**"
+            echo ""
+            echo '```'
+            psql "$PGURL" -c "\dt public.*" 2>/dev/null || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

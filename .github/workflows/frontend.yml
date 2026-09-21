@@ -1,0 +1,91 @@
+# Build del frontend + PUERTA ANTI-FUGA de la clave de servicio (H-07).
+#
+# El paso `fuga-service-role` es el más importante de este fichero. La
+# `service_role key` de Supabase ELUDE ROW LEVEL SECURITY por diseño:
+# publicarla en un bundle de JavaScript expone la base de datos entera,
+# con permiso de escritura, a cualquiera que abra las herramientas de
+# desarrollo. Es un error de una sola línea —copiar la variable
+# equivocada en Vercel— y la única defensa fiable es automática.
+#
+# El frontend usa EXCLUSIVAMENTE la `anon key`, que es pública por
+# diseño y está protegida por RLS.
+
+name: frontend
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master, 'fase-2/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build y puerta anti-fuga
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: frontend
+        run: npm ci
+
+      - name: Compilar
+        working-directory: frontend
+        env:
+          # Valores de relleno: el build solo necesita que existan. La
+          # URL y la anon key reales las inyecta Vercel en su propio
+          # build, no este workflow.
+          VITE_SUPABASE_URL: https://ejemplo.supabase.co
+          VITE_SUPABASE_ANON_KEY: anon-de-relleno-para-el-build
+        run: npm run build
+
+      - name: Puerta anti-fuga de la clave de servicio
+        working-directory: frontend
+        env:
+          CLAVE_SERVICIO: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          fallo=0
+
+          # 1. La cadena literal "service_role" no tiene ningún motivo
+          #    para aparecer en un bundle de cliente.
+          if grep -rIl "service_role" dist/ 2>/dev/null; then
+            echo "::error::Aparece 'service_role' en dist/. El frontend solo debe usar la anon key."
+            fallo=1
+          fi
+
+          # 2. Y si el secreto está configurado en el repositorio, se
+          #    busca su valor exacto. Nunca se imprime: solo se dice en
+          #    qué fichero aparece.
+          if [ -n "$CLAVE_SERVICIO" ]; then
+            if grep -rIlF "$CLAVE_SERVICIO" dist/ 2>/dev/null; then
+              echo "::error::La service_role key REAL está en el bundle. No desplegar."
+              fallo=1
+            fi
+          else
+            echo "::notice::SUPABASE_SERVICE_ROLE_KEY no está configurada como secreto; solo se comprobó la cadena 'service_role'."
+          fi
+
+          if [ "$fallo" -eq 1 ]; then
+            exit 1
+          fi
+          echo "Sin fugas detectadas en dist/."
+
+      - name: Tamaño del bundle
+        working-directory: frontend
+        run: |
+          {
+            echo "### Bundle"
+            echo ""
+            echo '```'
+            du -ah dist/assets 2>/dev/null | sort -h | tail -10
+            echo '```'
+            echo ""
+            echo "Total: $(du -sh dist | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"

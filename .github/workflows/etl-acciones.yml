@@ -1,0 +1,63 @@
+# ETL de acciones: el motor analítico como job programado.
+#
+# LA VENTANA DE CRON ES ANCHA A PROPÓSITO. Los cron de GitHub Actions se
+# evalúan en UTC y no entienden el horario de verano, así que una ventana
+# ajustada acertaría seis meses al año y se desplazaría una hora los
+# otros seis. La decisión real la toma `motor-analitico/ventana_mercado.py`
+# en hora de Nueva York, y una pasada fuera de sesión termina en segundos
+# sin consultar a ningún proveedor.
+#
+# Presupuesto (doc 02 §6.2): ~18 disparos/día × 21 días de mercado, de los
+# que solo ~13 hacen trabajo real. Estimado ~300 min/mes de los 2.000 del
+# tier gratuito para un repositorio privado.
+
+name: etl-acciones
+
+on:
+  schedule:
+    # Cada 30 min entre las 13:00 y las 21:00 UTC, de lunes a viernes.
+    # Cubre la sesión completa tanto en EDT (13:30-20:00 UTC) como en EST
+    # (14:30-21:00 UTC).
+    - cron: '0,30 13-21 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      forzar:
+        description: 'Ignorar el horario de mercado'
+        type: boolean
+        default: false
+
+# Una pasada a la vez: dos ETL concurrentes sobre el mismo universo
+# duplicarían las llamadas al proveedor sin añadir ni un dato.
+concurrency:
+  group: etl-acciones
+  cancel-in-progress: false
+
+jobs:
+  escanear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - run: pip install -r motor-analitico/requirements.txt
+
+      - name: Escanear y escribir
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # El tope duro de apalancamiento. Se pasa explícito y no por
+          # defecto del código: es la regla protegida nº1 y tiene que ser
+          # visible en el workflow, no escondida en un valor por omisión.
+          LEVERAGE_HARD_CAP_FASE1: '5'
+          # Sin esto, una señal de hace tres semanas no es interpretable:
+          # no se sabe con qué umbrales se calculó.
+          VERSION_MOTOR: ${{ github.sha }}
+        run: |
+          python etl.py --clase accion ${{ inputs.forzar && '--forzar' || '' }}

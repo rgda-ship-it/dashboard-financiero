@@ -1,0 +1,57 @@
+# Puerta de merge: los 69 casos de prueba de la Fase 1.
+#
+# Por qué esto va primero en el Sprint 1: esas 69 pruebas son lo que
+# protege las ocho reglas de riesgo del README —el tope duro de
+# apalancamiento, el sesgo solo-largo, el drawdown medido desde el pico,
+# el modo degradado hacia el riesgo mínimo—. En la Fase 1 se corrían a
+# mano. Un proyecto en la nube con agentes operando solos no puede
+# depender de que alguien recuerde ejecutar pytest.
+#
+# Un PR que rompa una regla protegida NO se puede mergear.
+
+name: tests
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master, 'fase-2/**']
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  motor-analitico:
+    name: Motor analítico (69 casos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Python 3.12 y no más nuevo: pandas-ta no se actualiza desde 2021
+      # y parte del stack científico falla al compilar numpy en 3.13/3.14
+      # (documentado en el README de la Fase 1).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - name: Instalar dependencias
+        run: pip install -r motor-analitico/requirements.txt
+
+      - name: Ejecutar la suite
+        working-directory: motor-analitico
+        run: pytest tests/ -v --tb=short --junitxml=../resultados.xml
+
+      - name: Resumen en el job
+        if: always()
+        run: python scripts/resumen_tests.py resultados.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-tests
+          path: resultados.xml
+          retention-days: 14

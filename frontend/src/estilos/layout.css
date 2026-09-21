@@ -156,3 +156,113 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ── Navegación entre módulos (Fase 2) ───────────────────────────────
+ *
+ * La Fase 1 era una sola pantalla y no tenía navegación. Esta tira vive
+ * dentro de `.main` y no en la barra superior fija a propósito: la barra
+ * solo puede contener lo que el analista necesita saber EN TODO MOMENTO
+ * —si el dato es de ahora o está añejo, cuándo fue el último escaneo— y
+ * añadirle cinco enlaces la convertiría en un menú.
+ *
+ * Ningún valor literal: todo sale de tokens.css.
+ */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.nav__enlace {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--tx-3);
+  transition: color var(--dur-1) var(--ease),
+              background var(--dur-1) var(--ease),
+              border-color var(--dur-1) var(--ease);
+}
+
+.nav__enlace:hover {
+  color: var(--tx-1);
+  background: var(--ink-850);
+  border-color: var(--line-2);
+}
+
+/* El cian es estructural: marca, foco, y lo que está vivo ahora mismo.
+   El módulo en el que estás es exactamente eso. */
+.nav__enlace.is-activa {
+  color: var(--acc-300);
+  background: var(--acc-soft);
+  border-color: var(--acc-line);
+}
+
+.nav__enlace--pendiente {
+  color: var(--tx-4);
+}
+
+.nav__enlace--pendiente:hover {
+  color: var(--tx-2);
+}
+
+/* El distintivo del sprint va en latón, no en gris: el latón marca en
+   este sistema lo que está fijado por una decisión y no se negocia sobre
+   la marcha, igual que el remache del tope duro de apalancamiento. */
+.nav__sprint {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  padding: 1px var(--sp-1);
+  border-radius: var(--r-xs);
+  color: var(--brass-400);
+  background: var(--brass-soft);
+  border: 1px solid var(--brass-line);
+}
+
+/* ── Prosa dentro de un panel ────────────────────────────────────────
+ * Para los módulos que todavía no existen y para cualquier texto
+ * explicativo que no sea una cifra ni una tabla.
+ */
+
+.prosa {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  line-height: 1.65;
+  color: var(--tx-2);
+  max-width: 68ch;
+  margin: 0 0 var(--sp-4);
+}
+
+.prosa--etiqueta {
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--tx-4);
+  margin-bottom: var(--sp-2);
+}
+
+.prosa--lista {
+  margin: 0;
+  padding-left: var(--sp-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--tx-3);
+}
+
+.prosa--lista li {
+  margin-bottom: var(--sp-1);
+}
