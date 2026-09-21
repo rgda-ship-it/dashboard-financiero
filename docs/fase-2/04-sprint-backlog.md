@@ -313,9 +313,13 @@ la interfaz.
 - `ENABLE ROW LEVEL SECURITY` en **todas** las tablas de `public`, sin excepción.
 - Políticas según la matriz del doc A §6.2.
 - Revocar `INSERT`/`UPDATE`/`DELETE` a `authenticated` en `ordenes` y `movimientos_saldo`: solo RPC.
+- **Retirar las cuatro políticas `*_temporal_h14`** de la migración 0005 (lectura pública de `activos`, `senales`, `precios_diarios`, `indicadores_diarios`), que mantienen el escáner visible sin login hasta este sprint por decisión del dueño (2026-09-21).
+- Endurecer la invariante I14 a su forma final: **ninguna** política concede nada a `anon`.
+- Toda vista nueva con `security_invoker = true` (la invariante I13 ya lo exige: sin ello una vista se salta la RLS, que es el fallo que se detectó en producción el 2026-09-21).
 
 **Criterios de aceptación** *(se ejecutan con `curl`, no desde la UI)*
 - Un JWT de usuario `pendiente` recibe **0 filas** de `activos`, `senales`, `precios_diarios`, `ordenes` y `agentes`.
+- Sin JWT (clave `anon` sola) tampoco se lee nada: `select * from pg_policies where policyname like '%temporal_h14%'` devuelve cero filas.
 - El usuario A no ve ni una fila de `carteras` del usuario B.
 - Un `INSERT` directo en `movimientos_saldo` desde `authenticated` es **rechazado**.
 - Una tabla sin política de RLS hace fallar un test que recorre `pg_tables` y comprueba `rowsecurity = true`.
