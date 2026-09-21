@@ -44,6 +44,7 @@ from escritor_supabase import (  # noqa: E402
     filas_precios,
 )
 from indicadores.tecnicos import calcular_indicadores  # noqa: E402
+from seleccion_universo import Seleccion, seleccionar  # noqa: E402
 from ventana_mercado import mercado_abierto  # noqa: E402
 
 # Tras 3 fallos seguidos, el activo pasa a 'suspendido' y deja de
@@ -107,22 +108,20 @@ def _registrar_cripto_del_catalogo(activos: list[dict]) -> None:
 # Selección del universo de la pasada
 # ─────────────────────────────────────────────────────────────────────────
 def seleccionar_activos(
-    cliente: ClienteSupabase, clase: str | None, simbolo: str | None, tope: int | None
-) -> list[dict]:
-    """Decide qué activos entran en esta pasada.
+    cliente: ClienteSupabase,
+    clase: str | None,
+    simbolo: str | None,
+    tope: int | None,
+    ignorar_frescura: bool = False,
+) -> Seleccion:
+    """Trae el universo de la clase y delega la decisión en
+    `seleccion_universo.seleccionar()`, que es lógica pura y tiene sus
+    propios tests (backoff, frescura, prioridad por posición y tope).
 
-    Para cripto el orden NO es arbitrario: es la priorización que hace que
-    el presupuesto de cuota cuadre (doc 02 §6.2). Cada moneda cuesta dos
-    llamadas con 6 s de espaciado, así que recorrer 20 criptos en cada
-    pasada serían ~4 minutos y 2.880 min/mes — por encima de los 2.000 del
-    tier gratuito de GitHub Actions.
-
-    Prioridad:
-      1. Activos con una posición abierta. Un TP o un SL vigilándose no
-         puede depender de un precio de hace tres horas.
-      2. El resto, por antigüedad de `ultimo_etl_en` (los nulos primero).
+    Un backfill (`--simbolo`) no pasa por ninguna regla: alguien acaba de
+    pedir ese activo y lo quiere ahora.
     """
-    campos = "id,simbolo,clase,proveedor,id_proveedor,estado,intentos"
+    campos = "id,simbolo,clase,proveedor,id_proveedor,estado,intentos,ultimo_etl_en,proximo_intento_en"
 
     if simbolo:
         filas = cliente.seleccionar(
@@ -130,42 +129,24 @@ def seleccionar_activos(
         )
         if not filas:
             raise SystemExit(f"El símbolo {simbolo} no está en el catálogo.")
-        return filas
+        return Seleccion(procesar=filas)
 
+    # `suspendido` entra en la consulta a propósito: la regla de backoff
+    # decide cuándo se reintenta. Antes quedaba fuera y un activo
+    # suspendido no volvía nunca.
     params = {
         "select": campos,
-        "estado": "in.(activo,pendiente_backfill)",
-        "order": "ultimo_etl_en.asc.nullsfirst",
+        "estado": "in.(activo,pendiente_backfill,suspendido)",
     }
     if clase:
         params["clase"] = f"eq.{clase}"
 
-    candidatos = cliente.seleccionar("activos", params)
-
-    # Backoff: no se reintenta antes de la hora marcada.
-    ahora = datetime.now(timezone.utc)
-    pendientes = cliente.seleccionar(
-        "activos", {"select": "id,proximo_intento_en", "proximo_intento_en": "not.is.null"}
+    return seleccionar(
+        cliente.seleccionar("activos", params),
+        ids_con_posicion=_ids_con_posicion_abierta(cliente),
+        tope=tope,
+        ignorar_frescura=ignorar_frescura,
     )
-    espera = {
-        f["id"]: f["proximo_intento_en"]
-        for f in pendientes
-        if f.get("proximo_intento_en")
-    }
-    candidatos = [
-        a
-        for a in candidatos
-        if a["id"] not in espera
-        or datetime.fromisoformat(espera[a["id"]].replace("Z", "+00:00")) <= ahora
-    ]
-
-    if tope:
-        con_posicion = _ids_con_posicion_abierta(cliente)
-        prioritarios = [a for a in candidatos if a["id"] in con_posicion]
-        resto = [a for a in candidatos if a["id"] not in con_posicion]
-        candidatos = prioritarios + resto[: max(0, tope - len(prioritarios))]
-
-    return candidatos
 
 
 def _ids_con_posicion_abierta(cliente: ClienteSupabase) -> set[int]:
@@ -328,7 +309,7 @@ def main() -> int:
     parser.add_argument(
         "--forzar",
         action="store_true",
-        help="Ignora el horario de mercado (para un backfill manual)",
+        help="Ignora el horario de mercado y la ventana de frescura (backoff sí se respeta)",
     )
     args = parser.parse_args()
 
@@ -357,10 +338,25 @@ def main() -> int:
             return 0
 
     cliente = ClienteSupabase.desde_entorno()
-    activos = seleccionar_activos(cliente, args.clase, args.simbolo, args.tope)
+    seleccion = seleccionar_activos(
+        cliente, args.clase, args.simbolo, args.tope, ignorar_frescura=args.forzar
+    )
+    activos = seleccion.procesar
+
+    def omitidos(etiqueta, filas):
+        if filas:
+            resumen.append(f"- {etiqueta}: {', '.join(f['simbolo'] for f in filas)}")
 
     if not activos:
-        resumen.append("### ETL — sin activos que procesar")
+        # Una pasada sin trabajo NO es un fallo: es lo que ocurre cuando se
+        # repite a mano o GitHub reintenta. Termina sin una sola llamada al
+        # proveedor, que es justo el criterio de H-09.
+        resumen.append(f"### ETL {args.clase or 'universo'} — nada que hacer")
+        resumen.append("")
+        resumen.append("Ninguna llamada a proveedores en esta pasada.")
+        resumen.append("")
+        omitidos("Omitidos por frescura (procesados hace poco)", seleccion.frescos)
+        omitidos("En espera por backoff", seleccion.en_espera)
         emitir_resumen()
         return 0
 
@@ -399,6 +395,9 @@ def main() -> int:
     )
     resumen.append(f"- Duración: **{duracion:.0f}s**")
     resumen.append(f"- Versión del motor: `{version_motor}`")
+    omitidos("Omitidos por frescura (procesados hace poco)", seleccion.frescos)
+    omitidos("En espera por backoff", seleccion.en_espera)
+    omitidos("Fuera del tope de esta pasada (rotan a la siguiente)", seleccion.fuera_de_tope)
     resumen.append("")
     resumen.append("| Activo | Resultado | Detalle |")
     resumen.append("|---|---|---|")
