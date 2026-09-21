@@ -1,0 +1,31 @@
+-- ─────────────────────────────────────────────────────────────────────
+-- 0004 — Las vistas respetan la RLS de sus tablas.
+--
+-- FALLO DETECTADO EN PRODUCCIÓN EL 2026-09-21, al abrir la web pública
+-- recién desplegada en Vercel.
+--
+-- Las tablas del catálogo tienen RLS activada y sin políticas, así que
+-- la clave pública (`anon`) no debería leer nada: y así era, las cinco
+-- tablas devolvían 0 filas. Pero las dos vistas devolvían TODO:
+--
+--   senales_vigentes   ->  24 filas
+--   v_velas_con_rango  ->  10.590 filas
+--
+-- Motivo: en PostgreSQL una vista se ejecuta, por defecto, con los
+-- permisos de su PROPIETARIO. El propietario es `postgres`, dueño de las
+-- tablas, y el dueño de una tabla no está sujeto a su RLS. La vista se
+-- convierte así en una puerta lateral que se salta la política.
+--
+-- Hoy lo expuesto eran datos de mercado públicos, así que el daño es
+-- nulo. El riesgo real era el PATRÓN: el Sprint 5 y el 6 crean vistas
+-- sobre datos de usuario (v_cuentas_equity, v_operaciones_agentes...) y
+-- habrían heredado exactamente este agujero.
+--
+-- `security_invoker = true` (PostgreSQL 15+) hace que la vista se evalúe
+-- con los permisos de QUIEN CONSULTA, y la RLS se aplica. A partir de
+-- aquí toda vista nueva lo lleva, y la invariante I13 de
+-- supabase/pruebas/01_invariantes.sql falla la CI si alguna no lo lleva.
+-- ─────────────────────────────────────────────────────────────────────
+
+alter view public.senales_vigentes  set (security_invoker = true);
+alter view public.v_velas_con_rango set (security_invoker = true);

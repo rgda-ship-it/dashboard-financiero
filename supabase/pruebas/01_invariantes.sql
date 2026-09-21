@@ -193,6 +193,43 @@ begin
     end if;
     raise notice 'PASS  I9  toda SECURITY DEFINER fija su search_path';
 
+    -- ── 13. Ninguna vista se salta la RLS ────────────────────────────
+    -- Añadida el 2026-09-21 tras detectar en producción que las dos
+    -- vistas del catálogo devolvían todas sus filas a la clave pública
+    -- mientras las tablas, correctamente, no devolvían ninguna. Una vista
+    -- sin security_invoker se ejecuta con los permisos de su propietario,
+    -- que es el dueño de las tablas y no está sujeto a su RLS. I8 miraba
+    -- solo tablas; esta mira las vistas.
+    select string_agg(c.relname, ', ') into v_texto
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public'
+       and c.relkind = 'v'
+       and not coalesce(
+             (select option_value::boolean
+                from pg_options_to_table(c.reloptions)
+               where option_name = 'security_invoker'), false);
+    if v_texto is not null then
+        raise exception 'I13 FALLO: vistas sin security_invoker (se saltan la RLS) -> %', v_texto;
+    end if;
+    raise notice 'PASS  I13 ninguna vista de public se salta la RLS (todas con security_invoker)';
+
+    -- ── 14. La lectura pública se limita a datos de mercado ──────────
+    -- La migración 0005 abre la lectura a `anon` de forma explícita y
+    -- temporal, SOLO sobre las cuatro tablas de mercado. Si una política
+    -- que conceda algo a `anon` aparece en cualquier otra tabla —la
+    -- cartera, el consentimiento, los eventos, y en sprints futuros las
+    -- órdenes y los saldos—, esto pone la CI en rojo.
+    select string_agg(distinct tablename, ', ') into v_texto
+      from pg_policies
+     where schemaname = 'public'
+       and 'anon' = any(roles)
+       and tablename not in ('activos', 'senales', 'precios_diarios', 'indicadores_diarios');
+    if v_texto is not null then
+        raise exception 'I14 FALLO: política con acceso público fuera de los datos de mercado -> %', v_texto;
+    end if;
+    raise notice 'PASS  I14 la lectura pública se limita a las cuatro tablas de mercado';
+
     raise notice '── Invariantes: todas en verde ──';
 end
 $inv$;
