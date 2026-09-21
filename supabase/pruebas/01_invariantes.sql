@@ -214,6 +214,22 @@ begin
     end if;
     raise notice 'PASS  I13 ninguna vista de public se salta la RLS (todas con security_invoker)';
 
+    -- ── 14. La lectura pública se limita a datos de mercado ──────────
+    -- La migración 0005 abre la lectura a `anon` de forma explícita y
+    -- temporal, SOLO sobre las cuatro tablas de mercado. Si una política
+    -- que conceda algo a `anon` aparece en cualquier otra tabla —la
+    -- cartera, el consentimiento, los eventos, y en sprints futuros las
+    -- órdenes y los saldos—, esto pone la CI en rojo.
+    select string_agg(distinct tablename, ', ') into v_texto
+      from pg_policies
+     where schemaname = 'public'
+       and 'anon' = any(roles)
+       and tablename not in ('activos', 'senales', 'precios_diarios', 'indicadores_diarios');
+    if v_texto is not null then
+        raise exception 'I14 FALLO: política con acceso público fuera de los datos de mercado -> %', v_texto;
+    end if;
+    raise notice 'PASS  I14 la lectura pública se limita a las cuatro tablas de mercado';
+
     raise notice '── Invariantes: todas en verde ──';
 end
 $inv$;
