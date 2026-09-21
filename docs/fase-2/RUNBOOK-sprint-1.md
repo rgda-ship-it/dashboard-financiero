@@ -201,6 +201,61 @@ en localhost.
 
 ---
 
+## Paso 5b — Subir el código a GitHub
+
+> **Añadido el 2026-09-21.** La primera versión de este runbook no lo
+> incluía, y los pasos 6, 7 y 8 lo daban por hecho: sin código en GitHub
+> no hay workflows que lanzar en el paso 7 ni carpetas que Vercel pueda
+> ofrecer en el 8. Era un hueco del runbook, no un error tuyo.
+
+Tu repositorio de GitHub está **vacío**, así que es una subida limpia: no
+hay nada que forzar ni que fusionar. Antes de escribir estas líneas se
+comprobó que ninguna rama contiene un `.env`, que el historial no lleva
+secretos con forma real, y que no se cuela ningún entorno virtual ni
+`node_modules`: 63 ficheros en `master`, 108 en la rama del sprint,
+menos de 1 MB.
+
+GitHub te muestra la URL en la propia página del repositorio vacío, bajo
+*«…or push an existing repository from the command line»*. En
+PowerShell:
+
+```powershell
+cd C:\Users\ramir\OneDrive\Documentos\project\dashboard-financiero
+git remote add origin https://github.com/<TU_USUARIO>/<TU_REPO>.git
+git push -u origin master
+git push -u origin fase-2/sprint-1
+```
+
+**`master` primero, y a propósito**: la primera rama que llega a un
+repositorio vacío se convierte en la rama por defecto, y los siete
+workflows apuntan a `master`.
+
+### El pull request: la primera ejecución real de la CI
+
+Tras el segundo `push`, GitHub mostrará un aviso *«fase-2/sprint-1 had
+recent pushes»* con un botón **Compare & pull request**. Ábrelo contra
+`master`.
+
+Se lanzan solas **tres comprobaciones**, y ninguna necesita secretos:
+
+| Check | Qué demuestra |
+|-------|---------------|
+| **Motor analítico (69 casos)** | Los 90 casos en verde en Linux, no solo en mi entorno |
+| **Build y puerta anti-fuga** | El frontend compila y no lleva la clave de servicio |
+| **Migraciones desde cero + invariantes** | El esquema se aplica limpio y cumple las 12 invariantes |
+
+Es la primera vez que todo lo verificado en local se comprueba en el
+entorno real de GitHub. **Cuando las tres estén en verde → Merge pull
+request.** Si alguna falla, no fusiones: pásame el log.
+
+> **Por qué no basta con subir la rama.** Los workflows programados —el
+> ETL cada 30 minutos, el latido semanal— **solo corren desde la rama por
+> defecto**, y el botón *Run workflow* del paso 7 solo aparece para
+> workflows que existen en ella. Hasta que el PR no se fusione en
+> `master`, el paso 7 no tiene nada que lanzar.
+
+---
+
 ## Paso 6 — Los secretos de GitHub
 
 Repositorio → **Settings → Secrets and variables → Actions → New
@@ -225,7 +280,11 @@ tickers y, por cada uno, el número de velas y si quedó operable.
 
 Luego lo mismo con **etl-cripto** (sin marcar nada).
 
-**Verificación** — otra vez en el **SQL Editor** del panel:
+**Verificación** — pega el contenido de `scripts/verificar_paso_7.sql`
+en el **SQL Editor** del panel. Devuelve 15 comprobaciones con su
+veredicto y distingue las tres situaciones que desde fuera parecen
+iguales: el ETL nunca corrió, corrió y falló, o corrió bien. Si prefieres
+mirar a mano, estas son las consultas clave:
 
 ```sql
 -- Los 24 activos deben haber pasado a 'activo'.
@@ -259,23 +318,44 @@ traducción y hay que entenderlo **antes** de seguir al Sprint 2.
 
 ## Paso 8 — Vercel
 
-[vercel.com](https://vercel.com) → **Add New → Project** → importar el
-repositorio.
+> **Cambiado el 2026-09-21.** La versión anterior pedía fijar *Root
+> Directory = `frontend`*. Ya no hace falta: la configuración vive en
+> `vercel.json` en la **raíz** del repositorio, versionada, y le dice a
+> Vercel que instale y compile dentro de `frontend/` y que sirva
+> `frontend/dist`. Un ajuste de interfaz que se puede elegir mal pasa a
+> ser un fichero que revisa la CI.
+
+Si ya importaste el proyecto con el repositorio vacío, no hace falta
+borrarlo: basta con revisar estos ajustes en **Settings → General** y
+**Settings → Build & Deployment**.
 
 | Ajuste | Valor |
 |--------|-------|
-| **Root Directory** | `frontend` ← **imprescindible**: `vercel.json` vive ahí |
-| Framework Preset | Vite (se detecta solo) |
-| Build Command | `npm run build` |
-| Output Directory | `dist` |
+| **Root Directory** | `./` — **no lo cambies** |
+| Framework Preset | *Other* |
+| Build / Output / Install Command | Déjalos sin sobrescribir: manda `vercel.json` |
 
-**Environment Variables** — solo tres, y ninguna es la de servicio:
+**Environment Variables** — solo tres, ninguna es la de servicio, y
+**marca los tres entornos** (Production, Preview, Development) para que
+también funcionen las previsualizaciones de cada PR:
 
 | Nombre | Valor |
 |--------|-------|
 | `VITE_SUPABASE_URL` | Project URL |
 | `VITE_SUPABASE_ANON_KEY` | clave `anon` |
 | `VITE_ENTORNO` | `nube` |
+
+### Lo que vas a ver, en orden
+
+1. **Al subir `master`**, Vercel intentará desplegarla y **fallará**. Es
+   lo esperado: `master` todavía es la Fase 1 y no tiene `vercel.json`
+   en la raíz. No hay que hacer nada.
+2. **Al subir `fase-2/sprint-1`**, Vercel crea una **previsualización**
+   de esa rama, que sí tiene la configuración nueva. Esa URL de
+   previsualización ya debería mostrar el dashboard: es la prueba de que
+   el despliegue funciona **antes** de fusionar.
+3. **Al fusionar el PR**, `master` pasa a tener `vercel.json` y el
+   despliegue de producción se arregla solo.
 
 ---
 
@@ -331,6 +411,7 @@ Esto es lo que convierte los tests en una puerta y no en una costumbre.
 
 | Historia | Criterio | ✓ |
 |----------|----------|---|
+| — | El código está en GitHub y el PR de `fase-2/sprint-1` se fusionó con los tres checks en verde | ☐ |
 | H-01 | `supabase db push` reconstruye el esquema sin pasos manuales | ☐ |
 | H-01 | El workflow `migraciones` está en verde en la rama | ☐ |
 | H-01 | `activos` tiene 24 filas tras la semilla | ☐ |

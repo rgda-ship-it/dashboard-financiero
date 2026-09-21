@@ -27,6 +27,7 @@ dashboard-financiero/
 ├── .gitattributes             # LF en el repositorio (cierra el ruido CRLF de Windows)
 ├── .gitignore                 # Protege .env y artefactos generados
 ├── README.md                  # Este archivo
+├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 90 casos como puerta de merge
@@ -98,7 +99,6 @@ dashboard-financiero/
     ├── package.json
     ├── vite.config.js
     ├── index.html              # Carga las dos familias tipográficas del sistema
-    ├── vercel.json          # FASE 2 — SPA fallback y cabeceras de seguridad
     └── src/
         ├── main.jsx
         ├── App.jsx             # FASE 2 — router de los seis módulos

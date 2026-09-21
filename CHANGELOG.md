@@ -136,6 +136,57 @@ máquina de nadie. El repositorio fija LF. **Los dos ficheros sucios no
 están incluidos en ningún commit de este sprint** — ver el runbook para
 limpiarlos.
 
+### Corregido — el runbook no decía cómo subir el código a GitHub
+
+Los pasos 6, 7 y 8 del runbook daban por hecho que el código estaba en
+GitHub, pero **ningún paso lo subía**. La carpeta local no tenía remoto
+configurado y el repositorio de GitHub estaba vacío. De ahí salían dos
+síntomas que parecían problemas distintos:
+
+- Vercel solo ofrecía la raíz como *Root Directory*: no había ninguna
+  carpeta que ofrecer.
+- El paso 7 no podía ejecutarse: los workflows del ETL solo existían en
+  los commits locales, y GitHub solo muestra *Run workflow* para
+  workflows presentes en la rama por defecto.
+
+El runbook gana un **paso 5b** con la subida y un pull request de
+`fase-2/sprint-1` contra `master`. Ese PR es la primera ejecución real de
+las tres puertas de la CI —tests, frontend y migraciones— en el entorno
+de GitHub, y ninguna necesita secretos. Antes de escribir los comandos se
+comprobó que ninguna rama lleva un `.env`, que el historial no contiene
+secretos con forma real y que no se cuela ningún entorno virtual ni
+`node_modules`.
+
+### Cambiado — `vercel.json` a la raíz del repositorio
+
+El runbook pedía fijar *Root Directory = `frontend`* en el panel de
+Vercel. Ahora la configuración vive versionada en `vercel.json` en la
+raíz: instala y compila dentro de `frontend/`, sirve `frontend/dist`, y
+conserva las reescrituras SPA y las cabeceras de seguridad. *Root
+Directory* se queda en `./` y no hay que tocarlo. `frontend/vercel.json`
+se retira: dos ficheros de configuración para el mismo despliegue son
+dos fuentes de verdad, y Vercel solo lee el del *Root Directory*.
+
+Verificado simulando el build de Vercel desde la raíz, sin `.env` y con
+las `VITE_*` como variables de entorno: instala, compila, y las variables
+llegan al bundle aunque `envDir` apunte a una raíz sin `.env`, porque
+Vite las toma de `process.env`.
+
+### Añadido — `scripts/verificar_paso_7.sql`
+
+Consulta de solo lectura para el SQL Editor de Supabase que devuelve 15
+comprobaciones con su veredicto. Existe porque ni la máquina del dueño ni
+el entorno de trabajo pueden alcanzar Supabase directamente —la política
+de red lo bloquea en los dos lados— así que la verificación tiene que
+poder hacerla él en un paso y leerse sin interpretación.
+
+Distingue las tres situaciones que desde fuera parecen iguales («no veo
+datos»): el ETL nunca corrió, corrió y falló, o corrió bien. La
+comprobación 10 es la que importa: cada cripto debe tener ~30 velas con
+rango real y el resto reconstruidas. Si todas salen con rango real, el
+ATR se está calculando sobre velas sin recorrido intradía. Probada contra
+una base recién migrada y contra una pasada simulada correcta.
+
 ### Cambiado — D3 firmada: no se cifra ningún importe
 
 La regla protegida nº7 de la Fase 1 («cualquier dato de cartera que se

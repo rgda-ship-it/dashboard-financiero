@@ -101,7 +101,7 @@ rompa las reglas de riesgo, **para** no descubrirlo en producción.
 **para** no depender de tres terminales en mi portátil.
 
 **Tareas técnicas**
-- Conectar el repo a Vercel; `Root Directory = frontend`, build `vite build`, output `dist`.
+- Conectar el repo a Vercel con **Root Directory en la raíz**. La configuración vive versionada en `vercel.json` en la raíz: instala y compila dentro de `frontend/` y sirve `frontend/dist`. *(Cambiado el 2026-09-21: la primera versión dependía de fijar `Root Directory = frontend` en la interfaz, que es un ajuste fácil de elegir mal y que ninguna CI revisa.)*
 - Configurar SPA fallback (todas las rutas → `index.html`).
 - Variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Vercel.
 - Verificar que las dos familias tipográficas de Google Fonts cargan y que las pilas de respaldo funcionan sin red.
