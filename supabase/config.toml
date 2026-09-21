@@ -10,7 +10,7 @@
 #   local (Docker)  ->  CI (.github/workflows/migraciones.yml)  ->  producción
 #
 # La CI levanta un PostgreSQL limpio, aplica las migraciones desde cero
-# y ejecuta las doce invariantes de supabase/pruebas/. Es lo que ocupa
+# y ejecuta las catorce invariantes de supabase/pruebas/. Es lo que ocupa
 # el lugar del staging, y por eso ninguna migración se mergea sin pasar
 # por ahí.
 #

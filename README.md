@@ -31,7 +31,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 90 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 12 invariantes (no hay staging)
+│   ├── migraciones.yml        # El esquema desde cero + 14 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -45,10 +45,14 @@ dashboard-financiero/
 │       ├── 0000_base_fase1.sql  # Port del schema.sql de la Fase 1 + usuario_id
 │       ├── 0001_catalogo.sql    # activos, precios, indicadores, señales, vistas
 │       ├── 0002_extensiones.sql # pg_cron y pg_net (lo único que exige Supabase)
-│       └── 0003_semilla_...sql  # Los 24 activos del universo de la Fase 1
+│       ├── 0003_semilla_...sql  # Los 24 activos del universo de la Fase 1
+│       ├── 0004_vistas_...sql   # Las vistas respetan la RLS (security_invoker)
+│       └── 0005_lectura_...sql  # Lectura pública de mercado, temporal hasta H-14
 │
 ├── scripts/
-│   └── resumen_tests.py       # Resumen de la suite para el job summary de Actions
+│   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
+│   ├── aplicar-migraciones.cmd # ÚNICA vía para aplicar migraciones (comprueba la CI antes)
+│   └── verificar_paso_7.sql   # Verificación del ETL para el SQL Editor
 │
 ├── docs/                      # Análisis y propuestas técnicas (no código)
 │   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto

@@ -478,6 +478,13 @@ Las vistas no son azúcar sintáctico: son **la superficie que el frontend
 consume**, y por eso también son la frontera de seguridad. El frontend nunca
 hace `SELECT` contra una tabla base.
 
+> **Toda vista se crea con `security_invoker = true`.** Sin esa opción, una
+> vista de PostgreSQL se ejecuta con los permisos de su propietario —el
+> dueño de las tablas— y **se salta la RLS**. Ocurrió en producción el
+> 2026-09-21: las tablas devolvían 0 filas a la clave pública y las dos
+> vistas lo devolvían todo. Corregido en la migración 0004; la invariante
+> I13 pone la CI en rojo si una vista nueva no lo lleva.
+
 | Vista | Para qué | Regla que protege |
 |-------|----------|-------------------|
 | `v_velas_con_rango` | `precios_diarios WHERE rango_real = true` | Ningún cálculo de ATR o soporte/resistencia puede tocar velas reconstruidas. **Todo el código de indicadores lee de aquí** |

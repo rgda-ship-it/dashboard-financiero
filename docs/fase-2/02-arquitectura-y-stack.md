@@ -403,7 +403,7 @@ personal por definición.
 >
 > Lo que ocupa ese lugar es `.github/workflows/migraciones.yml`: levanta
 > un PostgreSQL 15 limpio, aplica las migraciones **desde cero** junto
-> con la semilla, y ejecuta las doce invariantes de `supabase/pruebas/`
+> con la semilla, y ejecuta las catorce invariantes de `supabase/pruebas/`
 > — entre ellas que el `CHECK` del contrato rechace una señal
 > incoherente, que `v_velas_con_rango` deje fuera las velas
 > reconstruidas, que ninguna tabla se quede sin RLS, que ninguna

@@ -185,7 +185,7 @@ intactas; dos quedan tocadas** y necesitan tu aprobación explícita.
 > dueño. El dashboard tiene **un solo proyecto y no hay staging remoto**.
 > La compensación es `.github/workflows/migraciones.yml`, que aplica las
 > migraciones desde cero sobre un PostgreSQL limpio en cada pull request
-> y ejecuta doce invariantes del esquema. Detalle en el doc B §7.
+> y ejecuta catorce invariantes del esquema. Detalle en el doc B §7.
 
 Razonamiento completo en doc B §2. El resumen: AWS/GCP/Azure ofrecen tiers
 gratuitos con tarjeta obligatoria y sin techo de gasto, lo que hace que
@@ -273,7 +273,7 @@ de mitigación — no por gravedad narrativa.
 
 | ID | Riesgo | Prob. | Impacto | Mitigación | Dueño |
 |----|--------|-------|---------|------------|-------|
-| R0 | **Una migración rota llega directa a producción**: no hay staging (el segundo proyecto del tier gratuito lo ocupa otra aplicación) y el plan free no tiene recuperación a un punto en el tiempo | Media | **Crítico** | `migraciones.yml` aplica el esquema desde cero sobre un PostgreSQL limpio en cada PR y corre 12 invariantes; verificado en negativo (quitar el CHECK, olvidar un RLS o resetear un search_path ponen el job en rojo). Más `supabase start` en local antes de cada `db push` | DevOps + Data Engineer |
+| R0 | **Una migración rota llega directa a producción**: no hay staging (el segundo proyecto del tier gratuito lo ocupa otra aplicación) y el plan free no tiene recuperación a un punto en el tiempo | Media | **Crítico** | `migraciones.yml` aplica el esquema desde cero sobre un PostgreSQL limpio en cada PR y corre 14 invariantes; verificado en negativo (quitar el CHECK, olvidar un RLS o resetear un search_path ponen el job en rojo). Más `supabase start` en local antes de cada `db push` | DevOps + Data Engineer |
 | R1 | **Supabase pausa el proyecto** tras ~1 semana de baja actividad y los agentes se congelan | Media | Alto | El ETL escribe varias veces al día y `pg_cron` dispara cada minuto: actividad continua por diseño. Además, workflow semanal de *keep-alive* que hace un `SELECT 1` y alerta si falla (H-04) | DevOps |
 | R2 | **Cuota de CoinGecko agotada** por crecimiento del universo cripto | Alta | Medio | Techo de 20 criptos globales (D7), caché de un día, y backoff con `proximo_intento_en` en `activos`. El ETL nunca reintenta un activo inválido | Data Engineer |
 | R3 | **Yahoo cambia su estructura interna** y `yfinance` rompe todas las acciones a la vez | Media | Alto | El ETL captura `ErrorEsquemaInesperado` por clase de activo: cripto sigue funcionando. `senales` conserva la última lectura válida con su `calculado_en`, y la UI marca el dato como añejo en vez de vaciarse | Data Engineer |

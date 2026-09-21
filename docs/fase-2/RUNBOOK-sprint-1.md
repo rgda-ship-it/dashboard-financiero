@@ -72,7 +72,7 @@ La cadena de validación que ocupa ese hueco es:
 
 `migraciones.yml` levanta un PostgreSQL 15 limpio en cada pull request,
 aplica las migraciones **desde cero** junto con la semilla, y ejecuta las
-doce invariantes de `supabase/pruebas/01_invariantes.sql`. Entre ellas:
+catorce invariantes de `supabase/pruebas/01_invariantes.sql`. Entre ellas:
 
 - el `CHECK` del contrato rechaza una señal incoherente;
 - `v_velas_con_rango` deja fuera las velas reconstruidas;
@@ -242,7 +242,7 @@ Se lanzan solas **tres comprobaciones**, y ninguna necesita secretos:
 |-------|---------------|
 | **Motor analítico (69 casos)** | Los 90 casos en verde en Linux, no solo en mi entorno |
 | **Build y puerta anti-fuga** | El frontend compila y no lleva la clave de servicio |
-| **Migraciones desde cero + invariantes** | El esquema se aplica limpio y cumple las 12 invariantes |
+| **Migraciones desde cero + invariantes** | El esquema se aplica limpio y cumple las 14 invariantes |
 
 Es la primera vez que todo lo verificado en local se comprueba en el
 entorno real de GitHub. **Cuando las tres estén en verde → Merge pull
@@ -392,18 +392,39 @@ clave de servicio»**. Luego borra la rama.
 
 ---
 
-## Paso 11 — Proteger `master`
+## Paso 11 — Proteger `master` (por proceso, no por configuración)
 
-Repositorio → **Settings → Branches → Add branch protection rule**:
+> **Cambiado el 2026-09-21.** La versión anterior pedía activar una
+> *branch protection rule* con los tres checks obligatorios. Al ir a
+> hacerlo, GitHub avisa de que **en un repositorio privado de una cuenta
+> gratuita esas reglas se pueden configurar pero NO se aplican**: solo se
+> hacen cumplir con GitHub Team/Enterprise o con el repositorio público.
+> Crear la regla habría dado una sensación de seguridad falsa, así que no
+> se creó. El dueño decidió mantener el repositorio privado y el coste 0.
 
-- Branch name pattern: `master`
-- ✅ Require status checks to pass before merging
-- Checks obligatorios: **`Motor analítico (69 casos)`**, **`Build y puerta anti-fuga`** y **`Migraciones desde cero + invariantes`**
+Técnicamente nada impide fusionar un pull request con la CI en rojo. Lo
+que protege producción es otra cosa: **la base de datos solo cambia
+cuando se ejecuta `supabase db push` a mano**. Una migración mala
+fusionada en `master` todavía no ha hecho daño; lo hace en el momento en
+que se aplica. Por eso la protección va ahí, en dos reglas:
 
-El tercero es el que más importa aquí: sin staging, es lo único que se
-interpone entre un pull request y la base de datos de producción.
+1. **No se fusiona un PR con algún check en rojo.** Claude lo comprueba
+   antes de cada fusión, leyendo el contenido de los resúmenes y no solo
+   el color.
+2. **Nunca se ejecuta `supabase db push` directamente.** Siempre con
+   **`scripts\aplicar-migraciones.cmd`** (doble clic), que:
+   - abre en el navegador el último resultado del workflow `migraciones`
+     sobre `master`;
+   - pregunta si está en verde y **no sigue si la respuesta no es `S`**;
+   - muestra la lista de migraciones pendientes antes de aplicarlas.
 
-Esto es lo que convierte los tests en una puerta y no en una costumbre.
+Es un freno, no un candado: un freno que obliga a mirar la CI justo en
+el único momento en que una migración puede romper producción.
+
+Si algún día el repositorio pasa a ser público, o la cuenta a GitHub
+Pro/Team, este paso vuelve a ser el original: regla sobre `master` con
+los checks **Motor analítico (69 casos)**, **Build y puerta anti-fuga** y
+**Migraciones desde cero + invariantes**.
 
 ---
 

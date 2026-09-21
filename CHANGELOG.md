@@ -4,6 +4,69 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-21 — Fase 2, Sprint 1 en producción
+
+El Sprint 1 está desplegado: código en GitHub (PR #1), secretos cargados,
+ETL escribiendo en Supabase (acciones 21/21, cripto 3/3) y la web pública
+en Vercel.
+
+### Corregido — dos vistas se saltaban la RLS (PR #2, migración 0004)
+
+Detectado al abrir la web recién desplegada. Con la clave pública, las
+cinco tablas del catálogo devolvían 0 filas, como deben. Pero las dos
+vistas lo devolvían todo: `senales_vigentes` 24 filas y
+`v_velas_con_rango` 10.590.
+
+En PostgreSQL una vista se ejecuta por defecto con los permisos de su
+propietario, que es el dueño de las tablas y no está sujeto a su RLS. La
+vista era una puerta lateral. Lo expuesto eran precios públicos, así que
+el daño fue nulo; el riesgo era el patrón, porque los Sprints 5 y 6 crean
+vistas sobre datos de usuario y lo habrían heredado.
+
+- `0004_vistas_security_invoker.sql` pone `security_invoker = true` en
+  las dos vistas.
+- **Invariante I13**: falla la CI si una vista de `public` no lo lleva.
+  La I8 revisaba solo tablas, por eso el fallo pasó.
+- Verificado en negativo (sin el arreglo la CI se pone en rojo nombrando
+  las dos vistas) y en producción tras aplicarlo.
+
+### Añadido — lectura pública de datos de mercado, temporal hasta H-14 (migración 0005)
+
+Al cerrar el agujero, el escáner de la web pública se habría quedado
+vacío hasta el Sprint 3. El dueño prefiere mantenerlo visible. La
+diferencia con lo de antes es la que importa: ahora sale por cuatro
+políticas explícitas (`*_temporal_h14`), limitadas a `activos`,
+`senales`, `precios_diarios` e `indicadores_diarios` —precios
+públicos— y con caducidad escrita en H-14.
+
+- **Invariante I14**: falla la CI si una política concede algo a `anon`
+  fuera de esas cuatro tablas. Verificado abriendo la cartera por error.
+- En producción: mercado visible; `cartera_posiciones`,
+  `eventos_sistema` y `registro_consentimiento` devuelven 0 filas.
+
+### Cambiado — la protección de `master` es por proceso
+
+El paso 11 del runbook pedía una *branch protection rule*. GitHub avisa
+de que **en un repositorio privado de cuenta gratuita esas reglas no se
+aplican**, así que no se creó: habría dado una seguridad falsa. El dueño
+mantiene el repositorio privado y el coste 0.
+
+Lo que protege producción es que la base de datos solo cambia al ejecutar
+`supabase db push`. **`scripts/aplicar-migraciones.cmd`** pasa a ser la
+única vía para hacerlo: abre el último resultado de la CI de migraciones
+sobre `master`, no sigue si no se confirma que está en verde, y enseña
+las migraciones pendientes antes de aplicarlas.
+
+### Detectado — Vercel precarga variables desde `.env.example`
+
+Al importar el proyecto, Vercel leyó `.env.example` y propuso 23
+variables, entre ellas `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_DB_URL`,
+que nunca deben estar en Vercel. Iban vacías, pero con el nombre puesto
+bastaba un descuido para rellenarlas. Se borraron las 20 sobrantes antes
+del primer despliegue. También propuso por su cuenta `backend` como
+directorio raíz y un preset que habría publicado el Express como API.
+Conviene saberlo si algún día se reimporta el proyecto.
+
 ## [Sin publicar] - 2026-09-20 — Fase 2, Sprint 1
 
 ### Añadido — el motor deja de ser un servidor y pasa a escribir
