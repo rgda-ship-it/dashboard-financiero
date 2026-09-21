@@ -1,4 +1,5 @@
 import { supabase, supabaseConfigurado } from "../supabase.js";
+import { senalAtrasada } from "./frescura.js";
 
 /**
  * Lectura de señales desde PostgreSQL.
@@ -47,12 +48,12 @@ function aFilaDeEscaner(fila) {
     ratio_rr: fila.ratio_rr,
     calculado_en: fila.calculado_en,
     version_motor: fila.version_motor,
+    // Estado del activo en el catálogo. Un activo `suspendido` (tres
+    // fallos seguidos del proveedor) SIGUE en el escáner con su última
+    // lectura y un aviso: hacerlo desaparecer escondía el fallo.
+    estado_activo: fila.estado_activo,
   };
 }
-
-// A partir de esta antigüedad, el dato se presenta como añejo. Coherente
-// con la cadencia del ETL: acciones cada 30 min, cripto cada hora.
-const MINUTOS_PARA_ANEJO = 90;
 
 export async function leerSenalesVigentes() {
   if (!supabaseConfigurado) {
@@ -70,7 +71,7 @@ export async function leerSenalesVigentes() {
   const { data, error } = await supabase
     .from("senales_vigentes")
     .select("*")
-    .eq("estado_activo", "activo")
+    .in("estado_activo", ["activo", "suspendido"])
     .order("simbolo", { ascending: true });
 
   if (error) {
@@ -83,26 +84,41 @@ export async function leerSenalesVigentes() {
     };
   }
 
-  const senales = (data ?? []).map(aFilaDeEscaner);
+  const ahora = new Date();
+  const senales = (data ?? []).map((fila) => {
+    const s = aFilaDeEscaner(fila);
+    s.suspendido = s.estado_activo === "suspendido";
+    // Un suspendido no «se atrasa»: se sabe por qué no se actualiza, y
+    // la fila ya lo dice. Contarlo aquí volvería a teñir todo el escáner.
+    s.atrasada = !s.suspendido && senalAtrasada(s, ahora);
+    return s;
+  });
 
-  // Antigüedad del dato: la de la señal MÁS VIEJA del conjunto, no la de
-  // la más reciente. Con la más reciente, un solo activo actualizado
-  // haría parecer fresco un escáner entero congelado.
-  const marcas = senales
+  // La marca global es la señal más vieja de los activos que DEBERÍAN
+  // estar al día (no suspendidos). Con la más reciente, un solo activo
+  // actualizado haría parecer fresco un escáner entero congelado.
+  const enServicio = senales.filter((s) => !s.suspendido);
+  const marcas = enServicio
     .map((s) => (s.calculado_en ? Date.parse(s.calculado_en) : null))
     .filter((t) => Number.isFinite(t));
-
   const masAntigua = marcas.length ? Math.min(...marcas) : null;
-  const anejo =
-    masAntigua !== null && Date.now() - masAntigua > MINUTOS_PARA_ANEJO * 60 * 1000;
+
+  const atrasadas = enServicio.filter((s) => s.atrasada).length;
+  const suspendidos = senales.length - enServicio.length;
+  const anejo = atrasadas > 0;
 
   // Un conjunto vacío tiene DOS causas posibles y el usuario merece
   // saber cuál: que el ETL no haya corrido todavía, o que las políticas
   // de acceso aún no le concedan lectura (llegan en el Sprint 3, H-14).
   // Desde el cliente no se pueden distinguir —RLS sin política devuelve
   // un 200 con cero filas, no un error—, así que se nombran las dos.
+  const partes = [];
+  if (atrasadas) partes.push(`${atrasadas} ${atrasadas === 1 ? "activo" : "activos"} con dato atrasado`);
+  if (suspendidos) partes.push(`${suspendidos} ${suspendidos === 1 ? "suspendido" : "suspendidos"} por fallos del proveedor`);
   const aviso = senales.length
-    ? null
+    ? partes.length
+      ? partes.join(" · ")
+      : null
     : "Sin señales todavía. O el ETL no ha hecho su primera pasada, o tu " +
       "usuario aún no tiene concedida la lectura del catálogo (las " +
       "políticas de acceso llegan con el módulo de autenticación).";

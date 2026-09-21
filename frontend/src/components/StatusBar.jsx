@@ -29,7 +29,7 @@ export default function StatusBar({ escaner, streamConectado, alAbrirGuia }) {
   const datos = escaner.error
     ? { valor: "sin conexión", tono: "neg", vivo: false }
     : escaner.desdeCache
-      ? { valor: "caché", tono: "warn", vivo: false }
+      ? { valor: "atrasado", tono: "warn", vivo: false }
       : { valor: "en vivo", tono: "neutro", vivo: true };
 
   return (

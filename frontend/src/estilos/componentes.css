@@ -1145,3 +1145,12 @@
 .enlace--peligro:hover {
   color: var(--neg-500);
 }
+
+/* Antigüedad por fila (Sprint 2): solo aparece cuando el dato de ESE
+   activo está atrasado o suspendido, para no teñir el escáner entero. */
+.asset__aviso {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--warn-500);
+  line-height: 1.25;
+}
