@@ -193,6 +193,27 @@ begin
     end if;
     raise notice 'PASS  I9  toda SECURITY DEFINER fija su search_path';
 
+    -- ── 13. Ninguna vista se salta la RLS ────────────────────────────
+    -- Añadida el 2026-09-21 tras detectar en producción que las dos
+    -- vistas del catálogo devolvían todas sus filas a la clave pública
+    -- mientras las tablas, correctamente, no devolvían ninguna. Una vista
+    -- sin security_invoker se ejecuta con los permisos de su propietario,
+    -- que es el dueño de las tablas y no está sujeto a su RLS. I8 miraba
+    -- solo tablas; esta mira las vistas.
+    select string_agg(c.relname, ', ') into v_texto
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+     where n.nspname = 'public'
+       and c.relkind = 'v'
+       and not coalesce(
+             (select option_value::boolean
+                from pg_options_to_table(c.reloptions)
+               where option_name = 'security_invoker'), false);
+    if v_texto is not null then
+        raise exception 'I13 FALLO: vistas sin security_invoker (se saltan la RLS) -> %', v_texto;
+    end if;
+    raise notice 'PASS  I13 ninguna vista de public se salta la RLS (todas con security_invoker)';
+
     raise notice '── Invariantes: todas en verde ──';
 end
 $inv$;
