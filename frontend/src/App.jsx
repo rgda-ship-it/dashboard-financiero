@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Escaner from "./rutas/Escaner.jsx";
 import Proximamente from "./rutas/Proximamente.jsx";
 import Admin from "./rutas/Admin.jsx";
+import Cartera from "./rutas/Cartera.jsx";
 import Login from "./rutas/acceso/Login.jsx";
 import Registro from "./rutas/acceso/Registro.jsx";
 import Recuperar from "./rutas/acceso/Recuperar.jsx";
@@ -39,25 +40,7 @@ export default function App() {
         <Route path="/" element={<RequiereAprobado><Escaner /></RequiereAprobado>} />
         <Route path="/admin" element={<RequiereAdmin><Admin /></RequiereAdmin>} />
 
-        <Route
-          path="/cartera"
-          element={
-            <RequiereAprobado>
-            <Proximamente
-              titulo="Cartera"
-              sprint={4}
-              descripcion="Aquí se gestionará tu propia lista de activos: buscar cualquier acción o criptomoneda, añadirla aunque el sistema no la conozca todavía, y ver su histórico completo en menos de tres minutos. También la importación de tu cartera real por CSV, con los importes en claro (decisión D3: ninguna cifra es dinero real)."
-              historias={[
-                "H-17 — Carteras por usuario",
-                "H-18 — Cuotas de activos (25 por usuario, 150 globales, 20 criptos)",
-                "H-19 — Buscador y resolución de activos nuevos",
-                "H-20 — Backfill bajo demanda",
-                "H-21 — Importación de cartera real por CSV",
-              ]}
-            />
-            </RequiereAprobado>
-          }
-        />
+        <Route path="/cartera" element={<RequiereAprobado><Cartera /></RequiereAprobado>} />
 
         <Route
           path="/simulador"

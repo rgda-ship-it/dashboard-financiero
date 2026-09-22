@@ -134,9 +134,12 @@ def seleccionar_activos(
     # `suspendido` entra en la consulta a propósito: la regla de backoff
     # decide cuándo se reintenta. Antes quedaba fuera y un activo
     # suspendido no volvía nunca.
+    # Solo lo que alguien sigue (Sprint 4). Un activo que nadie tiene en
+    # su cartera conserva su histórico pero no gasta cuota de proveedor.
     params = {
         "select": campos,
         "estado": "in.(activo,pendiente_backfill,suspendido)",
+        "seguidores": "gt.0",
     }
     if clase:
         params["clase"] = f"eq.{clase}"

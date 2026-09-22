@@ -608,3 +608,270 @@ begin
     raise notice 'PASS  I22 anon no puede ejecutar ningún rpc_ ni fn_';
 end
 $i22$;
+
+-- ── I23 · `authenticated` no ejecuta ninguna función interna fn_ ─────
+do $i23$
+declare
+    v_texto text;
+begin
+    select string_agg(p.proname, ', ') into v_texto
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and p.proname like 'fn\_%'
+       and has_function_privilege('authenticated', p.oid, 'EXECUTE');
+    if v_texto is not null then
+        raise exception 'I23 FALLO: authenticated puede ejecutar -> %', v_texto;
+    end if;
+    raise notice 'PASS  I23 authenticated solo ejecuta rpc_, nunca una fn_ interna';
+end
+$i23$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- Sprint 4 — carteras, cuotas, altas e importación, con el JWT de cada
+-- usuario (mismo método que el bloque de gobierno).
+-- ═════════════════════════════════════════════════════════════════════
+do $s4$
+declare
+    v_x      uuid := gen_random_uuid();   -- usuario normal aprobado
+    v_y      uuid := gen_random_uuid();   -- otro usuario normal aprobado
+    v_admin  uuid;
+    v_ids    bigint[];
+    v_id     bigint;
+    v_conteo bigint;
+    v_texto  text;
+    v_json   jsonb;
+    v_fallo  boolean;
+    i        int;
+begin
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_x, 'x@ejemplo.com', now()), (v_y, 'y@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id in (v_x, v_y);
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+    select array_agg(id order by simbolo) into v_ids from public.activos where clase = 'accion';
+
+    -- ── I24 · Cada uno ve solo su cartera; seguir va por RPC ──────────
+    perform pg_temp.como(v_x);
+    perform public.rpc_seguir_activo(v_ids[1]);
+    perform public.rpc_seguir_activo(v_ids[2]);
+    perform pg_temp.como(v_y);
+    perform public.rpc_seguir_activo(v_ids[3]);
+    begin
+        insert into public.cartera_activos (cartera_id, activo_id)
+        select id, v_ids[4] from public.carteras where usuario_id = v_x limit 1;
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    select count(*) into v_conteo from public.v_mi_cartera;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I24 FALLO: Y insertó directamente en la cartera de X';
+    end if;
+    if v_conteo <> 1 then
+        raise exception 'I24 FALLO: Y ve % activos en su cartera, se esperaba 1', v_conteo;
+    end if;
+
+    -- El escáner de X solo trae señales de SU cartera.
+    insert into public.senales (activo_id, operable, leverage_tope,
+           leverage_referencia_volatilidad, version_motor)
+    select unnest(v_ids[1:4]), false, 5, 1, 'i24';
+    perform pg_temp.como(v_x);
+    select count(*), count(*) filter (where activo_id not in (v_ids[1], v_ids[2]))
+      into v_conteo, v_id from public.v_escaner_usuario;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 2 or v_id <> 0 then
+        raise exception 'I24 FALLO: el escáner de X trae % filas (% ajenas)', v_conteo, v_id;
+    end if;
+
+    -- Dejar de seguir no borra el histórico global.
+    insert into public.precios_diarios (activo_id, fecha, cierre, origen, rango_real)
+    values (v_ids[1], current_date, 100, 'yahoo', true) on conflict do nothing;
+    perform pg_temp.como(v_x);
+    perform public.rpc_dejar_activo(v_ids[1]);
+    perform pg_temp.como_dueno();
+    if not exists (select 1 from public.precios_diarios where activo_id = v_ids[1]) then
+        raise exception 'I24 FALLO: dejar de seguir borró precios_diarios';
+    end if;
+    if (select seguidores from public.activos where id = v_ids[1]) <> 0
+       or (select seguidores from public.activos where id = v_ids[2]) <> 1 then
+        raise exception 'I24 FALLO: el contador de seguidores no cuadra';
+    end if;
+    raise notice 'PASS  I24 cada usuario ve solo su cartera y su escáner; seguir solo por RPC; dejar no borra histórico';
+
+    -- ── I25 · Cuotas: 20 criptos globales y 25 por usuario ───────────
+    insert into public.catalogo_coingecko (id, simbolo, nombre)
+    select 'moneda-' || g, 'm' || g, 'Moneda ' || g from generate_series(1, 21) g;
+
+    perform pg_temp.como(v_x);
+    for i in 1..17 loop   -- + bitcoin, ethereum, solana = 20
+        perform public.rpc_solicitar_activo('cripto', 'moneda-' || i);
+    end loop;
+    perform public.rpc_solicitar_activo('cripto', 'bitcoin');
+    perform public.rpc_solicitar_activo('cripto', 'ethereum');
+    perform public.rpc_solicitar_activo('cripto', 'solana');
+    -- X sigue ya 21 (1 acción + 20 criptos). Cuatro acciones más: 25.
+    for i in 5..8 loop
+        perform public.rpc_seguir_activo(v_ids[i]);
+    end loop;
+    begin
+        perform public.rpc_seguir_activo(v_ids[9]);
+        v_texto := null;
+    exception when raise_exception then
+        v_texto := sqlerrm;
+    end;
+    perform pg_temp.como_dueno();
+    if v_texto is null or v_texto not like '%25 activos y el límite es 25%' then
+        raise exception 'I25 FALLO: el activo 26 no se rechazó con el mensaje esperado (%)', v_texto;
+    end if;
+
+    -- Y tiene hueco personal, pero la cripto 21 global se rechaza…
+    perform pg_temp.como(v_y);
+    begin
+        perform public.rpc_solicitar_activo('cripto', 'moneda-21');
+        v_texto := null;
+    exception when raise_exception then
+        v_texto := sqlerrm;
+    end;
+    -- …y seguir una cripto que ya sigue otro no cuesta hueco.
+    perform public.rpc_solicitar_activo('cripto', 'moneda-1');
+    perform pg_temp.como_dueno();
+    if v_texto is null or v_texto not like '%20 criptomonedas%' then
+        raise exception 'I25 FALLO: la cripto 21 global no se rechazó (%)', v_texto;
+    end if;
+    if exists (select 1 from public.activos where simbolo = 'moneda-21') then
+        raise exception 'I25 FALLO: la cripto rechazada por cuota quedó en activos';
+    end if;
+
+    -- El admin no tiene tope personal.
+    perform pg_temp.como(v_admin);
+    for i in 1..array_length(v_ids, 1) loop
+        perform public.rpc_seguir_activo(v_ids[i]);
+    end loop;
+    perform public.rpc_solicitar_activo('cripto', 'moneda-2');
+    perform public.rpc_solicitar_activo('cripto', 'moneda-3');
+    perform public.rpc_solicitar_activo('cripto', 'moneda-4');
+    perform public.rpc_solicitar_activo('cripto', 'moneda-5');
+    perform public.rpc_solicitar_activo('cripto', 'moneda-6');
+    select count(*) into v_conteo from public.v_mi_cartera;
+    perform pg_temp.como_dueno();
+    if v_conteo <= 25 then
+        raise exception 'I25 FALLO: el admin quedó limitado a % activos', v_conteo;
+    end if;
+    raise notice 'PASS  I25 cuotas: el activo 26 de un usuario y la cripto 21 global se rechazan con su cifra; el admin no tiene tope personal';
+
+    -- ── I26 · Altas: catálogo al instante, desconocidos sin fila ─────
+    perform pg_temp.como(v_y);
+    v_json := public.rpc_solicitar_activo('cripto', 'bitcoin');
+    if v_json ->> 'estado' <> 'seguido' then
+        perform pg_temp.como_dueno();
+        raise exception 'I26 FALLO: bitcoin del catálogo devolvió %', v_json;
+    end if;
+    begin
+        perform public.rpc_solicitar_activo('cripto', 'no-existe-zzzz');
+        v_fallo := false;
+    exception when invalid_parameter_value then
+        v_fallo := true;
+    end;
+    if not v_fallo then
+        perform pg_temp.como_dueno();
+        raise exception 'I26 FALLO: una cripto inexistente no se rechazó';
+    end if;
+    begin
+        perform public.rpc_solicitar_activo('accion', '=1+1');
+        v_fallo := false;
+    exception when invalid_parameter_value then
+        v_fallo := true;
+    end;
+    v_json := public.rpc_solicitar_activo('accion', 'nvda');
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I26 FALLO: un símbolo con forma de fórmula se aceptó';
+    end if;
+    if v_json ->> 'estado' <> 'verificando'
+       or exists (select 1 from public.activos where simbolo in ('NVDA', 'no-existe-zzzz'))
+       or not exists (select 1 from public.solicitudes_activo where usuario_id = v_y and simbolo = 'NVDA') then
+        raise exception 'I26 FALLO: la acción nueva no quedó como solicitud sin fila en activos (%)', v_json;
+    end if;
+    raise notice 'PASS  I26 altas: catálogo al instante; cripto inexistente y fórmulas rechazadas; acción nueva queda como solicitud';
+
+    -- ── I27 · El workflow: un solo alta para dos solicitantes ────────
+    perform pg_temp.como(v_admin);
+    perform public.rpc_solicitar_activo('accion', 'NVDA');
+    perform public.rpc_solicitar_activo('accion', 'ZZZZ');
+    perform pg_temp.como_dueno();
+
+    select count(*) into v_conteo from public.fn_tomar_solicitudes();
+    if v_conteo <> 3 then
+        raise exception 'I27 FALLO: fn_tomar_solicitudes tomó % solicitudes, se esperaban 3', v_conteo;
+    end if;
+    select count(*) into v_conteo from public.fn_tomar_solicitudes();
+    if v_conteo <> 0 then
+        raise exception 'I27 FALLO: una segunda toma volvió a coger % solicitudes', v_conteo;
+    end if;
+
+    perform public.fn_resolver_alta('NVDA', true, null, 'NVIDIA');
+    perform public.fn_resolver_alta('ZZZZ', false, 'Yahoo Finance no reconoce «ZZZZ»');
+
+    if (select count(*) from public.activos where simbolo = 'NVDA') <> 1
+       or (select seguidores from public.activos where simbolo = 'NVDA') <> 2
+       or (select estado from public.activos where simbolo = 'NVDA') <> 'pendiente_backfill'
+       or exists (select 1 from public.solicitudes_activo where simbolo = 'NVDA' and estado <> 'resuelta')
+    then
+        raise exception 'I27 FALLO: NVDA no quedó como un solo activo seguido por los dos solicitantes';
+    end if;
+    if exists (select 1 from public.activos where simbolo = 'ZZZZ')
+       or (select estado from public.solicitudes_activo where simbolo = 'ZZZZ') <> 'rechazada' then
+        raise exception 'I27 FALLO: ZZZZ creó activo o su solicitud no quedó rechazada';
+    end if;
+    raise notice 'PASS  I27 dos solicitudes del mismo símbolo -> un solo activo; un símbolo desconocido no crea fila';
+
+    -- ── I28 · Importación CSV: 10 válidas + 2 inválidas ──────────────
+    perform pg_temp.como(v_x);
+    v_json := public.rpc_importar_posiciones(
+        (select jsonb_agg(jsonb_build_object('fila', g, 'ticker',
+                    case g when 11 then '=1+1' else (select simbolo from public.activos where id = v_ids[g]) end,
+                    'precio_compra', case g when 12 then '-5' else '100.50' end,
+                    'monto', '1000'))
+           from generate_series(1, 12) g));
+    select count(*) into v_conteo from public.v_mis_posiciones;
+    perform pg_temp.como(v_y);
+    select count(*) into v_id from public.v_mis_posiciones;
+    perform pg_temp.como_dueno();
+    if (v_json ->> 'importadas')::int <> 10 or jsonb_array_length(v_json -> 'excluidas') <> 2
+       or v_conteo <> 10 or v_id <> 0 then
+        raise exception 'I28 FALLO: importación % (X ve %, Y ve %)', v_json, v_conteo, v_id;
+    end if;
+    if exists (select 1 from public.posiciones_reales where ticker like '%=%') then
+        raise exception 'I28 FALLO: una celda con forma de fórmula llegó a la base de datos';
+    end if;
+    if not exists (select 1 from public.registro_consentimiento
+                    where usuario_id = v_x and tipo = 'persistencia_cartera' and otorgado) then
+        raise exception 'I28 FALLO: importar no dejó rastro de consentimiento';
+    end if;
+    perform pg_temp.como(v_x);
+    begin
+        insert into public.posiciones_reales (usuario_id, ticker, precio_compra, monto)
+        values (v_x, 'X', 1, 1);
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I28 FALLO: se pudo insertar una posición sin pasar por la validación';
+    end if;
+    raise notice 'PASS  I28 importación: 10 válidas y 2 excluidas con motivo; las fórmulas nunca llegan a la BD; solo el dueño las ve';
+
+    -- ── I29 · `seguidores` cuadra con las carteras ───────────────────
+    select count(*) into v_conteo
+      from public.activos a
+     where a.seguidores <> (select count(*) from public.cartera_activos ca where ca.activo_id = a.id);
+    if v_conteo <> 0 then
+        raise exception 'I29 FALLO: % activos con el contador de seguidores descuadrado', v_conteo;
+    end if;
+    raise notice 'PASS  I29 activos.seguidores coincide con las carteras';
+
+    raise notice '── Sprint 4: en verde ──';
+end
+$s4$;

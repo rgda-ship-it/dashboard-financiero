@@ -160,6 +160,21 @@ class ClienteSupabase:
         )
         self._comprobar(resp, f"UPDATE {tabla}")
 
+    def rpc(self, funcion: str, argumentos: dict | None = None):
+        """Llama a una función de PostgreSQL expuesta por PostgREST.
+
+        Las del workflow de altas (`fn_tomar_solicitudes`,
+        `fn_resolver_alta`) solo las puede ejecutar service_role: la
+        invariante I23 impide que `authenticated` las alcance.
+        """
+        resp = requests.post(
+            f"{self._base}/rpc/{funcion}",
+            headers=self._cabeceras(),
+            json=argumentos or {},
+            timeout=TIEMPO_ESPERA_SEG,
+        )
+        return self._comprobar(resp, f"RPC {funcion}")
+
 
 # ── Traductores: objetos del motor -> filas de PostgreSQL ──────────────
 
