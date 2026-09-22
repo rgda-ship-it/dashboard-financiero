@@ -16,6 +16,33 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0.."
 
+REM  [0] Las migraciones se aplican SIEMPRE desde master al dia. El
+REM  2026-09-22 este script se ejecuto con la carpeta en la rama de un PR
+REM  sin fusionar y aplico sus migraciones: `supabase db push` usa los
+REM  ficheros de la carpeta, no los de GitHub. Esta guardia lo impide.
+echo.
+echo  [0/3] Poniendo tu carpeta en master y al dia con GitHub...
+git diff --quiet
+if errorlevel 1 goto :cambios
+git diff --cached --quiet
+if errorlevel 1 goto :cambios
+git switch master
+if errorlevel 1 goto :fallo_git
+git pull --ff-only origin master
+if errorlevel 1 goto :fallo_git
+goto :al_dia
+:cambios
+echo.
+echo  [X] Tu carpeta tiene cambios sin guardar en git. No se aplica nada. Avisa a Claude.
+pause
+exit /b 1
+:fallo_git
+echo.
+echo  [X] No se pudo poner la carpeta en master al dia. No se aplica nada. Avisa a Claude.
+pause
+exit /b 1
+:al_dia
+
 echo.
 echo  ==================================================
 echo    APLICAR MIGRACIONES A PRODUCCION
