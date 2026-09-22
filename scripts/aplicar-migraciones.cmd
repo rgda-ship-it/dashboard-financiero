@@ -15,6 +15,10 @@ REM ─────────────────────────�
 chcp 65001 >nul
 setlocal
 cd /d "%~dp0.."
+REM  OneDrive bloquea a veces carpetas internas de .git y Git pregunta
+REM  "Deletion of directory ... failed. Should I try again? (y/n)". Son
+REM  carpetas vacias sin importancia: se contesta que no automaticamente.
+set GIT_ASK_YESNO=false
 
 REM  [0] Las migraciones se aplican SIEMPRE desde master al dia. El
 REM  2026-09-22 este script se ejecuto con la carpeta en la rama de un PR
