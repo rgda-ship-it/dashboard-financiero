@@ -420,6 +420,48 @@ empezar de cero.
 **Objetivo**: un usuario busca un activo que el sistema no conocía y lo ve
 con histórico completo en menos de 3 minutos. Requisitos 3 y 5.
 
+> **Ejecución del Sprint 4 (2026-09-22).** Migración `0010_carteras_ingesta.sql`
+> (la `0003_carteras` del plan ya estaba ocupada). Decisiones del dueño:
+>
+> | Tema | Plan | Decisión |
+> |---|---|---|
+> | Arquitectura | Edge Functions `resolver-activo` e importación en Deno | **Sin Edge Functions**: RPC en PostgreSQL + `pg_net` → workflow `altas.yml`; el CSV se lee en el navegador y la BD valida cada fila |
+> | D7 (cuotas) | Abierta | **25 por usuario (admin sin tope personal), 150 activos distintos, 20 criptos distintas** |
+> | Cartera de un usuario nuevo | — | **Vacía**. El admin conserva los 24 de la Fase 1 |
+>
+> Diferencias con la spec, con motivo:
+>
+> - **Las cuotas cuentan activos DISTINTOS seguidos** (`activos.seguidores > 0`).
+>   El coste de proveedor crece con activos distintos, no con usuarios. El
+>   ETL solo refresca activos con seguidores. Se aplican en un trigger de
+>   `cartera_activos`, así que rigen también por la vía del workflow.
+> - **Cripto se valida al instante** contra una copia local de
+>   `/coins/list` (`catalogo_coingecko`, refresco semanal en keep-alive).
+>   **Una acción** queda como solicitud y la valida el workflow con la
+>   descarga que es a la vez su backfill (~1-2 min): `ZZZZ` se rechaza en
+>   ese plazo, no al instante, y **nunca** crea fila en `activos`.
+> - **Disparo**: `fn_disparar_altas()` usa un PAT de alcance mínimo en
+>   Supabase Vault (`github_pat_altas`). Sin PAT, el ETL de cripto procesa
+>   lo pendiente en su pasada horaria (red de seguridad).
+> - **Sin Realtime**: la pantalla relee cada 10 s mientras hay algo
+>   aprovisionándose (Realtime llega en H-32).
+> - **CSV**: una celda con forma de fórmula (`=1+1`) se **excluye con su
+>   motivo** en vez de guardarse neutralizada: nunca llega a la BD. Una
+>   coma decimal sin comillas («AAPL,184,72,10») se excluye en vez de
+>   leerse como precio 184 y monto 72. Los tickers sin catálogo se
+>   importan y se ofrecen para añadirlos (no se dan de alta solos: gastarían
+>   cuota sin pedirlo).
+> - **Diferido otra vez: retirar `escaner.js`, `circuitBreaker.js` e
+>   `IDS_CRIPTO`.** El semáforo de salud y la sugerencia de rotación de
+>   la cartera siguen viviendo solo en el modo local (motor Python +
+>   backend), y necesitan fundamentales (una llamada extra por activo)
+>   para calcularse en la nube. Portarlo es una historia propia con su
+>   presupuesto de cuota; hasta entonces el modo local se conserva
+>   intacto y la nube no usa esos ficheros.
+>
+> Invariantes nuevas **I23–I29** (ver `supabase/pruebas/01_invariantes.sql`);
+> tests Python 107 → 113; tests de frontend 5 → 12.
+
 ---
 
 ### H-17 · Carteras por usuario · 5 pts

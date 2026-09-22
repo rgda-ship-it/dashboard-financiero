@@ -4,6 +4,28 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-22 — Fase 2, Sprint 4: carteras dinámicas e ingesta
+
+### Añadido — cada usuario sigue sus propios activos (0010)
+- `/cartera`: buscador (catálogo al instante; criptos nuevas desde una
+  copia local de CoinGecko; acciones nuevas comprobadas en Yahoo), lista
+  de lo que sigues con su estado y botón para quitar.
+- El escáner muestra solo la cartera de quien consulta (`v_escaner_usuario`).
+- Cuotas (D7): 25 por usuario (admin sin tope personal), 150 activos
+  distintos y 20 criptos distintas en todo el sistema.
+- El ETL solo refresca activos que alguien sigue.
+
+### Añadido — altas de activos sin servidor
+La BD pide a GitHub (pg_net + token en Vault) que ejecute `altas.yml`,
+que valida el símbolo y descarga su histórico en 1-3 minutos. Si el
+disparo no llega, el ETL de cripto lo procesa en su pasada horaria.
+
+### Añadido — importación de posiciones por CSV en la nube
+El fichero se lee en el navegador; al servidor solo llegan filas, que
+`rpc_importar_posiciones` vuelve a validar. Reglas de la Fase 1
+conservadas (punto decimal, filas inválidas excluidas con motivo). Los
+importes se guardan sin cifrar (D3) y la pantalla lo avisa antes.
+
 ## [Sin publicar] - 2026-09-22 — Cierre del Sprint 3: dos correcciones
 
 ### Corregido — `anon` podía ejecutar los RPC de administración (0009)

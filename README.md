@@ -30,13 +30,14 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 107 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 22 invariantes (no hay staging)
+│   ├── tests.yml              # Los 113 casos como puerta de merge
+│   ├── migraciones.yml        # El esquema desde cero + 29 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
-│   ├── backfill.yml           # Alta de un activo nuevo, bajo demanda
-│   └── keep-alive.yml         # Latido semanal + respaldo + retención
+│   ├── altas.yml              # Alta de activos nuevos (lo dispara la BD)
+│   ├── backfill.yml           # Rehacer el histórico de un símbolo, a mano
+│   └── keep-alive.yml         # Latido semanal + respaldo + retención + catálogo CoinGecko
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
 │   ├── config.toml
@@ -51,7 +52,8 @@ dashboard-financiero/
 │       ├── 0006_senales_...sql  # senales_vigentes con LATERAL: 1 lectura por activo
 │       ├── 0007_gobierno.sql    # Perfiles, aprobación por admin, RLS completa
 │       ├── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
-│       └── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
+│       ├── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
+│       └── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -69,6 +71,8 @@ dashboard-financiero/
 │   ├── escritor_supabase.py   # FASE 2 — adaptador de salida hacia PostgreSQL
 │   ├── ventana_mercado.py     # FASE 2 — ¿está abierta la bolsa? (lógica pura)
 │   ├── seleccion_universo.py  # FASE 2 — qué activos procesa cada pasada (lógica pura)
+│   ├── altas.py               # FASE 2 — valida y rellena activos nuevos (workflow altas)
+│   ├── catalogo_cripto.py     # FASE 2 — copia semanal de /coins/list de CoinGecko
 │   ├── conectores/
 │   │   ├── yahoo_finance.py   # Acciones (vía yfinance, no oficial — aislado como adaptador)
 │   │   └── coingecko.py       # Cripto (API pública gratuita)
@@ -116,12 +120,15 @@ dashboard-financiero/
         │   ├── sesion.jsx      # FASE 2 — sesión + perfil (¿aprobado?)
         │   └── Guardias.jsx    # Qué pantalla ver; la seguridad es la RLS
         ├── datos/
-        │   ├── senales.js      # FASE 2 — lectura de senales_vigentes
+        │   ├── senales.js      # FASE 2 — lectura del escáner de tu cartera
+        │   ├── cartera.js      # FASE 2 — RPC de cartera, búsqueda, altas e importación
+        │   ├── csvCartera.js   # FASE 2 — lectura del CSV en el navegador (+ .test.js)
         │   ├── frescura.js     # FASE 2 — ¿dato atrasado? por clase y mercado NY
         │   └── frescura.test.js # `npm test` — runner nativo de Node
         ├── rutas/
         │   ├── Escaner.jsx     # El armazón de la Fase 1, ahora una ruta
         │   ├── Admin.jsx       # FASE 2 — aprobar / rechazar / suspender + auditoría
+        │   ├── Cartera.jsx     # FASE 2 — lo que sigues + posiciones importadas
         │   ├── acceso/         # Login, registro, pendiente, recuperar contraseña
         │   └── Proximamente.jsx # Módulos pendientes, con su sprint y sus historias
         ├── useApi.js           # Hooks: useEscaner, useCartera, useEventLog
@@ -135,7 +142,8 @@ dashboard-financiero/
         │   ├── layout.css      # Barra superior, rejilla de KPIs, rejilla principal
         │   ├── componentes.css # Paneles, tablas, medidores, stream
         │   ├── guia.css        # Panel lateral de ayuda y sus accesos
-        │   └── acceso.css      # FASE 2 — pantallas de acceso y panel de admin
+        │   ├── acceso.css      # FASE 2 — pantallas de acceso y panel de admin
+        │   └── cartera.css     # FASE 2 — módulo Cartera
         └── components/
             ├── StatusBar.jsx      # Marca + estado de datos, stream y último escaneo
             ├── MetricsStrip.jsx   # Cuatro KPIs derivados de datos ya en pantalla
@@ -501,10 +509,11 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **107 casos**
+Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **113 casos**
 y todos pasan — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
-(`test_escritor_supabase.py` y `test_ventana_mercado.py`) y 17 del Sprint 2
-(`test_seleccion_universo.py` y `test_etl_seleccion.py`). La cota está
+(`test_escritor_supabase.py` y `test_ventana_mercado.py`) 17 del Sprint 2
+(`test_seleccion_universo.py` y `test_etl_seleccion.py`) y 6 del Sprint 4
+(`test_altas.py` y uno más en `test_etl_seleccion.py`). La cota está
 fijada en `scripts/resumen_tests.py`: si la suite recolecta MENOS casos de
 los esperados, la CI falla aunque todo esté en verde, porque un fichero de
 test que deja de importarse hace que pytest termine con éxito y menos
