@@ -21,6 +21,39 @@
 --     seguir el último libera el hueco (su histórico se conserva).
 -- ─────────────────────────────────────────────────────────────────────
 
+-- ── Reconciliación previa: `posiciones_reales` en producción ─────────
+-- DERIVA DETECTADA AL APLICAR ESTA MIGRACIÓN (2026-09-22): en producción
+-- la tabla conservaba las columnas cifradas de la Fase 1
+-- (`precio_compra_cifrado`, `monto_cifrado` como texto). 0000 se aplicó
+-- ANTES de firmar D3 y el fichero se editó después; como usa `create
+-- table if not exists`, la versión corregida nunca llegó a producción. La
+-- CI no lo vio porque siempre parte de una base limpia.
+--
+-- Se corrige aquí, de forma idempotente: si las columnas viejas existen,
+-- se sustituyen por las de D3. Solo si la tabla está VACÍA (lo estaba: 0
+-- filas); con datos, se aborta en vez de perder nada.
+-- Lección registrada: una migración aplicada no se edita nunca; se añade
+-- otra.
+do $reconciliar$
+begin
+    if exists (select 1 from information_schema.columns
+                where table_schema = 'public' and table_name = 'posiciones_reales'
+                  and column_name = 'precio_compra_cifrado') then
+        if exists (select 1 from public.posiciones_reales) then
+            raise exception 'posiciones_reales tiene filas con importes cifrados: migración manual necesaria';
+        end if;
+        alter table public.posiciones_reales
+            drop column precio_compra_cifrado,
+            drop column monto_cifrado,
+            add column precio_compra numeric(20, 8) not null check (precio_compra > 0),
+            add column monto numeric(20, 2) not null check (monto >= 0);
+    end if;
+end
+$reconciliar$;
+
+comment on column public.posiciones_reales.monto is
+  'Importe FICTICIO. Si alguna vez fuera a contener una cifra real de patrimonio, hay que revisar la decisión D3 antes de cargarla.';
+
 -- ── Parámetros de cuota (D7) en un solo sitio ───────────────────────
 create function public.fn_cuotas(out por_usuario int, out globales int, out cripto int)
 language sql immutable
