@@ -13,8 +13,19 @@ REM  No hay staging ni recuperacion a un punto en el tiempo: una
 REM  migracion destructiva aplicada no se deshace.
 REM ─────────────────────────────────────────────────────────────────────
 chcp 65001 >nul
+
+REM  Se ejecuta SIEMPRE desde una copia en %TEMP%. Windows lee los .cmd
+REM  poco a poco mientras los ejecuta, y el paso [0] cambia de rama: si
+REM  eso reescribe este mismo fichero, la ejecucion salta a mitad de una
+REM  linea (paso el 2026-09-22: "o_git no se reconoce como un comando").
+if "%~1"=="" (
+  copy /y "%~f0" "%TEMP%\dashboard-aplicar-migraciones.cmd" >nul
+  call "%TEMP%\dashboard-aplicar-migraciones.cmd" "%~dp0.."
+  exit /b
+)
+
 setlocal
-cd /d "%~dp0.."
+cd /d "%~1"
 REM  OneDrive bloquea a veces carpetas internas de .git y Git pregunta
 REM  "Deletion of directory ... failed. Should I try again? (y/n)". Son
 REM  carpetas vacias sin importancia: se contesta que no automaticamente.
