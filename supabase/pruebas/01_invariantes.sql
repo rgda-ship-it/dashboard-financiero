@@ -214,21 +214,19 @@ begin
     end if;
     raise notice 'PASS  I13 ninguna vista de public se salta la RLS (todas con security_invoker)';
 
-    -- ── 14. La lectura pública se limita a datos de mercado ──────────
-    -- La migración 0005 abre la lectura a `anon` de forma explícita y
-    -- temporal, SOLO sobre las cuatro tablas de mercado. Si una política
-    -- que conceda algo a `anon` aparece en cualquier otra tabla —la
-    -- cartera, el consentimiento, los eventos, y en sprints futuros las
-    -- órdenes y los saldos—, esto pone la CI en rojo.
-    select string_agg(distinct tablename, ', ') into v_texto
+    -- ── 14. Ninguna política concede nada a `anon` ───────────────────
+    -- Forma final (H-14, Sprint 3). Hasta 0007 existían cuatro políticas
+    -- temporales de lectura pública del mercado (0005); aquí se exige que
+    -- no quede ninguna, ni ninguna política `to public` — PUBLIC incluye
+    -- a `anon`, así que olvidar el `to authenticated` abre la tabla.
+    select string_agg(distinct tablename || '.' || policyname, ', ') into v_texto
       from pg_policies
      where schemaname = 'public'
-       and 'anon' = any(roles)
-       and tablename not in ('activos', 'senales', 'precios_diarios', 'indicadores_diarios');
+       and ('anon' = any(roles) or 'public' = any(roles));
     if v_texto is not null then
-        raise exception 'I14 FALLO: política con acceso público fuera de los datos de mercado -> %', v_texto;
+        raise exception 'I14 FALLO: política accesible sin iniciar sesión -> %', v_texto;
     end if;
-    raise notice 'PASS  I14 la lectura pública se limita a las cuatro tablas de mercado';
+    raise notice 'PASS  I14 ninguna política concede nada a anon ni a public';
 
     raise notice '── Invariantes: todas en verde ──';
 end
@@ -365,3 +363,230 @@ begin
     raise notice 'PASS  I15 senales_vigentes devuelve la última señal de cada activo, suspendidos incluidos';
 end
 $vig$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- Sprint 3 — la puerta de acceso, probada como la probaría un atacante:
+-- con el rol y el JWT de cada usuario, no desde la interfaz.
+--
+-- `como(uid)` simula una petición autenticada (rol `authenticated` +
+-- claim `sub`), igual que hace PostgREST con el token de Supabase Auth.
+-- `como(null)` simula la clave pública sin sesión (rol `anon`).
+-- ═════════════════════════════════════════════════════════════════════
+create or replace function pg_temp.como(p_uid uuid) returns void
+language plpgsql as $$
+begin
+    if p_uid is null then
+        perform set_config('request.jwt.claims', '', true);
+        execute 'set local role anon';
+    else
+        perform set_config('request.jwt.claims',
+                           json_build_object('sub', p_uid)::text, true);
+        execute 'set local role authenticated';
+    end if;
+end $$;
+
+create or replace function pg_temp.como_dueno() returns void
+language plpgsql as $$
+begin
+    execute 'reset role';
+    perform set_config('request.jwt.claims', '', true);
+end $$;
+
+do $gob$
+declare
+    v_intruso  uuid := gen_random_uuid();
+    v_admin    uuid := gen_random_uuid();
+    v_suplant  uuid := gen_random_uuid();
+    v_b        uuid := gen_random_uuid();
+    v_conteo   bigint;
+    v_texto    text;
+    v_fallo    boolean;
+begin
+    -- ── I16 · El admin inicial: ligado a un correo CONFIRMADO ─────────
+    -- Alguien se registra antes que el dueño: queda pendiente.
+    insert into auth.users (id, email, email_confirmed_at)
+    values (v_intruso, 'primero@ejemplo.com', now());
+    select rol || '/' || estado into v_texto from public.perfiles where id = v_intruso;
+    if v_texto <> 'usuario/pendiente' then
+        raise exception 'I16 FALLO: el primer registro quedó %, se esperaba usuario/pendiente', v_texto;
+    end if;
+
+    -- El correo del admin, sin confirmar todavía: pendiente.
+    insert into auth.users (id, email) values (v_admin, upper(public.fn_email_admin_inicial()));
+    select rol || '/' || estado into v_texto from public.perfiles where id = v_admin;
+    if v_texto <> 'usuario/pendiente' then
+        raise exception 'I16 FALLO: el correo del admin SIN confirmar quedó %', v_texto;
+    end if;
+
+    -- Al confirmarlo: admin aprobado, con su cartera de seguimiento.
+    update auth.users set email_confirmed_at = now() where id = v_admin;
+    select rol || '/' || estado into v_texto from public.perfiles where id = v_admin;
+    if v_texto <> 'admin/aprobado' then
+        raise exception 'I16 FALLO: el correo del admin confirmado quedó %', v_texto;
+    end if;
+    if not exists (select 1 from public.carteras where usuario_id = v_admin) then
+        raise exception 'I16 FALLO: el admin inicial no recibió su cartera de seguimiento';
+    end if;
+
+    -- Con un admin ya existente, el mismo correo no vuelve a promover.
+    insert into auth.users (id, email, email_confirmed_at)
+    values (v_suplant, public.fn_email_admin_inicial(), now());
+    select rol into v_texto from public.perfiles where id = v_suplant;
+    if v_texto <> 'usuario' then
+        raise exception 'I16 FALLO: la promoción automática se repitió habiendo ya un admin';
+    end if;
+    raise notice 'PASS  I16 el admin inicial exige su correo confirmado y solo se promueve una vez';
+
+    -- ── I17 · Un pendiente con su token no lee NADA del mercado ───────
+    insert into auth.users (id, email, email_confirmed_at) values (v_b, 'b@ejemplo.com', now());
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor)
+    select id, false, 5, 1, 'i17' from public.activos limit 1;
+    insert into public.eventos_sistema (tipo, mensaje) values ('etl', 'evento de sistema i17');
+
+    perform pg_temp.como(v_b);
+    select (select count(*) from public.activos)
+         + (select count(*) from public.senales)
+         + (select count(*) from public.precios_diarios)
+         + (select count(*) from public.indicadores_diarios)
+         + (select count(*) from public.senales_vigentes)
+         + (select count(*) from public.eventos_sistema)
+         + (select count(*) from public.auditoria_admin)
+         + (select count(*) from public.perfiles where id <> v_b)
+      into v_conteo;
+    select estado into v_texto from public.perfiles where id = v_b;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 0 then
+        raise exception 'I17 FALLO: un usuario pendiente leyó % filas', v_conteo;
+    end if;
+    if v_texto is distinct from 'pendiente' then
+        raise exception 'I17 FALLO: el pendiente no puede leer su propio estado (%)', v_texto;
+    end if;
+    raise notice 'PASS  I17 un JWT pendiente recibe 0 filas y solo ve su propio perfil';
+
+    -- ── I18 · Sin sesión (anon) no hay ni permiso de tabla ───────────
+    perform pg_temp.como(null);
+    begin
+        perform count(*) from public.activos;
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I18 FALLO: anon puede consultar activos';
+    end if;
+    raise notice 'PASS  I18 la clave pública sin sesión no tiene permiso sobre las tablas';
+
+    -- ── I19 · Solo un admin aprueba, y queda auditado ─────────────────
+    perform pg_temp.como(v_intruso);
+    begin
+        perform public.rpc_aprobar_usuario(v_intruso);
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I19 FALLO: un usuario no admin se aprobó a sí mismo';
+    end if;
+
+    perform pg_temp.como(v_admin);
+    perform public.rpc_aprobar_usuario(v_b);
+    begin
+        perform public.rpc_rechazar_usuario(v_intruso, '   ');
+        v_fallo := false;
+    exception when invalid_parameter_value then
+        v_fallo := true;
+    end;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I19 FALLO: se rechazó a un usuario sin motivo';
+    end if;
+    if (select estado from public.perfiles where id = v_b) <> 'aprobado'
+       or not exists (select 1 from public.auditoria_admin
+                       where accion = 'aprobar_usuario' and actor_id = v_admin
+                         and objetivo_id = v_b::text)
+       or not exists (select 1 from public.carteras where usuario_id = v_b)
+       or not exists (select 1 from public.eventos_sistema where usuario_id = v_b)
+    then
+        raise exception 'I19 FALLO: aprobar no dejó estado, auditoría, cartera y evento';
+    end if;
+    raise notice 'PASS  I19 solo un admin aprueba; exige motivo al rechazar; todo queda auditado';
+
+    -- ── I20 · Aprobado: lee mercado, solo sus carteras, no escribe mercado
+    perform pg_temp.como(v_b);
+    select count(*) into v_conteo from public.activos;
+    if v_conteo = 0 then
+        perform pg_temp.como_dueno();
+        raise exception 'I20 FALLO: un usuario aprobado no lee el catálogo';
+    end if;
+    select count(*) into v_conteo from public.carteras where usuario_id <> v_b;
+    if v_conteo <> 0 then
+        perform pg_temp.como_dueno();
+        raise exception 'I20 FALLO: el usuario B ve % carteras ajenas', v_conteo;
+    end if;
+    begin
+        insert into public.carteras (usuario_id, nombre) values (v_admin, 'ajena');
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    if not v_fallo then
+        perform pg_temp.como_dueno();
+        raise exception 'I20 FALLO: B creó una cartera a nombre de otro usuario';
+    end if;
+    begin
+        insert into public.senales (activo_id, operable, leverage_tope,
+               leverage_referencia_volatilidad, version_motor)
+        select id, false, 5, 1, 'intruso' from public.activos limit 1;
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    if not v_fallo then
+        perform pg_temp.como_dueno();
+        raise exception 'I20 FALLO: un usuario escribió en senales';
+    end if;
+    begin
+        update public.perfiles set estado = 'aprobado', rol = 'admin' where id = v_b;
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    update public.perfiles set nombre = 'Usuario B' where id = v_b;
+    perform pg_temp.como_dueno();
+    if not v_fallo then
+        raise exception 'I20 FALLO: un usuario se cambió el rol o el estado';
+    end if;
+    if (select nombre from public.perfiles where id = v_b) <> 'Usuario B' then
+        raise exception 'I20 FALLO: el usuario no pudo cambiar su propio nombre';
+    end if;
+    raise notice 'PASS  I20 aprobado: lee mercado, solo sus carteras, no escribe mercado ni su rol';
+
+    -- ── I21 · Suspender cierra la puerta sin borrar nada ─────────────
+    perform pg_temp.como(v_admin);
+    perform public.rpc_suspender_usuario(v_b, 'prueba de suspensión');
+    begin
+        perform public.rpc_suspender_usuario(v_admin, 'auto');
+        v_fallo := false;
+    exception when insufficient_privilege then
+        v_fallo := true;
+    end;
+    perform pg_temp.como(v_b);
+    select count(*) into v_conteo from public.activos;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 0 then
+        raise exception 'I21 FALLO: un usuario suspendido sigue leyendo % activos', v_conteo;
+    end if;
+    if not v_fallo then
+        raise exception 'I21 FALLO: el admin pudo suspenderse a sí mismo';
+    end if;
+    if not exists (select 1 from public.carteras where usuario_id = v_b) then
+        raise exception 'I21 FALLO: suspender borró la cartera del usuario';
+    end if;
+    raise notice 'PASS  I21 suspender bloquea la lectura sin borrar datos; el admin no se autosuspende';
+
+    raise notice '── Gobierno: en verde ──';
+end
+$gob$;

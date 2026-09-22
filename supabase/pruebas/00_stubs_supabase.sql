@@ -29,3 +29,34 @@ begin
         create role service_role;
     end if;
 end $$;
+
+-- ── Sprint 3: lo que las políticas y los triggers de 0007 necesitan ──
+-- Dos columnas más de auth.users: el trigger de alta lee el correo y la
+-- promoción del admin inicial exige que esté confirmado.
+alter table auth.users add column if not exists email text;
+alter table auth.users add column if not exists email_confirmed_at timestamptz;
+
+-- auth.uid() como la define Supabase: el `sub` del JWT de la petición.
+-- Las pruebas simulan una petición con
+--   set local role authenticated;
+--   set local request.jwt.claims = '{"sub": "<uuid>"}';
+create or replace function auth.uid()
+returns uuid
+language sql stable
+as $$
+    select nullif(
+        coalesce(current_setting('request.jwt.claim.sub', true),
+                 current_setting('request.jwt.claims', true)::jsonb ->> 'sub'),
+        '')::uuid
+$$;
+
+grant usage on schema auth   to anon, authenticated, service_role;
+grant usage on schema public to anon, authenticated, service_role;
+grant execute on function auth.uid() to anon, authenticated, service_role;
+
+-- Supabase concede por defecto todo sobre public a los tres roles y deja
+-- que RLS decida. Se imita para que las pruebas midan la RLS y los
+-- REVOKE de las migraciones, no la ausencia de GRANT de un Postgres pelado.
+alter default privileges in schema public grant all on tables    to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
