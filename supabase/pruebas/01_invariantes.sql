@@ -590,3 +590,21 @@ begin
     raise notice '── Gobierno: en verde ──';
 end
 $gob$;
+
+-- ── I22 · `anon` no ejecuta ningún RPC ni función interna ────────────
+do $i22$
+declare
+    v_texto text;
+begin
+    select string_agg(p.proname, ', ') into v_texto
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public'
+       and (p.proname like 'rpc\_%' or p.proname like 'fn\_%')
+       and has_function_privilege('anon', p.oid, 'EXECUTE');
+    if v_texto is not null then
+        raise exception 'I22 FALLO: anon puede ejecutar -> %', v_texto;
+    end if;
+    raise notice 'PASS  I22 anon no puede ejecutar ningún rpc_ ni fn_';
+end
+$i22$;

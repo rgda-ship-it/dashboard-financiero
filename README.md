@@ -31,7 +31,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 107 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 21 invariantes (no hay staging)
+│   ├── migraciones.yml        # El esquema desde cero + 22 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -50,7 +50,8 @@ dashboard-financiero/
 │       ├── 0005_lectura_...sql  # Lectura pública de mercado, temporal hasta H-14
 │       ├── 0006_senales_...sql  # senales_vigentes con LATERAL: 1 lectura por activo
 │       ├── 0007_gobierno.sql    # Perfiles, aprobación por admin, RLS completa
-│       └── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
+│       ├── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
+│       └── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

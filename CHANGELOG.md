@@ -4,6 +4,21 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-22 — Cierre del Sprint 3: dos correcciones
+
+### Corregido — `anon` podía ejecutar los RPC de administración (0009)
+Verificando en producción con la clave pública sola, `rpc_aprobar_usuario`
+se ejecutaba y era su comprobación interna la que lo rechazaba. 0007
+revocó EXECUTE a PUBLIC, pero Supabase concede EXECUTE a `anon`
+directamente. Se revoca por nombre, también como privilegio por defecto,
+y la invariante **I22** lo exige para toda función `rpc_`/`fn_`.
+
+### Corregido — `aplicar-migraciones.cmd` solo aplica desde master al día
+Se ejecutó con la carpeta en la rama de un PR sin fusionar y aplicó sus
+migraciones (`supabase db push` usa los ficheros locales). No hubo daño:
+eran las mismas que la CI del PR acababa de validar. Ahora el script pone
+la carpeta en master, hace `pull --ff-only` y aborta si hay cambios.
+
 ## [Sin publicar] - 2026-09-22 — Fase 2, Sprint 3: autenticación y gobierno
 
 ### Añadido — cuentas con aprobación de administrador (0007)
