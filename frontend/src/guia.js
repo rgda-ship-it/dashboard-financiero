@@ -190,7 +190,13 @@ export const SECCIONES = [
         termino: "Fuentes no oficiales",
         formula: null,
         lectura:
-          "yfinance no es una API oficial de Yahoo: si cambian su estructura interna, las acciones dejan de escanearse (las criptos no). CoinGecko en tier gratuito permite del orden de 10-15 peticiones por minuto, y como cada cripto necesita dos peticiones, el escaneo se espacia y se cachea: el primero en frío tarda alrededor de medio minuto.",
+          "yfinance no es una API oficial de Yahoo: si cambian su estructura interna, las acciones dejan de escanearse (las criptos no). CoinGecko en tier gratuito permite del orden de 10-15 peticiones por minuto, y como cada cripto necesita dos peticiones, el escaneo lo hace un proceso programado —acciones cada 30 min con la bolsa abierta, cripto cada hora— y la pantalla solo lee su último resultado.",
+      },
+      {
+        termino: "Dato atrasado o suspendido",
+        formula: "cripto: > 90 min · acción: > 60 min con Nueva York abierto",
+        lectura:
+          "Bajo el precio aparece «atrasado · hace N» cuando ese activo debería haberse recalculado ya y no lo ha hecho; se muestra su última lectura válida. Con la bolsa cerrada una acción no se atrasa: el dato del cierre es el último posible. «Suspendido» significa tres fallos seguidos del proveedor: el sistema lo reintenta con espera creciente y, mientras, conserva la última lectura. Los festivos de NYSE no se descuentan aquí y pueden marcar acciones como atrasadas.",
       },
       {
         termino: "Esto no es asesoramiento",

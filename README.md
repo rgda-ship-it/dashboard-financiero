@@ -30,8 +30,8 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 90 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 14 invariantes (no hay staging)
+│   ├── tests.yml              # Los 107 casos como puerta de merge
+│   ├── migraciones.yml        # El esquema desde cero + 15 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -47,7 +47,8 @@ dashboard-financiero/
 │       ├── 0002_extensiones.sql # pg_cron y pg_net (lo único que exige Supabase)
 │       ├── 0003_semilla_...sql  # Los 24 activos del universo de la Fase 1
 │       ├── 0004_vistas_...sql   # Las vistas respetan la RLS (security_invoker)
-│       └── 0005_lectura_...sql  # Lectura pública de mercado, temporal hasta H-14
+│       ├── 0005_lectura_...sql  # Lectura pública de mercado, temporal hasta H-14
+│       └── 0006_senales_...sql  # senales_vigentes con LATERAL: 1 lectura por activo
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -64,6 +65,7 @@ dashboard-financiero/
 │   ├── etl.py                 # FASE 2 — punto de entrada del job programado
 │   ├── escritor_supabase.py   # FASE 2 — adaptador de salida hacia PostgreSQL
 │   ├── ventana_mercado.py     # FASE 2 — ¿está abierta la bolsa? (lógica pura)
+│   ├── seleccion_universo.py  # FASE 2 — qué activos procesa cada pasada (lógica pura)
 │   ├── conectores/
 │   │   ├── yahoo_finance.py   # Acciones (vía yfinance, no oficial — aislado como adaptador)
 │   │   └── coingecko.py       # Cripto (API pública gratuita)
@@ -108,7 +110,9 @@ dashboard-financiero/
         ├── App.jsx             # FASE 2 — router de los seis módulos
         ├── supabase.js         # FASE 2 — cliente único (solo anon key)
         ├── datos/
-        │   └── senales.js      # FASE 2 — lectura de senales_vigentes
+        │   ├── senales.js      # FASE 2 — lectura de senales_vigentes
+        │   ├── frescura.js     # FASE 2 — ¿dato atrasado? por clase y mercado NY
+        │   └── frescura.test.js # `npm test` — runner nativo de Node
         ├── rutas/
         │   ├── Escaner.jsx     # El armazón de la Fase 1, ahora una ruta
         │   └── Proximamente.jsx # Módulos pendientes, con su sprint y sus historias
@@ -488,9 +492,10 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **90 casos**
-y todos pasan — 69 heredados de la Fase 1 y 21 del Sprint 1 de la Fase 2
-(`test_escritor_supabase.py` y `test_ventana_mercado.py`). La cota está
+Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **107 casos**
+y todos pasan — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
+(`test_escritor_supabase.py` y `test_ventana_mercado.py`) y 17 del Sprint 2
+(`test_seleccion_universo.py` y `test_etl_seleccion.py`). La cota está
 fijada en `scripts/resumen_tests.py`: si la suite recolecta MENOS casos de
 los esperados, la CI falla aunque todo esté en verde, porque un fichero de
 test que deja de importarse hace que pytest termine con éxito y menos

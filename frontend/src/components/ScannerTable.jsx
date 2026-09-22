@@ -16,6 +16,7 @@ import {
   nivelesTecnicos,
   formatearMultiplicador,
   formatearTope,
+  tiempoRelativo,
 } from "../formato.js";
 
 const FILTROS = [
@@ -51,7 +52,7 @@ function FilasEsqueleto() {
 
 /** Una fila del escáner, más su detalle desplegable. */
 function FilaSenal({ senal, abierta, alAbrir }) {
-  const cripto = esCripto(senal.ticker);
+  const cripto = esCripto(senal.ticker, senal.clase);
   const direccion = direccionConfluencia(senal);
   const apoyos =
     direccion === "bajista" ? senal.indicadores_bajistas : senal.indicadores_alcistas;
@@ -72,6 +73,15 @@ function FilaSenal({ senal, abierta, alAbrir }) {
             <div>
               <p className="asset__ticker">{simboloVisible(senal.ticker)}</p>
               <p className="asset__price">{formatearPrecio(senal.precio_actual)}</p>
+              {senal.suspendido ? (
+                <p className="asset__aviso" title="Tres fallos seguidos del proveedor. El ETL lo reintenta con espera creciente; se muestra la última lectura válida.">
+                  suspendido · {tiempoRelativo(senal.calculado_en)}
+                </p>
+              ) : senal.atrasada ? (
+                <p className="asset__aviso" title="Debería haberse recalculado ya. Se muestra la última lectura válida.">
+                  atrasado · {tiempoRelativo(senal.calculado_en)}
+                </p>
+              ) : null}
             </div>
           </div>
         </td>
@@ -195,7 +205,7 @@ export default function ScannerTable({
     const termino = busqueda.trim().toLowerCase();
 
     const filtradas = senales.filter((s) => {
-      const cripto = esCripto(s.ticker);
+      const cripto = esCripto(s.ticker, s.clase);
       if (filtro === "cripto" && !cripto) return false;
       if (filtro === "acciones" && cripto) return false;
       if (soloAltas && s.fuerza !== "alta") return false;
@@ -228,13 +238,13 @@ export default function ScannerTable({
     );
   }
 
-  const hayCripto = visibles.some((s) => esCripto(s.ticker) && !s.error);
+  const hayCripto = visibles.some((s) => esCripto(s.ticker, s.clase) && !s.error);
 
   return (
     <Panel
       titulo="Escáner de mercado"
       alPedirAyuda={alPedirAyuda}
-      meta={desdeCache ? (mensaje ?? "sirviendo el último escaneo válido en caché") : null}
+      meta={mensaje ?? (desdeCache ? "sirviendo la última lectura válida" : null)}
       flush
       pie={
         hayCripto ? (
@@ -350,9 +360,9 @@ export default function ScannerTable({
                       <td>
                         <div className="asset">
                           <span
-                            className={`asset__kind${esCripto(s.ticker) ? " asset__kind--cripto" : ""}`}
+                            className={`asset__kind${esCripto(s.ticker, s.clase) ? " asset__kind--cripto" : ""}`}
                           >
-                            {esCripto(s.ticker) ? "CRP" : "EQ"}
+                            {esCripto(s.ticker, s.clase) ? "CRP" : "EQ"}
                           </span>
                           <div>
                             <p className="asset__ticker">{simboloVisible(s.ticker)}</p>

@@ -15,7 +15,11 @@ const SIMBOLO_CRIPTO = {
   solana: "SOL",
 };
 
-export function esCripto(ticker) {
+// `clase` viene de la base de datos (`activos.clase`) y es la fuente de
+// verdad: el catálogo es dinámico y una cripto nueva no está en la tabla
+// de arriba. La tabla solo queda como respaldo y para el símbolo visible.
+export function esCripto(ticker, clase) {
+  if (clase) return clase === "cripto";
   return Object.prototype.hasOwnProperty.call(SIMBOLO_CRIPTO, String(ticker).toLowerCase());
 }
 

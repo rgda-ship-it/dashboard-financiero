@@ -4,6 +4,37 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-21 — Fase 2, Sprint 2: persistencia y catálogo
+
+### Corregido — un activo suspendido no volvía nunca
+El ETL solo seleccionaba `activo` y `pendiente_backfill`: tras tres
+fallos, un activo quedaba fuera para siempre aunque su backoff hubiera
+vencido. La selección vive ahora en `motor-analitico/seleccion_universo.py`
+(lógica pura, 12 tests) y reintenta el suspendido cuando toca.
+
+### Corregido — el escáner escondía los suspendidos y teñía todo de «caché»
+- Los suspendidos siguen visibles con su última lectura y el aviso
+  «suspendido · hace N».
+- La antigüedad se calcula por fila y por clase (`frontend/src/datos/frescura.js`):
+  cripto > 90 min; acciones solo con Nueva York abierto y > 60 min. Antes,
+  un activo viejo marcaba «caché» el escáner entero, y cada fin de semana
+  las acciones aparecían añejas aunque fuese el último dato posible.
+- La barra de estado dice «atrasado» en vez de «caché».
+- Cripto se reconoce por `activos.clase`, no por la lista fija de `formato.js`.
+
+### Cambiado — frescura en vez de «si la vela de hoy existe, no llamar»
+La spec original de H-09 congelaba el precio de la vela en curso el día
+entero. Ahora un activo no se vuelve a pedir si se procesó hace menos de
+media cadencia (15 min acciones, 30 min cripto). `--forzar` lo ignora.
+
+### Rendimiento — `senales_vigentes` (migración 0006)
+DISTINCT ON recorría toda la historia de señales. Con un año sintético
+(265.650 filas): 227 ms → 1,3 ms. Nueva invariante I15.
+
+### Diferido a H-21
+Retirar `IDS_CRIPTO`, `escaner.js` y `circuitBreaker.js`: los necesita
+todavía el modo local de la Fase 1.
+
 ## [Sin publicar] - 2026-09-21 — Fase 2, Sprint 1 en producción
 
 El Sprint 1 está desplegado: código en GitHub (PR #1), secretos cargados,

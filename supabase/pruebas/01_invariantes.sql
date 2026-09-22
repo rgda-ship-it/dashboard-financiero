@@ -313,3 +313,55 @@ begin
     raise notice '── Retención: en verde ──';
 end
 $ret$;
+
+-- ── I15: senales_vigentes devuelve la ÚLTIMA señal de cada activo ────
+-- 0006 reescribió la vista (DISTINCT ON -> LATERAL + LIMIT 1) por
+-- rendimiento. Esta invariante fija que el resultado es el mismo: una
+-- fila por activo con señales, la más reciente, y que los suspendidos
+-- siguen visibles (el escáner los muestra con aviso).
+do $vig$
+declare
+    v_id      bigint;
+    v_ultimo  bigint;
+    v_conteo  bigint;
+    v_estado  text;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+    values ('ZZI15', 'accion', 'yahoo', 'ZZI15', 'suspendido')
+    returning id into v_id;
+
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad,
+         version_motor, calculado_en)
+    select v_id, false, 5, 1, 'i15-' || g, now() - (g || ' hours')::interval
+      from generate_series(1, 5) g;
+
+    select id into v_ultimo from public.senales
+     where activo_id = v_id order by calculado_en desc limit 1;
+
+    select count(*), max(estado_activo) into v_conteo, v_estado
+      from public.senales_vigentes where activo_id = v_id;
+    if v_conteo <> 1 then
+        raise exception 'I15 FALLO: senales_vigentes devolvió % filas para un activo, se esperaba 1', v_conteo;
+    end if;
+    if not exists (select 1 from public.senales_vigentes where id = v_ultimo) then
+        raise exception 'I15 FALLO: senales_vigentes no devuelve la señal más reciente';
+    end if;
+    if v_estado <> 'suspendido' then
+        raise exception 'I15 FALLO: estado_activo = %, se esperaba suspendido', v_estado;
+    end if;
+
+    select count(*) into v_conteo from (
+        (select id from public.senales_vigentes)
+        except
+        (select distinct on (activo_id) id from public.senales
+          order by activo_id, calculado_en desc)
+    ) x;
+    if v_conteo <> 0 then
+        raise exception 'I15 FALLO: % filas de senales_vigentes no son la última señal de su activo', v_conteo;
+    end if;
+
+    delete from public.activos where id = v_id;
+    raise notice 'PASS  I15 senales_vigentes devuelve la última señal de cada activo, suspendidos incluidos';
+end
+$vig$;

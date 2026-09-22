@@ -187,6 +187,31 @@ clave de servicio, **para** que un descuido no exponga la base entera.
 toca una API externa.** Es el requisito 2 cumplido y verificable con la
 pestaña de red del navegador.
 
+> **Ejecución del Sprint 2 (2026-09-21).** Buena parte de lo que pedían
+> H-09…H-12 ya había llegado con el Sprint 1 (UPSERT de precios e
+> indicadores, `rango_real`, backoff, `invalido`, lectura desde la BD,
+> retención en el keep-alive). El sprint se dedicó a los fallos reales
+> que quedaban y a medir:
+>
+> | Historia | Qué se hizo | Evidencia |
+> |---|---|---|
+> | H-08 | `senales_vigentes` reescrita con `LATERAL … LIMIT 1` (migración `0006`). Con 265.650 señales sintéticas (150 activos, un año): **227 ms → 1,3 ms**, **266.985 → 605 buffers**. Retención probada con 14 meses: 30 d–1 año comprimido a 1 señal/día, > 1 año borrado. Invariante **I15** fija que el resultado no cambia | CI de migraciones |
+> | H-09 | **Corrección de la spec**: «si la vela de hoy existe, no llamar» congelaba el precio de la vela en curso todo el día. Se sustituye por una **ventana de frescura** (mitad de la cadencia del cron: 15 min acciones, 30 min cripto) en `seleccion_universo.py`. El criterio «dos ejecuciones seguidas → cero llamadas» se cumple dentro de esa ventana | `test_seleccion_universo.py` |
+> | H-10 | Selección pura y testeada: posición abierta primero (ignora frescura y tope), resto por `ultimo_etl_en` con nulos primero, tope `--max` | 12 + 5 tests |
+> | H-11 | **Fallo corregido**: un activo `suspendido` nunca se reintentaba. Ahora vuelve a la rotación cuando vence su `proximo_intento_en`. Y **dejaba de verse** en el escáner: ahora sigue visible con su última lectura y el aviso «suspendido · hace N» | `test_etl_seleccion.py`, I15 |
+> | H-12 | La antigüedad es **por fila y por clase** (`frescura.js`): cripto atrasada > 90 min; acciones solo con NY abierto y > 60 min. Antes un solo activo viejo marcaba «caché» el escáner entero y cada lunes las acciones salían añejas por el fin de semana. Cripto se reconoce por `activos.clase`, no por una lista fija | `npm test` (5 casos) |
+>
+> **Diferido a H-21 (Sprint 4), con motivo**: retirar `IDS_CRIPTO`,
+> `_registrar_cripto_del_catalogo`, `escaner.js` y `circuitBreaker.js`.
+> Los usa todavía el stack local de la Fase 1 —`analyze-position` lee
+> `_ultimo_escaneo`, que puebla `/internal/scan`— y la cartera no se
+> migra a la nube hasta H-21. Borrarlos ahora rompe el modo local sin
+> ganar nada en la nube, que ya no los ejecuta.
+>
+> **No verificable desde aquí**: «el ATR de BTC coincide con
+> `/internal/scan` ±0,01» exige el servidor local de la Fase 1; y
+> «ningún 429 en 24 h» se lee en el historial de Actions tras un día.
+
 ---
 
 ### H-08 · Endurecer el catálogo: índices, retención aplicada y contrato · 3 pts
@@ -218,7 +243,7 @@ verificado, **para** que soporte el volumen de un año sin sorpresas.
 - **Propagar `rango_real`**: `true` para `yfinance`; para CoinGecko, `true` solo en los días que vienen de `/ohlc` a 4 h.
 - `UPSERT` en `indicadores_diarios` calculado **exclusivamente** sobre `v_velas_con_rango`.
 - Actualizar `activos.ultimo_precio` y `ultimo_precio_en` en cada pasada.
-- Antes de llamar al proveedor, comprobar si la vela de hoy ya está: si está, se salta.
+- ~~Antes de llamar al proveedor, comprobar si la vela de hoy ya está: si está, se salta.~~ **Corregido en ejecución**: ventana de frescura por clase (ver nota del sprint).
 
 **Criterios de aceptación**
 - Dos ejecuciones seguidas del ETL: la segunda hace **cero** llamadas a CoinGecko (verificable en los logs del conector).

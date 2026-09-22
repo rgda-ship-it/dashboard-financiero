@@ -24,11 +24,12 @@ from pathlib import Path
 #
 #   69  = los casos que la Fase 1 dejó en verde (CHANGELOG 2026-09-20).
 #   +21 = los del Sprint 1: 12 de escritor_supabase, 9 de ventana_mercado.
+#   +17 = los del Sprint 2: 12 de seleccion_universo, 5 de etl_seleccion.
 #
 # Si este número sube porque se añaden pruebas, actualízalo aquí. Si la
 # suite recolecta MENOS, es un fallo aunque todo esté en verde.
 CASOS_FASE_1 = 69
-CASOS_ESPERADOS = 90
+CASOS_ESPERADOS = 107
 
 
 def main() -> int:
