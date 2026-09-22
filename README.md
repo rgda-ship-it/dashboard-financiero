@@ -31,7 +31,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 107 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 15 invariantes (no hay staging)
+│   ├── migraciones.yml        # El esquema desde cero + 21 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -48,7 +48,9 @@ dashboard-financiero/
 │       ├── 0003_semilla_...sql  # Los 24 activos del universo de la Fase 1
 │       ├── 0004_vistas_...sql   # Las vistas respetan la RLS (security_invoker)
 │       ├── 0005_lectura_...sql  # Lectura pública de mercado, temporal hasta H-14
-│       └── 0006_senales_...sql  # senales_vigentes con LATERAL: 1 lectura por activo
+│       ├── 0006_senales_...sql  # senales_vigentes con LATERAL: 1 lectura por activo
+│       ├── 0007_gobierno.sql    # Perfiles, aprobación por admin, RLS completa
+│       └── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -109,12 +111,17 @@ dashboard-financiero/
         ├── main.jsx
         ├── App.jsx             # FASE 2 — router de los seis módulos
         ├── supabase.js         # FASE 2 — cliente único (solo anon key)
+        ├── auth/
+        │   ├── sesion.jsx      # FASE 2 — sesión + perfil (¿aprobado?)
+        │   └── Guardias.jsx    # Qué pantalla ver; la seguridad es la RLS
         ├── datos/
         │   ├── senales.js      # FASE 2 — lectura de senales_vigentes
         │   ├── frescura.js     # FASE 2 — ¿dato atrasado? por clase y mercado NY
         │   └── frescura.test.js # `npm test` — runner nativo de Node
         ├── rutas/
         │   ├── Escaner.jsx     # El armazón de la Fase 1, ahora una ruta
+        │   ├── Admin.jsx       # FASE 2 — aprobar / rechazar / suspender + auditoría
+        │   ├── acceso/         # Login, registro, pendiente, recuperar contraseña
         │   └── Proximamente.jsx # Módulos pendientes, con su sprint y sus historias
         ├── useApi.js           # Hooks: useEscaner, useCartera, useEventLog
         ├── formato.js          # Formato numérico (punto decimal), símbolos de activo, etiquetas
@@ -126,7 +133,8 @@ dashboard-financiero/
         │   ├── base.css        # Reset, fondo, foco, scrollbars
         │   ├── layout.css      # Barra superior, rejilla de KPIs, rejilla principal
         │   ├── componentes.css # Paneles, tablas, medidores, stream
-        │   └── guia.css        # Panel lateral de ayuda y sus accesos
+        │   ├── guia.css        # Panel lateral de ayuda y sus accesos
+        │   └── acceso.css      # FASE 2 — pantallas de acceso y panel de admin
         └── components/
             ├── StatusBar.jsx      # Marca + estado de datos, stream y último escaneo
             ├── MetricsStrip.jsx   # Cuatro KPIs derivados de datos ya en pantalla

@@ -4,6 +4,30 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-22 — Fase 2, Sprint 3: autenticación y gobierno
+
+### Añadido — cuentas con aprobación de administrador (0007)
+- `perfiles`, `auditoria_admin` y el esqueleto de `carteras`.
+- Registro, login, confirmación de correo, recuperación de contraseña y
+  pantalla de estado (`/pendiente`), que entra sola al dashboard cuando
+  un administrador aprueba la cuenta.
+- Panel `/admin`: aprobar, rechazar y suspender (con motivo obligatorio),
+  y las últimas acciones de la auditoría.
+- El administrador inicial está ligado al correo del dueño y solo se
+  promueve cuando ese correo está confirmado, una única vez.
+
+### Cambiado — el escáner deja de ser público
+- Se retiran las cuatro políticas `*_temporal_h14` de 0005, como estaba
+  previsto. Los datos de mercado los lee solo un usuario aprobado.
+- `anon` pierde además los privilegios de tabla en `public`.
+- Invariante I14 en su forma final: ninguna política para `anon` ni
+  `public`. Nuevas I16–I21 prueban la puerta con el rol y el JWT de cada
+  usuario, como lo haría un atacante.
+
+### Cambiado — `cartera_posiciones` pasa a `posiciones_reales` (0008)
+Con `activo_id` y FK a `perfiles`. No se migra ninguna cartera de la
+Fase 1: el dueño no tenía posiciones que conservar.
+
 ## [Sin publicar] - 2026-09-21 — Fase 2, Sprint 2: persistencia y catálogo
 
 ### Corregido — un activo suspendido no volvía nunca
