@@ -1,17 +1,9 @@
-# Backfill bajo demanda de un activo nuevo.
+# Backfill MANUAL de un activo que ya está en el catálogo.
 #
-# Este workflow es la pieza que hace posible el requisito 3 sin pagar un
-# servidor: la Edge Function `resolver-activo` (H-19, Sprint 4) lo dispara
-# por la API de GitHub en cuanto un usuario añade un símbolo que el
-# catálogo no conocía.
-#
-#   POST /repos/{owner}/{repo}/actions/workflows/backfill.yml/dispatches
-#   { "ref": "master", "inputs": { "simbolo": "NVDA" } }
-#
-# Latencia percibida por el usuario: el activo aparece AL INSTANTE en su
-# cartera con estado «aprovisionando», y se completa en 1-3 minutos sin
-# que recargue nada. La espera es visible y tiene nombre, en vez de ser un
-# spinner indefinido.
+# El alta automática de activos nuevos la hace `altas.yml`, que dispara
+# la base de datos (Sprint 4). Este workflow queda como herramienta de
+# mantenimiento: rehacer el histórico de un símbolo concreto a mano desde
+# la pestaña Actions.
 
 name: backfill
 

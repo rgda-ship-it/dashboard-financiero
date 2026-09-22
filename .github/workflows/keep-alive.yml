@@ -74,6 +74,7 @@ jobs:
             --exclude-table=public.precios_diarios \
             --exclude-table=public.indicadores_diarios \
             --exclude-table=public.senales \
+            --exclude-table=public.catalogo_coingecko \
             > respaldo/gobierno-y-experimento.sql
           gzip respaldo/gobierno-y-experimento.sql
           ls -lh respaldo/
@@ -114,3 +115,26 @@ jobs:
             echo ""
             echo "> Recordatorio: el tier gratuito de Supabase da **500 MB**."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # 4. CATÁLOGO DE COINGECKO (Sprint 4). Una sola llamada a /coins/list
+  #    por semana: con esa copia la BD valida y resuelve criptos al
+  #    instante sin gastar cuota. Job aparte para no instalar Python en el
+  #    latido.
+  catalogo-cripto:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests
+
+      - name: Refrescar la copia de /coins/list
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python catalogo_cripto.py

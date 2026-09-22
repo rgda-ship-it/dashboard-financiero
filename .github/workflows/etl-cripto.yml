@@ -40,6 +40,19 @@ jobs:
 
       - run: pip install -r motor-analitico/requirements.txt
 
+      # Red de seguridad del alta de activos (Sprint 4): si el disparo
+      # desde la BD no llegó, lo pendiente se procesa aquí. Sin nada
+      # pendiente es una consulta y termina. No bloquea el escaneo.
+      - name: Altas pendientes
+        working-directory: motor-analitico
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LEVERAGE_HARD_CAP_FASE1: '5'
+          VERSION_MOTOR: ${{ github.sha }}
+        run: python altas.py
+
       - name: Escanear y escribir
         working-directory: motor-analitico
         env:

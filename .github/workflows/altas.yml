@@ -1,0 +1,52 @@
+# Altas de activos nuevos (Sprint 4 · H-19 / H-20).
+#
+# Lo dispara la BASE DE DATOS: cuando un usuario pide un activo que el
+# catálogo no conocía, `fn_disparar_altas()` llama con pg_net a
+#
+#   POST /repos/{owner}/{repo}/actions/workflows/altas.yml/dispatches
+#   { "ref": "master" }
+#
+# con un token de alcance mínimo (Actions: write sobre este repositorio)
+# guardado en Supabase Vault como `github_pat_altas`. Sin Edge Functions
+# (decisión del dueño, 2026-09-22).
+#
+# Cada ejecución procesa TODAS las solicitudes pendientes y todos los
+# activos `pendiente_backfill`, así que no hace falta una ejecución por
+# símbolo: si llegan cinco disparos seguidos, GitHub encola uno más y el
+# resto se descartan sin perder trabajo.
+#
+# Red de seguridad: si el token falta o el disparo no llega, el ETL de
+# cripto ejecuta `altas.py` al principio de cada pasada horaria.
+
+name: altas
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: altas
+  cancel-in-progress: false
+
+jobs:
+  altas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - run: pip install -r motor-analitico/requirements.txt
+
+      - name: Validar solicitudes y rellenar histórico
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LEVERAGE_HARD_CAP_FASE1: '5'
+          VERSION_MOTOR: ${{ github.sha }}
+        run: python altas.py

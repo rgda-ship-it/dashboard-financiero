@@ -41,6 +41,8 @@ class ClienteFalso:
             filas = [a for a in filas if a["simbolo"] == params["simbolo"].removeprefix("eq.")]
         if "clase" in params:
             filas = [a for a in filas if a["clase"] == params["clase"].removeprefix("eq.")]
+        if "seguidores" in params:
+            filas = [a for a in filas if a.get("seguidores", 1) > 0]
         if "estado" in params:
             permitidos = params["estado"].removeprefix("in.(").rstrip(")").split(",")
             filas = [a for a in filas if a["estado"] in permitidos]
@@ -61,6 +63,17 @@ def test_la_consulta_incluye_suspendidos():
     sel = etl.seleccionar_activos(cliente, "cripto", None, 6)
     params = next(p for t, p in cliente.consultas if t == "activos")
     assert "suspendido" in params["estado"]
+    assert [a["simbolo"] for a in sel.procesar] == ["bitcoin"]
+
+
+def test_solo_se_refrescan_activos_seguidos():
+    """Sprint 4: un activo que nadie sigue no gasta cuota de proveedor."""
+    sin_nadie = _a(2, "solana", hace_min=500)
+    sin_nadie["seguidores"] = 0
+    cliente = ClienteFalso([_a(1, "bitcoin", hace_min=500), sin_nadie])
+    sel = etl.seleccionar_activos(cliente, "cripto", None, 6)
+    params = next(p for t, p in cliente.consultas if t == "activos")
+    assert params["seguidores"] == "gt.0"
     assert [a["simbolo"] for a in sel.procesar] == ["bitcoin"]
 
 
