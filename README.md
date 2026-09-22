@@ -30,14 +30,14 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 113 casos como puerta de merge
+│   ├── tests.yml              # Los 117 casos como puerta de merge
 │   ├── migraciones.yml        # El esquema desde cero + 29 invariantes (no hay staging)
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
 │   ├── altas.yml              # Alta de activos nuevos (lo dispara la BD)
 │   ├── backfill.yml           # Rehacer el histórico de un símbolo, a mano
-│   └── keep-alive.yml         # Latido semanal + respaldo + retención + catálogo CoinGecko
+│   └── keep-alive.yml         # Latido semanal + respaldo JSON + retención + catálogo CoinGecko
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
 │   ├── config.toml
@@ -73,6 +73,7 @@ dashboard-financiero/
 │   ├── seleccion_universo.py  # FASE 2 — qué activos procesa cada pasada (lógica pura)
 │   ├── altas.py               # FASE 2 — valida y rellena activos nuevos (workflow altas)
 │   ├── catalogo_cripto.py     # FASE 2 — copia semanal de /coins/list de CoinGecko
+│   ├── respaldo.py            # FASE 2 — latido, respaldo JSON y retención (vía REST)
 │   ├── conectores/
 │   │   ├── yahoo_finance.py   # Acciones (vía yfinance, no oficial — aislado como adaptador)
 │   │   └── coingecko.py       # Cripto (API pública gratuita)
@@ -509,7 +510,7 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **113 casos**
+Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **117 casos**
 y todos pasan — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
 (`test_escritor_supabase.py` y `test_ventana_mercado.py`) 17 del Sprint 2
 (`test_seleccion_universo.py` y `test_etl_seleccion.py`) y 6 del Sprint 4

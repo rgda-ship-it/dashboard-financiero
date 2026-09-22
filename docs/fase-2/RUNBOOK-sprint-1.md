@@ -178,7 +178,10 @@ Panel → **Settings → Database → Connection string → URI**:
 |------------|
 | La URI con tu contraseña del paso 1 → `SUPABASE_DB_URL` |
 
-> `SUPABASE_DB_URL` **solo** la usa el workflow `keep-alive.yml`, que
+> **Obsoleto desde el 2026-09-22**: `SUPABASE_DB_URL` ya no la usa ningún
+> workflow (el latido pasó a la API REST). Se puede borrar del repositorio.
+>
+> `SUPABASE_DB_URL` la usaba el workflow `keep-alive.yml`, que
 > corre en Linux y sí tiene `psql` y `pg_dump` instalados. Tú no la
 > necesitas en tu máquina: va directa a los secretos de GitHub en el
 > paso 6.

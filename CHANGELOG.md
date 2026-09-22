@@ -4,6 +4,32 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-22 — Cierre del Sprint 4: el latido semanal, por REST
+
+### Corregido — el latido nunca había podido conectar
+`SUPABASE_DB_URL` apunta a la conexión directa de Supabase, que solo
+resuelve por IPv6; los runners de GitHub son IPv4. El job llevaba desde
+el Sprint 1 sin poder ejecutarse (se vio en su primera ejecución manual).
+Decisión del dueño: pasar el latido, el respaldo y la retención a la
+misma vía que el ETL (PostgREST + clave de servicio), en vez de añadir la
+contraseña de la base de datos en otro secreto. `SUPABASE_DB_URL` deja de
+usarse.
+
+- El respaldo pasa de volcado SQL a un JSON por tabla, con manifiesto, y
+  se restaura con `scripts/restaurar_respaldo.py` (upsert por clave).
+- Se respalda lo irreemplazable; precios, indicadores y señales siguen
+  fuera por regenerables.
+- 4 tests nuevos (117 en total).
+
+### Corregido — deriva de producción y dos tropiezos del script
+- `posiciones_reales` conservaba las columnas cifradas de la Fase 1
+  (0000 se aplicó antes de firmar D3). La 0010 las reconcilia si la tabla
+  está vacía. Comprobado: era la única diferencia con las migraciones.
+- `catalogo_cripto.py` fallaba por no instalar pandas.
+- `aplicar-migraciones.cmd` se reescribía a sí mismo al cambiar de rama:
+  ahora se ejecuta desde una copia en `%TEMP%` y no pregunta por las
+  carpetas que OneDrive bloquea.
+
 ## [Sin publicar] - 2026-09-22 — Fase 2, Sprint 4: carteras dinámicas e ingesta
 
 ### Añadido — cada usuario sigue sus propios activos (0010)
