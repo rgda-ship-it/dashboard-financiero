@@ -15,7 +15,7 @@ import { useSesion } from "../auth/sesion.jsx";
  */
 const MODULOS = [
   { ruta: "/", etiqueta: "Escáner", listo: true },
-  { ruta: "/cartera", etiqueta: "Cartera", sprint: 4 },
+  { ruta: "/cartera", etiqueta: "Cartera", listo: true },
   { ruta: "/simulador", etiqueta: "Simulador", sprint: 5 },
   { ruta: "/agentes", etiqueta: "Agentes", sprint: 6 },
   // Solo aparece para administradores (la RLS lo cierra igualmente).

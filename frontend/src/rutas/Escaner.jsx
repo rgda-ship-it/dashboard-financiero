@@ -6,7 +6,7 @@ import PortfolioPanel from "../components/PortfolioPanel.jsx";
 import EventLog from "../components/EventLog.jsx";
 import HelpDrawer from "../components/HelpDrawer.jsx";
 import Navegacion from "../components/Navegacion.jsx";
-import { useEscaner, useCartera, useEventLog } from "../useApi.js";
+import { useEscaner, useCartera, useEventLog, modoLocal } from "../useApi.js";
 
 /**
  * Armazón de la terminal.
@@ -73,6 +73,7 @@ export default function Escaner() {
               alPedirAyuda={() => abrirGuia("escaner")}
             />
 
+            {modoLocal && (
             <PortfolioPanel
               diagnosticos={cartera.diagnosticos}
               resumenCarga={cartera.resumenCarga}
@@ -84,6 +85,7 @@ export default function Escaner() {
               alPedirAyuda={() => abrirGuia("cartera")}
               alPedirPlantilla={() => abrirGuia("plantilla")}
             />
+            )}
           </div>
 
           <aside className="workspace__aside">

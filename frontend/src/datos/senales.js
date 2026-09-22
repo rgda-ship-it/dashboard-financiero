@@ -69,7 +69,7 @@ export async function leerSenalesVigentes() {
   }
 
   const { data, error } = await supabase
-    .from("senales_vigentes")
+    .from("v_escaner_usuario")
     .select("*")
     .in("estado_activo", ["activo", "suspendido"])
     .order("simbolo", { ascending: true });
@@ -107,9 +107,9 @@ export async function leerSenalesVigentes() {
   const suspendidos = senales.length - enServicio.length;
   const anejo = atrasadas > 0;
 
-  // Con la autenticación del Sprint 3, a esta pantalla solo llega un
-  // usuario aprobado, así que un conjunto vacío ya no puede ser «la RLS
-  // no te deja leer»: es que el ETL aún no ha escrito.
+  // Desde el Sprint 4 el escáner muestra solo la cartera de quien
+  // consulta (v_escaner_usuario). Vacío = cartera vacía, o activos recién
+  // añadidos cuyo histórico aún se está descargando.
   const partes = [];
   if (atrasadas) partes.push(`${atrasadas} ${atrasadas === 1 ? "activo" : "activos"} con dato atrasado`);
   if (suspendidos) partes.push(`${suspendidos} ${suspendidos === 1 ? "suspendido" : "suspendidos"} por fallos del proveedor`);
@@ -117,7 +117,8 @@ export async function leerSenalesVigentes() {
     ? partes.length
       ? partes.join(" · ")
       : null
-    : "Sin señales todavía: el ETL no ha hecho su primera pasada.";
+    : "Tu cartera no tiene señales todavía. Añade activos desde Cartera; los recién " +
+      "añadidos tardan 1-3 minutos en tener análisis.";
 
   return {
     senales,

@@ -17,6 +17,11 @@ import { leerSenalesVigentes } from "./datos/senales.js";
 const API_BASE = import.meta.env.VITE_API_BASE || null;
 const WS_URL = import.meta.env.VITE_WS_URL || null;
 
+// Con el backend local de la Fase 1 disponible, el escáner conserva su
+// panel de diagnóstico de cartera (semáforo de salud y rotación, que
+// calcula el motor Python). En la nube, la cartera vive en /cartera.
+export const modoLocal = Boolean(API_BASE);
+
 const PENDIENTE_MIGRACION =
   "Módulo pendiente de migración a la nube. En local, arranca el backend " +
   "Node y define VITE_API_BASE en el .env de la raíz.";
