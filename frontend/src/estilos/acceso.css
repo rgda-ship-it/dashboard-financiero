@@ -1,0 +1,212 @@
+/**
+ * Acceso (Sprint 3): login, registro, estado pendiente y panel de
+ * administración. Reutiliza los tokens del sistema "Instrumento"; aquí
+ * solo va lo que esas pantallas tienen de propio.
+ */
+
+/* ══ Pantallas de acceso ═══════════════════════════════════════════ */
+.acceso {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-6);
+  padding: var(--sp-10) var(--sp-4);
+}
+
+.acceso__marca {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.acceso__panel {
+  width: 100%;
+  max-width: 420px;
+}
+
+.acceso__cuerpo {
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+}
+
+.acceso__cuerpo .prosa:last-child { margin-bottom: 0; }
+
+.acceso__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.acceso__campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.acceso__etiqueta {
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--tx-3);
+}
+
+.acceso__input {
+  height: 38px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--ink-950);
+  color: var(--tx-1);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  outline: none;
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+.acceso__input:focus { border-color: var(--acc-line); }
+.acceso__input::placeholder { color: var(--tx-4); }
+
+.acceso__boton {
+  height: 38px;
+  justify-content: center;
+}
+
+.acceso__aviso {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.acceso__aviso--neg { color: var(--neg-500); background: var(--neg-soft); border: 1px solid var(--neg-line); }
+.acceso__aviso--ok  { color: var(--pos-500); background: var(--pos-soft); border: 1px solid var(--pos-line); }
+
+.acceso__pie {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--tx-3);
+}
+
+.acceso__pie a { color: var(--acc-300); }
+.acceso__pie a:hover { color: var(--acc-400); }
+
+.acceso__datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+}
+
+.acceso__datos dt { color: var(--tx-4); }
+.acceso__datos dd { margin: 0; color: var(--tx-1); font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+/* El estado de una cuenta, con el mismo código de color que el resto. */
+.acceso__estado { font-family: var(--font-mono); text-transform: lowercase; }
+.acceso__estado--pendiente  { color: var(--warn-500); }
+.acceso__estado--aprobado   { color: var(--pos-500); }
+.acceso__estado--rechazado,
+.acceso__estado--suspendido { color: var(--neg-500); }
+
+/* ══ Usuario en la navegación ══════════════════════════════════════ */
+.nav__usuario {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.nav__email {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28ch;
+}
+
+/* ══ Panel de administración ═══════════════════════════════════════ */
+.admin__lista,
+.admin__auditoria {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin__fila {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--line-1);
+}
+
+.admin__quien { flex: 1 1 260px; min-width: 0; }
+
+.admin__email {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--tx-1);
+  overflow-wrap: anywhere;
+}
+
+.admin__yo {
+  font-size: 10px;
+  color: var(--acc-300);
+  background: var(--acc-soft);
+  padding: 1px var(--sp-1);
+  border-radius: var(--r-xs);
+}
+
+.admin__meta {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--tx-3);
+}
+
+.admin__acciones,
+.admin__motivo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.admin__motivo { flex: 1 1 320px; }
+.admin__motivo .acceso__input { flex: 1 1 200px; height: 30px; font-size: var(--fs-sm); }
+
+.admin__vacio { padding: var(--sp-4); margin: 0; }
+
+.admin__auditoria li {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--line-1);
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+
+.admin__auditoria strong { color: var(--tx-1); font-weight: 500; }
+
+.admin__hora {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--tx-4);
+  padding-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .nav__usuario { margin-left: 0; width: 100%; justify-content: space-between; }
+}
+.admin__error { margin: var(--sp-3) var(--sp-4); }

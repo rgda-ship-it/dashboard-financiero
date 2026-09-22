@@ -107,11 +107,9 @@ export async function leerSenalesVigentes() {
   const suspendidos = senales.length - enServicio.length;
   const anejo = atrasadas > 0;
 
-  // Un conjunto vacío tiene DOS causas posibles y el usuario merece
-  // saber cuál: que el ETL no haya corrido todavía, o que las políticas
-  // de acceso aún no le concedan lectura (llegan en el Sprint 3, H-14).
-  // Desde el cliente no se pueden distinguir —RLS sin política devuelve
-  // un 200 con cero filas, no un error—, así que se nombran las dos.
+  // Con la autenticación del Sprint 3, a esta pantalla solo llega un
+  // usuario aprobado, así que un conjunto vacío ya no puede ser «la RLS
+  // no te deja leer»: es que el ETL aún no ha escrito.
   const partes = [];
   if (atrasadas) partes.push(`${atrasadas} ${atrasadas === 1 ? "activo" : "activos"} con dato atrasado`);
   if (suspendidos) partes.push(`${suspendidos} ${suspendidos === 1 ? "suspendido" : "suspendidos"} por fallos del proveedor`);
@@ -119,9 +117,7 @@ export async function leerSenalesVigentes() {
     ? partes.length
       ? partes.join(" · ")
       : null
-    : "Sin señales todavía. O el ETL no ha hecho su primera pasada, o tu " +
-      "usuario aún no tiene concedida la lectura del catálogo (las " +
-      "políticas de acceso llegan con el módulo de autenticación).";
+    : "Sin señales todavía: el ETL no ha hecho su primera pasada.";
 
   return {
     senales,

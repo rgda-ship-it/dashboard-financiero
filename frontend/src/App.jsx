@@ -1,6 +1,14 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Escaner from "./rutas/Escaner.jsx";
 import Proximamente from "./rutas/Proximamente.jsx";
+import Admin from "./rutas/Admin.jsx";
+import Login from "./rutas/acceso/Login.jsx";
+import Registro from "./rutas/acceso/Registro.jsx";
+import Recuperar from "./rutas/acceso/Recuperar.jsx";
+import NuevaContrasena from "./rutas/acceso/NuevaContrasena.jsx";
+import Pendiente from "./rutas/acceso/Pendiente.jsx";
+import { ProveedorSesion } from "./auth/sesion.jsx";
+import { RequiereAdmin, RequiereAprobado, SoloSinSesion } from "./auth/Guardias.jsx";
 
 /**
  * Router de la aplicación.
@@ -11,25 +19,34 @@ import Proximamente from "./rutas/Proximamente.jsx";
  * módulo ausente del menú es indistinguible de un módulo que nadie ha
  * planificado.
  *
- * El módulo de autenticación (Sprint 3) añadirá aquí las rutas /login y
- * /pendiente y una guardia que envuelva el resto. Hasta entonces todo es
- * público, que es coherente con lo que la base de datos concede: las
- * tablas del catálogo tienen RLS activada y SIN políticas, así que la
- * `anon key` no lee nada. La puerta está en el servidor, no en el menú.
+ * Desde el Sprint 3 todo módulo exige sesión con perfil APROBADO. Las
+ * guardias solo eligen pantalla: la puerta real es la RLS de la base de
+ * datos, que a un token pendiente le devuelve cero filas.
  */
 export default function App() {
   return (
     <BrowserRouter>
+      <ProveedorSesion>
       <Routes>
-        <Route path="/" element={<Escaner />} />
+        {/* Acceso: públicas. */}
+        <Route path="/login" element={<SoloSinSesion><Login /></SoloSinSesion>} />
+        <Route path="/registro" element={<SoloSinSesion><Registro /></SoloSinSesion>} />
+        <Route path="/recuperar" element={<Recuperar />} />
+        <Route path="/nueva-contrasena" element={<NuevaContrasena />} />
+        <Route path="/pendiente" element={<Pendiente />} />
+
+        {/* Módulos: exigen perfil aprobado. */}
+        <Route path="/" element={<RequiereAprobado><Escaner /></RequiereAprobado>} />
+        <Route path="/admin" element={<RequiereAdmin><Admin /></RequiereAdmin>} />
 
         <Route
           path="/cartera"
           element={
+            <RequiereAprobado>
             <Proximamente
               titulo="Cartera"
               sprint={4}
-              descripcion="Aquí se gestionará tu propia lista de activos: buscar cualquier acción o criptomoneda, añadirla aunque el sistema no la conozca todavía, y ver su histórico completo en menos de tres minutos. También la importación de tu cartera real por CSV, con los importes cifrados como en la Fase 1."
+              descripcion="Aquí se gestionará tu propia lista de activos: buscar cualquier acción o criptomoneda, añadirla aunque el sistema no la conozca todavía, y ver su histórico completo en menos de tres minutos. También la importación de tu cartera real por CSV, con los importes en claro (decisión D3: ninguna cifra es dinero real)."
               historias={[
                 "H-17 — Carteras por usuario",
                 "H-18 — Cuotas de activos (25 por usuario, 150 globales, 20 criptos)",
@@ -38,12 +55,14 @@ export default function App() {
                 "H-21 — Importación de cartera real por CSV",
               ]}
             />
+            </RequiereAprobado>
           }
         />
 
         <Route
           path="/simulador"
           element={
+            <RequiereAprobado>
             <Proximamente
               titulo="Simulador"
               sprint={5}
@@ -56,12 +75,14 @@ export default function App() {
                 "H-26 — Recomendaciones y confirmación de orden",
               ]}
             />
+            </RequiereAprobado>
           }
         />
 
         <Route
           path="/agentes"
           element={
+            <RequiereAprobado>
             <Proximamente
               titulo="Agentes"
               sprint={6}
@@ -74,23 +95,7 @@ export default function App() {
                 "H-31 — Vista de operaciones de agentes",
               ]}
             />
-          }
-        />
-
-        <Route
-          path="/admin"
-          element={
-            <Proximamente
-              titulo="Administración"
-              sprint={3}
-              descripcion="Aprobación manual de usuarios antes de darles acceso: un usuario nuevo queda pendiente y no ve ni un dato hasta que un administrador lo aprueba. La puerta vive en Row Level Security y no en esta pantalla, porque Supabase Auth entrega un token válido a un usuario todavía pendiente."
-              historias={[
-                "H-13 — Registro, login y pantalla de estado pendiente",
-                "H-14 — Row Level Security completa",
-                "H-15 — Panel de administración",
-                "H-16 — Migración del usuario único de la Fase 1",
-              ]}
-            />
+            </RequiereAprobado>
           }
         />
 
@@ -98,6 +103,7 @@ export default function App() {
             Vercel, una URL escrita a mano no debe acabar en blanco. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ProveedorSesion>
     </BrowserRouter>
   );
 }
