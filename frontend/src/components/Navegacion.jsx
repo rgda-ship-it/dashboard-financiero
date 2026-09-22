@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useSesion } from "../auth/sesion.jsx";
 
 /**
  * Navegación entre módulos.
@@ -17,13 +18,17 @@ const MODULOS = [
   { ruta: "/cartera", etiqueta: "Cartera", sprint: 4 },
   { ruta: "/simulador", etiqueta: "Simulador", sprint: 5 },
   { ruta: "/agentes", etiqueta: "Agentes", sprint: 6 },
-  { ruta: "/admin", etiqueta: "Admin", sprint: 3 },
+  // Solo aparece para administradores (la RLS lo cierra igualmente).
+  { ruta: "/admin", etiqueta: "Admin", listo: true, soloAdmin: true },
 ];
 
 export default function Navegacion() {
+  const { sesion, esAdmin, cerrarSesion } = useSesion();
+  const modulos = MODULOS.filter((m) => !m.soloAdmin || esAdmin);
+
   return (
     <nav className="nav" aria-label="Módulos">
-      {MODULOS.map((modulo) => (
+      {modulos.map((modulo) => (
         <NavLink
           key={modulo.ruta}
           to={modulo.ruta}
@@ -40,6 +45,13 @@ export default function Navegacion() {
           )}
         </NavLink>
       ))}
+
+      {sesion && (
+        <div className="nav__usuario">
+          <span className="nav__email" title={sesion.user.email}>{sesion.user.email}</span>
+          <button type="button" className="btn" onClick={cerrarSesion}>Salir</button>
+        </div>
+      )}
     </nav>
   );
 }

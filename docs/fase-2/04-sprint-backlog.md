@@ -308,6 +308,36 @@ esperar medio minuto al bloque de cripto.
 **Objetivo**: un usuario nuevo queda `pendiente` y **no ve ni un dato** hasta
 que un administrador lo aprueba. Verificado con `curl`, no solo con la UI.
 
+> **Ejecución del Sprint 3 (2026-09-22).** Migraciones `0007_gobierno.sql`
+> y `0008_posiciones_reales.sql` (la `0002_gobierno` del plan ya estaba
+> ocupada por las extensiones). Decisiones del dueño que cambian la spec:
+>
+> | Tema | Plan | Decisión | Por qué |
+> |---|---|---|---|
+> | Admin inicial | El primer usuario registrado | **Ligado a un correo** (`fn_email_admin_inicial()`), y solo al **confirmarlo**; una única vez | La web es pública: cualquiera podía registrarse antes que el dueño |
+> | Verificación de correo | Activada | Activada, con el correo gratuito de Supabase | Coste 0; pocos usuarios |
+> | H-16, cartera de la Fase 1 | Descifrar e importar | **No se ejecuta**: el dueño no tiene posiciones que conservar | Se hace el renombrado, el `activo_id` y las FK a `perfiles` |
+>
+> Otras diferencias con la spec, con motivo:
+>
+> - **Acceso inmediato al aprobar** sin Realtime: `/pendiente` relee su
+>   propio perfil cada 15 s (una fila). Realtime llega en H-32; el RPC ya
+>   deja la fila en `eventos_sistema` que lo alimentará.
+> - **`ordenes`, `movimientos_saldo`, `agentes`** aún no existen (Sprint 5).
+>   Sus políticas se escriben con ellas; I8 e I14 ya obligan a que nazcan
+>   con RLS y sin nada para `anon`.
+> - **`carteras`** se crea ahora (esqueleto) porque aprobar crea la
+>   cartera de seguimiento; su gestión sigue en H-17.
+> - Defensa en profundidad: además de no tener políticas, `anon` pierde
+>   los privilegios de tabla en `public`.
+> - `registro_consentimiento` pasa a `on delete set null`: al ser un
+>   audit trail, borrar un usuario no debe borrar su rastro.
+>
+> Los criterios «con `curl`» se ejecutan en la CI como invariantes
+> **I16–I21**, simulando el rol y el JWT de cada usuario igual que
+> PostgREST (ver `supabase/pruebas/01_invariantes.sql`), y se repiten
+> contra producción tras el despliegue.
+
 ---
 
 ### H-13 · Registro, login y pantalla de estado pendiente · 8 pts
