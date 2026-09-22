@@ -130,7 +130,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - run: pip install requests
+      # escritor_supabase importa pandas (traductores de filas del ETL).
+      - run: pip install requests pandas
 
       - name: Refrescar la copia de /coins/list
         working-directory: motor-analitico
