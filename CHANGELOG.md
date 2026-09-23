@@ -19,7 +19,11 @@ usarse.
   se restaura con `scripts/restaurar_respaldo.py` (upsert por clave).
 - Se respalda lo irreemplazable; precios, indicadores y señales siguen
   fuera por regenerables.
-- 4 tests nuevos (117 en total).
+- 5 tests nuevos (118 en total).
+- **Corregido en la primera ejecución real**: se paginaba con `order=1`,
+  que PostgREST lee como una columna llamada «1» (42703), y un respaldo
+  incompleto terminaba en verde. Ahora se ordena por la clave primaria de
+  cada tabla y el job se pone en rojo si alguna falla.
 
 ### Corregido — deriva de producción y dos tropiezos del script
 - `posiciones_reales` conservaba las columnas cifradas de la Fase 1

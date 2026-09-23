@@ -13,9 +13,11 @@ class ClienteFalso:
     def __init__(self, datos):
         self.datos = datos
         self.rpcs = []
+        self.consultas = []
 
     def seleccionar(self, tabla, params=None):
         params = params or {}
+        self.consultas.append(params)
         filas = self.datos.get(tabla, [])
         desde = int(params.get("offset", 0))
         hasta = desde + int(params.get("limit", 1000))
@@ -26,10 +28,13 @@ class ClienteFalso:
         return {"borradas": 0, "comprimidas": 0}
 
 
-def test_descargar_pagina_hasta_el_final():
+def test_descargar_pagina_hasta_el_final_ordenando_por_la_clave():
     cliente = ClienteFalso({"activos": [{"id": i} for i in range(2500)]})
     respaldo.PAGINA = 1000
-    assert len(respaldo.descargar(cliente, "activos")) == 2500
+    assert len(respaldo.descargar(cliente, "activos", "id")) == 2500
+    # Sin un orden estable, limit/offset puede repetir o saltarse filas.
+    # PostgREST tampoco admite `order=1` (lo lee como columna "1": 42703).
+    assert all(p.get("order") == "id" for p in cliente.consultas)
 
 
 def test_las_tablas_regenerables_no_se_respaldan():
@@ -49,6 +54,22 @@ def test_main_escribe_un_json_por_tabla_y_poda(tmp_path, monkeypatch):
     manifiesto = json.loads((tmp_path / "respaldo" / "_manifiesto.json").read_text("utf-8"))
     assert manifiesto["no_respaldadas_por_regenerables"] == respaldo.REGENERABLES
     assert (tmp_path / "respaldo" / "senales.json").exists() is False
+
+
+def test_una_tabla_que_falla_pone_el_respaldo_en_rojo(tmp_path, monkeypatch):
+    """Un respaldo incompleto en verde es peor que no tenerlo."""
+
+    class Parcial(ClienteFalso):
+        def seleccionar(self, tabla, params=None):
+            if tabla == "carteras":
+                raise respaldo.ErrorEscritura("SELECT carteras: 400 column does not exist")
+            return super().seleccionar(tabla, params)
+
+    cliente = Parcial({"activos": [{"id": 1}], "perfiles": [{"id": "a"}]})
+    monkeypatch.setattr(respaldo.ClienteSupabase, "desde_entorno", classmethod(lambda cls: cliente))
+    monkeypatch.chdir(tmp_path)
+    assert respaldo.main() == 1
+    assert (tmp_path / "respaldo" / "perfiles.json").exists()
 
 
 def test_un_proyecto_pausado_pone_el_job_en_rojo(monkeypatch):

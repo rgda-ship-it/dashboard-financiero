@@ -29,7 +29,7 @@ from pathlib import Path
 # Si este número sube porque se añaden pruebas, actualízalo aquí. Si la
 # suite recolecta MENOS, es un fallo aunque todo esté en verde.
 CASOS_FASE_1 = 69
-CASOS_ESPERADOS = 117
+CASOS_ESPERADOS = 118
 
 
 def main() -> int:
