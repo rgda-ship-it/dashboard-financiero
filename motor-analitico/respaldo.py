@@ -36,18 +36,23 @@ from escritor_supabase import ClienteSupabase, ErrorEscritura  # noqa: E402
 
 # Orden de restauración: las dependencias primero (una cartera necesita su
 # perfil). `restaurar_respaldo.py` respeta este mismo orden.
-TABLAS = [
-    "perfiles",
-    "carteras",
-    "activos",
-    "cartera_activos",
-    "posiciones_reales",
-    "registro_consentimiento",
-    "solicitudes_activo",
-    "auditoria_admin",
-    "eventos_sistema",
-    "catalogo_coingecko",
-]
+#
+# El valor es la CLAVE PRIMARIA, y se usa para ordenar al paginar: sin un
+# orden estable, `limit`/`offset` puede repetir o saltarse filas entre
+# páginas. (PostgREST no admite ordenar por posición, `order=1`: lo
+# interpreta como una columna llamada "1" y responde 42703.)
+TABLAS = {
+    "perfiles": "id",
+    "carteras": "id",
+    "activos": "id",
+    "cartera_activos": "cartera_id,activo_id",
+    "posiciones_reales": "id",
+    "registro_consentimiento": "id",
+    "solicitudes_activo": "id",
+    "auditoria_admin": "id",
+    "eventos_sistema": "id",
+    "catalogo_coingecko": "id",
+}
 
 # Regenerables desde los proveedores: no se respaldan (pesan y se
 # reconstruyen). Se listan aquí para que quede escrito POR QUÉ faltan.
@@ -56,13 +61,13 @@ REGENERABLES = ["precios_diarios", "indicadores_diarios", "senales"]
 PAGINA = 1000
 
 
-def descargar(cliente: ClienteSupabase, tabla: str) -> list[dict]:
+def descargar(cliente: ClienteSupabase, tabla: str, clave: str) -> list[dict]:
     """Trae la tabla entera paginando: PostgREST limita cada respuesta."""
     filas: list[dict] = []
     while True:
         lote = cliente.seleccionar(
             tabla,
-            {"select": "*", "order": "1", "limit": PAGINA, "offset": len(filas)},
+            {"select": "*", "order": clave, "limit": PAGINA, "offset": len(filas)},
         )
         filas.extend(lote)
         if len(lote) < PAGINA:
@@ -88,11 +93,15 @@ def main() -> int:
     resumen.append("| Tabla | Filas respaldadas |")
     resumen.append("|---|---|")
     total = 0
-    for tabla in TABLAS:
+    fallos: list[str] = []
+    for tabla, clave in TABLAS.items():
         try:
-            filas = descargar(cliente, tabla)
+            filas = descargar(cliente, tabla, clave)
         except ErrorEscritura as exc:
-            resumen.append(f"| `{tabla}` | ERROR: {str(exc)[:80]} |")
+            # Un respaldo incompleto que termina en verde es peor que no
+            # tenerlo: el job se pone en rojo al final.
+            fallos.append(tabla)
+            resumen.append(f"| `{tabla}` | ERROR: {str(exc)[:120]} |")
             continue
         with open(f"{destino}/{tabla}.json", "w", encoding="utf-8") as f:
             json.dump(filas, f, ensure_ascii=False, indent=1, default=str)
@@ -102,7 +111,7 @@ def main() -> int:
         json.dump(
             {
                 "creado_en": datetime.now(timezone.utc).isoformat(),
-                "tablas": TABLAS,
+                "tablas": list(TABLAS),
                 "no_respaldadas_por_regenerables": REGENERABLES,
                 "filas_totales": total,
             },
@@ -126,12 +135,19 @@ def main() -> int:
     resumen.append(json.dumps(podado, ensure_ascii=False))
     resumen.append("```")
 
+    if fallos:
+        resumen.append("")
+        resumen.append(f"**Respaldo INCOMPLETO**: {', '.join(fallos)}.")
+
     texto = "\n".join(resumen)
     print(texto)
     ruta = os.environ.get("GITHUB_STEP_SUMMARY")
     if ruta:
         with open(ruta, "a", encoding="utf-8") as f:
             f.write(texto + "\n")
+    if fallos:
+        print(f"::error::No se pudieron respaldar: {', '.join(fallos)}")
+        return 1
     return 0
 
 

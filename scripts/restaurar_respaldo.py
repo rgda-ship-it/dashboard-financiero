@@ -25,20 +25,9 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "motor-analitico"))
 
 from escritor_supabase import ClienteSupabase  # noqa: E402
+# TABLAS es {tabla: clave primaria}, en orden de dependencias.
 from respaldo import TABLAS  # noqa: E402
 
-CLAVES = {
-    "perfiles": "id",
-    "carteras": "id",
-    "activos": "id",
-    "cartera_activos": "cartera_id,activo_id",
-    "posiciones_reales": "id",
-    "registro_consentimiento": "id",
-    "solicitudes_activo": "id",
-    "auditoria_admin": "id",
-    "eventos_sistema": "id",
-    "catalogo_coingecko": "id",
-}
 LOTE = 500
 
 
@@ -61,7 +50,7 @@ def main() -> int:
         if not aplicar or not filas:
             continue
         for i in range(0, len(filas), LOTE):
-            cliente.upsert(tabla, filas[i : i + LOTE], CLAVES[tabla])
+            cliente.upsert(tabla, filas[i : i + LOTE], TABLAS[tabla])
 
     if not aplicar:
         print("\nNada escrito. Repite con --aplicar para restaurar de verdad.")
