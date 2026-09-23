@@ -3,22 +3,27 @@
 # Tres trabajos que el tier gratuito de Supabase obliga a hacer a mano:
 #
 # 1. KEEP-ALIVE. Supabase pausa un proyecto tras ~1 semana de baja
-#    actividad. `pg_cron` disparando cada minuto ya genera actividad
-#    continua por diseño, pero si los agentes se paran —o el proyecto se
-#    aparca unos meses— este latido lo detecta y avisa en vez de que todo
-#    se apague en silencio.
+#    actividad. Si el ETL se para —o el proyecto se aparca unos meses—,
+#    este latido lo detecta y avisa en vez de que todo se apague en
+#    silencio.
 #
 # 2. RESPALDO. El tier gratuito NO incluye descarga de backups ni
 #    recuperación a un punto en el tiempo. Se respaldan las tablas de
-#    gobierno y del experimento —las que no se pueden regenerar— y se
-#    dejan como artefacto con 90 días de retención. Las tablas de precios
-#    quedan FUERA a propósito: pesan y se pueden reconstruir desde los
-#    proveedores.
+#    gobierno y del experimento —las que no se pueden regenerar— como
+#    JSON, con 90 días de retención. Las de precios, indicadores y
+#    señales quedan fuera a propósito: pesan y se reconstruyen desde los
+#    proveedores. Se restauran con `scripts/restaurar_respaldo.py`.
 #
-# 3. RETENCIÓN. Hallazgo del presupuesto de cuotas (doc 02 §6.1): la tabla
-#    `senales` con histórico completo alcanza ~600 MB en un año y el tier
-#    gratuito da 500 MB. Sin esta poda, el sistema funciona seis meses y
-#    luego deja de escribir señales sin explicación aparente.
+# 3. RETENCIÓN. `senales` con histórico completo alcanza ~600 MB en un
+#    año y el tier gratuito da 500 MB. Sin esta poda, el sistema funciona
+#    seis meses y luego deja de escribir señales sin explicación aparente.
+#
+# TODO por la API REST con la clave de servicio, no con psql: la conexión
+# directa de Supabase solo resuelve por IPv6 y los runners de GitHub son
+# IPv4 (`Network is unreachable`). El Session pooler funcionaría, pero
+# obligaría a guardar la contraseña de la base de datos en otro secreto.
+# Decisión del dueño (2026-09-22): misma vía que el ETL, una credencial
+# menos. `SUPABASE_DB_URL` ya no se usa en ningún workflow.
 #
 # Este workflow también es el canario de los cron programados: GitHub
 # desactiva los `schedule` de un repositorio tras 60 días sin actividad.
@@ -38,88 +43,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cliente de PostgreSQL
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      - name: 1. Latido
-        env:
-          PGURL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          if [ -z "$PGURL" ]; then
-            echo "::error::Falta el secreto SUPABASE_DB_URL."
-            exit 1
-          fi
-          # -v ON_ERROR_STOP=1 para que un fallo de conexión sea un fallo
-          # del job y no una línea perdida en el log.
-          psql "$PGURL" -v ON_ERROR_STOP=1 -c "select 1 as latido" \
-            || { echo "::error::El proyecto de Supabase no responde. Puede estar pausado."; exit 1; }
-          echo "Proyecto despierto."
+      # respaldo.py solo necesita requests; pandas entra porque
+      # escritor_supabase importa los traductores de filas del ETL.
+      - run: pip install requests pandas
 
-      - name: 2. Respaldo de lo irreemplazable
+      - name: Latido, respaldo y retención
+        working-directory: motor-analitico
         env:
-          PGURL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          mkdir -p respaldo
-          # Se excluyen las tablas de precios, indicadores y señales: son
-          # las grandes y son REGENERABLES desde los proveedores. Lo que
-          # no se puede reconstruir es el gobierno (quién está aprobado) y
-          # el experimento (qué hicieron los agentes).
-          pg_dump "$PGURL" \
-            --schema=public \
-            --data-only \
-            --no-owner \
-            --no-privileges \
-            --exclude-table=public.precios_diarios \
-            --exclude-table=public.indicadores_diarios \
-            --exclude-table=public.senales \
-            --exclude-table=public.catalogo_coingecko \
-            > respaldo/gobierno-y-experimento.sql
-          gzip respaldo/gobierno-y-experimento.sql
-          ls -lh respaldo/
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python respaldo.py
 
       - uses: actions/upload-artifact@v4
         with:
           name: respaldo-${{ github.run_id }}
-          path: respaldo/
+          path: motor-analitico/respaldo/
           retention-days: 90
 
-      - name: 3. Retención de señales
-        env:
-          PGURL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          {
-            echo "### Latido semanal"
-            echo ""
-            echo "**Retención de \`senales\`**"
-            echo ""
-            echo '```json'
-            psql "$PGURL" -v ON_ERROR_STOP=1 -t -A -c "select fn_retencion_senales()"
-            echo '```'
-            echo ""
-            echo "**Tamaño de las tablas**"
-            echo ""
-            echo '```'
-            psql "$PGURL" -v ON_ERROR_STOP=1 -c "
-              select relname as tabla,
-                     pg_size_pretty(pg_total_relation_size(c.oid)) as tamano,
-                     n_live_tup as filas
-                from pg_class c
-                join pg_namespace n on n.oid = c.relnamespace
-                left join pg_stat_user_tables s on s.relid = c.oid
-               where n.nspname = 'public' and c.relkind = 'r'
-               order by pg_total_relation_size(c.oid) desc
-               limit 15"
-            echo '```'
-            echo ""
-            echo "> Recordatorio: el tier gratuito de Supabase da **500 MB**."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  # 4. CATÁLOGO DE COINGECKO (Sprint 4). Una sola llamada a /coins/list
-  #    por semana: con esa copia la BD valida y resuelve criptos al
-  #    instante sin gastar cuota. Job aparte para no instalar Python en el
-  #    latido.
+  # Copia semanal de /coins/list de CoinGecko (Sprint 4): una sola
+  # llamada, y con ella la base de datos valida y resuelve criptos al
+  # instante sin gastar cuota.
   catalogo-cripto:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -130,7 +77,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      # escritor_supabase importa pandas (traductores de filas del ETL).
       - run: pip install requests pandas
 
       - name: Refrescar la copia de /coins/list
