@@ -162,6 +162,76 @@ export const SECCIONES = [
   },
 
   {
+    id: "simulador",
+    titulo: "Simulador",
+    resumen: "De dónde sale el tamaño de una posición y por qué el saldo no se puede editar.",
+    items: [
+      {
+        termino: "El saldo es derivado",
+        formula:
+          "saldo_disponible = saldo_inicial + suma de los apuntes del libro mayor\n\nequity = disponible + bloqueado + P&L flotante",
+        lectura:
+          "El número que ves arriba no está guardado en ninguna parte como número: es la suma del libro mayor, que aparece entero al final de la pantalla. Cada operación deja tres apuntes —bloqueo del margen, liberación del margen y resultado— y ninguno se puede editar ni borrar, tampoco desde el servidor. El equity, en cambio, no se guarda nunca: depende del precio de este instante, así que se calcula al leerlo.",
+        nota: "Una consulta de la integración continua comprueba en cada cambio que el saldo de toda cuenta se reconstruye sumando sus apuntes. Si alguna vez no cuadrara, el despliegue no sale.",
+      },
+      {
+        termino: "El tamaño sale del riesgo, no del saldo",
+        formula:
+          "riesgo_max = equity × riesgo por operación %\ndistancia al stop = (precio − stop) / precio\nnominal = riesgo_max / distancia al stop\nmargen = nominal / apalancamiento\ncantidad = margen × apalancamiento / precio",
+        lectura:
+          "No se elige cuánto comprar: se elige cuánto se está dispuesto a perder, y el tamaño se deduce. Con 1.000 $ de equity, un 2 % de riesgo y un stop un 10 % por debajo, el nominal tiene que ser 200 $ para que tocar el stop cueste exactamente 20 $. Ese es todo el cálculo; lo demás son topes.",
+      },
+      {
+        termino: "Precio de liquidación",
+        formula: "precio_liquidacion = precio de entrada × (1 − 1 / apalancamiento)",
+        lectura:
+          "Es el tercer nivel, el que nadie declara: el precio al que el margen se agota. A 5× basta una caída del 20 %. Si tu stop estuviera más abajo que ese punto, la posición se liquidaría ANTES de tocarlo y la pérdida real sería el margen entero en vez del riesgo declarado. Cuando eso pasa, el sistema BAJA el apalancamiento hasta que la liquidación queda por debajo del stop; y si ni a 1× cabe, no ofrece la operación.",
+        nota: "Va en latón, como el tope de apalancamiento: es un límite que el sistema impone, no una decisión tuya.",
+      },
+      {
+        termino: "Los cinco límites del servidor",
+        formula:
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 60 % del equity\n4 · posiciones abiertas ≤ máximo de la cuenta\n5 · solo señales operables y de menos de 90 minutos",
+        lectura:
+          "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
+      },
+      {
+        termino: "Tú ajustas la entrada, no los niveles",
+        formula: null,
+        lectura:
+          "Al confirmar una orden puedes cambiar el precio de entrada y la fecha —también una fecha pasada, si registras algo que hiciste antes—. El stop y el objetivo son del motor y no se editan: moverlos convertiría el simulador en una hoja de cálculo de colores. Si tu entrada se sale del rango entre stop y objetivo, no hay operación que registrar.",
+        nota: "El tamaño y el margen se recalculan en el servidor con el precio que confirmes, así que pueden diferir de la sugerencia.",
+      },
+      {
+        termino: "Quién cierra las posiciones",
+        formula:
+          "cada minuto, por cada posición abierta con precio de menos de 15 min:\n  si precio ≤ liquidación  → cierra por LIQUIDACIÓN\n  si no, si precio ≤ stop   → cierra por STOP\n  si no, si precio ≥ objetivo → cierra por OBJETIVO",
+        lectura:
+          "Un proceso dentro de la base de datos, cada minuto, sin que nadie mire la pantalla. El orden no es casual: con un solo precio no se puede saber si en ese minuto se tocó primero el objetivo o el stop, así que ante la duda gana siempre el lado conservador. Y la liquidación se evalúa antes que el stop porque a 5× puede llegar primero.",
+      },
+      {
+        termino: "Se cierra al nivel, no al precio observado",
+        formula: null,
+        lectura:
+          "Si el precio se desploma un 3 % por debajo de tu stop entre dos pasadas, la operación se registra AL STOP, no a ese precio. Premiar o castigar por ese hueco sería simular una ejecución que el sistema no modela. El precio que disparó el cierre se guarda aparte, en la columna «observado» del histórico: la diferencia entre las dos cifras es el deslizamiento, y está ahí para poder medirlo el día que se modele.",
+      },
+      {
+        termino: "Un precio añejo no cierra nada",
+        formula: "cripto: > 15 min · acción: > 35 min o bolsa cerrada",
+        lectura:
+          "Un precio del viernes por la tarde congelado en la tabla cerraría posiciones todo el fin de semana contra un mercado que no existe. Así que sin precio fresco no se evalúa —ni el proceso automático ni el botón de cerrar a mano—. Para cripto el precio se refresca cada minuto mientras tengas algo abierto; para acciones lo escribe el escaneo cada media hora y solo se evalúan con Nueva York abierta.",
+      },
+      {
+        termino: "Fases y Game Over",
+        formula:
+          "Fase 1 → Fase 2 con el PRIMER criterio que se cumpla:\n  · caída del 30 % desde el máximo alcanzado\n  · capital × 3 sobre el inicial\n  · 8 operaciones cerradas en Fase 1\n\nGame Over: equity ≤ 0     ·     Inoperante: equity < 10 $ sin posiciones",
+        lectura:
+          "La caída se mide desde el PICO de capital, nunca desde el saldo inicial: una cuenta que subió a 2.000 y bajó a 1.300 ha perdido el 35 % de su máximo aunque siga ganando sobre el inicio. Al pasar a Fase 2 el tope de apalancamiento baja a 3×, y de Fase 2 no se vuelve nunca de forma automática: hace falta una acción de administrador con confirmación explícita.",
+        nota: "«Inoperante» y «game over» no son lo mismo y el sistema los distingue a propósito: quedarse con 8 $ no es lo mismo que quedarse con 0, y el histórico de un intento fallido es el dato más valioso del experimento.",
+      },
+    ],
+  },
+  {
     id: "limites",
     titulo: "Límites que conviene conocer",
     resumen: "Lo que el sistema no puede ver hoy, por el origen de los datos.",

@@ -11,10 +11,11 @@
 #
 # Esto es lo que ocupa el lugar del staging: levanta un PostgreSQL 15
 # limpio, aplica las migraciones DESDE CERO junto con la semilla, y
-# ejecuta las catorce invariantes del esquema. Si algo falla, la migración
-# no llega a master.
+# ejecuta las treinta y nueve invariantes del esquema, la prueba de
+# concurrencia del cierre de órdenes y el cuadre del libro mayor tras
+# cincuenta operaciones. Si algo falla, la migración no llega a master.
 #
-# Cuesta ~1 minuto por pull request.
+# Cuesta ~1,5 minutos por pull request.
 
 name: migraciones
 
@@ -99,6 +100,23 @@ jobs:
             echo "::error::Alguna invariante del esquema no se cumple."
             exit 1
           fi
+
+      - name: Concurrencia de rpc_cerrar_orden (riesgo R4)
+        # No es una invariante más y no puede serlo: 01_invariantes.sql es
+        # UNA sesión de psql, y una sesión no compite consigo misma, así
+        # que el `FOR UPDATE` que protege del cierre doble no se
+        # ejercitaría nunca. Este script abre diez conexiones de verdad.
+        #
+        # Si esto se pone en rojo, el fallo no es cosmético: significa que
+        # un cierre concurrente acredita el P&L dos veces y que todos los
+        # saldos del experimento son ficción.
+        run: bash supabase/pruebas/02_concurrencia.sh "$PGURL"
+
+      - name: Cuadre del libro mayor tras 50 operaciones
+        # El test obligatorio de la DoD de H-26 (doc 01 §5.2). Cincuenta
+        # aperturas y cierres por los RPC de verdad, y después la consulta
+        # de cuadre: cero filas o hay un bug de saldo.
+        run: psql "$PGURL" -v ON_ERROR_STOP=1 -f supabase/pruebas/03_cuadre_saldos.sql
 
       - name: Resumen
         if: always()
