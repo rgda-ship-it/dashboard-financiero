@@ -4,6 +4,50 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-24 — Corrección: las vistas no podían ejecutar sus funciones
+
+### Corregido — `/simulador` cargaba con «permission denied for function fn_tope_fase» (0012)
+Recién aplicada la 0011, la pantalla del simulador cargaba pero no
+mostraba la cuenta. La cadena es exacta: toda vista lleva
+`security_invoker = true` (obligatorio, I13), así que se ejecuta con el
+rol de quien consulta —`authenticated`—, y `v_cuentas_equity` llama a
+`fn_tope_fase()`, que la 0011 había revocado a todas las `fn_` sin
+distinguir. Tres vistas afectadas: `v_cuentas_equity`,
+`v_ordenes_abiertas_monitor` y `v_recomendaciones_usuario`.
+
+La regla de I23 decía «`authenticated` no ejecuta ninguna `fn_`». La
+intención nunca fue la forma del nombre, sino que un cliente no pueda
+invocar lo que toca datos o se salta la RLS: las `SECURITY DEFINER`. Una
+función pura —sin acceso a tablas, sin `SECURITY DEFINER`— no concede
+nada; `fn_tope_fase('fase_2_consolidacion')` devuelve 3.0 y punto.
+Concederla es tan peligroso como conceder `round()`.
+
+- **I23 afinada**: ahora comprueba `prosecdef`, que es la propiedad que
+  de verdad importa. `fn_equity`, `fn_registrar_movimiento` y las cuatro
+  del monitor siguen revocadas.
+- Se conceden a `authenticated` las cinco puras que las vistas usan.
+  `anon` sigue sin ninguna (I22).
+- La alternativa era copiar el cuerpo de `fn_dimensionar_posicion` dentro
+  de la vista: sesenta líneas de algoritmo de riesgo duplicadas por
+  tercera vez. Un límite de riesgo copiado tres veces es un límite que
+  algún día dirá tres cosas distintas.
+
+### Añadido — I40, la invariante que faltaba
+El resto del fichero prueba los RPC con el JWT de cada usuario, pero leía
+las vistas como **dueño del esquema**, y el dueño ejecuta cualquier
+función: un privilegio que falta era invisible desde ahí. I40 recorre
+todas las vistas de `public` y hace un `select` con el rol
+`authenticated`, que es lo que hace PostgREST.
+
+Detalle que costó descubrir y que queda escrito: la primera versión usaba
+`count(*)` y **solo detectaba dos de las tres** vistas rotas. Al contar,
+PostgreSQL poda las expresiones de la lista de selección y nunca
+comprueba el permiso sobre las funciones que la vista usa. Con
+`select * … limit 0` se planifica la lista entera —que es donde se
+verifica el EXECUTE— sin devolver ni una fila. Verificado en los dos
+sentidos: sin la 0012 la invariante nombra las tres vistas; con ella,
+pasa.
+
 ## [Sin publicar] - 2026-09-24 — Fase 2, Sprint 5: el simulador se cierra solo
 
 ### Añadido — cuentas, órdenes y libro mayor (0011)

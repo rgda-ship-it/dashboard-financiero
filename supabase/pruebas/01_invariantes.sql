@@ -633,7 +633,23 @@ begin
 end
 $i22$;
 
--- ── I23 · `authenticated` no ejecuta ninguna función interna fn_ ─────
+-- ── I23 · `authenticated` no ejecuta ninguna fn_ SECURITY DEFINER ───
+--
+-- Hasta el Sprint 5 esta invariante decía «ninguna `fn_`, punto». La
+-- intención nunca fue la forma del nombre: era que un cliente no pueda
+-- invocar las funciones que TOCAN DATOS o que se saltan la RLS, y esas
+-- son exactamente las `SECURITY DEFINER`.
+--
+-- La regla literal resultó ser demasiado ancha y rompió producción: las
+-- vistas llevan `security_invoker = true` (I13), así que se ejecutan con
+-- el rol de quien consulta, y `v_cuentas_equity` llama a
+-- `fn_tope_fase()`. Resultado el 2026-09-24: la pantalla del simulador
+-- cargaba con «permission denied for function fn_tope_fase».
+--
+-- Una función PURA —sin acceso a tablas y sin `SECURITY DEFINER`— no
+-- concede nada: `fn_tope_fase('fase_2_consolidacion')` devuelve 3.0 y
+-- punto. Concederla es tan peligroso como conceder `round()`. Lo que se
+-- comprueba aquí, por tanto, es lo que de verdad importa.
 do $i23$
 declare
     v_texto text;
@@ -643,11 +659,12 @@ begin
       join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public'
        and p.proname like 'fn\_%'
+       and p.prosecdef                              -- SECURITY DEFINER
        and has_function_privilege('authenticated', p.oid, 'EXECUTE');
     if v_texto is not null then
-        raise exception 'I23 FALLO: authenticated puede ejecutar -> %', v_texto;
+        raise exception 'I23 FALLO: authenticated puede ejecutar funciones SECURITY DEFINER -> %', v_texto;
     end if;
-    raise notice 'PASS  I23 authenticated solo ejecuta rpc_, nunca una fn_ interna';
+    raise notice 'PASS  I23 authenticated no ejecuta ninguna fn_ SECURITY DEFINER';
 end
 $i23$;
 
@@ -1483,3 +1500,57 @@ begin
     raise notice '── Sprint 5: en verde ──';
 end
 $s5$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I40 · Toda vista se puede LEER con el rol del navegador.
+--
+-- La invariante que faltaba, y que habría evitado el incidente del
+-- 2026-09-24: `/simulador` cargaba en producción con «permission denied
+-- for function fn_tope_fase». El resto de este fichero prueba los RPC
+-- con el JWT de cada usuario, pero leía las vistas como DUEÑO del
+-- esquema — y el dueño ejecuta cualquier función, así que un privilegio
+-- que falta es invisible desde ahí.
+--
+-- Esto recorre TODAS las vistas de `public` y hace un `select` con el rol
+-- `authenticated`, que es lo que hace PostgREST. Va al final del fichero
+-- a propósito: a estas alturas los bloques anteriores ya han creado
+-- usuarios, carteras, señales, cuentas y órdenes, así que las vistas se
+-- leen con datos dentro y no vacías.
+--
+-- Cero filas sería un resultado perfectamente válido (la RLS hace su
+-- trabajo); lo que se busca es que ninguna reviente por un permiso.
+-- ═════════════════════════════════════════════════════════════════════
+do $i40$
+declare
+    v_vista   text;
+    v_usuario uuid;
+    v_fallos  text := '';
+    v_leidas  int := 0;
+begin
+    select id into v_usuario from public.perfiles where estado = 'aprobado' limit 1;
+
+    for v_vista in select viewname from pg_views where schemaname = 'public' order by viewname
+    loop
+        begin
+            perform pg_temp.como(v_usuario);
+            -- `select *` y no `count(*)`: al contar, PostgreSQL PODA las
+            -- expresiones de la lista de selección y nunca comprueba el
+            -- permiso sobre las funciones que la vista usa. Justo así se
+            -- escapó el fallo del 2026-09-24. Con `limit 0` se planifica
+            -- la lista entera —que es donde PostgreSQL verifica el
+            -- EXECUTE— sin devolver ni una fila.
+            execute format('select * from public.%I limit 0', v_vista);
+            perform pg_temp.como_dueno();
+            v_leidas := v_leidas + 1;
+        exception when others then
+            perform pg_temp.como_dueno();
+            v_fallos := v_fallos || format('%s (%s); ', v_vista, sqlerrm);
+        end;
+    end loop;
+
+    if v_fallos <> '' then
+        raise exception 'I40 FALLO: vistas ilegibles para authenticated -> %', v_fallos;
+    end if;
+    raise notice 'PASS  I40 las % vistas de public se leen con el rol authenticated', v_leidas;
+end
+$i40$;

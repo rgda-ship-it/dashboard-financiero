@@ -11,7 +11,7 @@
 #
 # Esto es lo que ocupa el lugar del staging: levanta un PostgreSQL 15
 # limpio, aplica las migraciones DESDE CERO junto con la semilla, y
-# ejecuta las treinta y nueve invariantes del esquema, la prueba de
+# ejecuta las cuarenta invariantes del esquema, la prueba de
 # concurrencia del cierre de órdenes y el cuadre del libro mayor tras
 # cincuenta operaciones. Si algo falla, la migración no llega a master.
 #
