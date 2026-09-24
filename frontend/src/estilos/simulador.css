@@ -1,0 +1,261 @@
+/**
+ * Módulo Simulador (Sprint 5): cuenta, entradas sugeridas, posiciones
+ * abiertas, histórico y libro mayor.
+ *
+ * Ni un color ni un tamaño literal: todo sale de `tokens.css`. El latón
+ * (`--brass-*`) se reserva, aquí igual que en el escáner, para lo que el
+ * sistema PROTEGE y no se negocia — el tope de la fase y el precio de
+ * liquidación. El verde y el rojo siguen siendo exclusivos de la
+ * semántica de mercado.
+ */
+.sim__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+}
+
+.sim__aviso {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.sim__nota {
+  margin: 0;
+  color: var(--tx-3);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.sim__nota strong { color: var(--tx-2); font-weight: 500; }
+.sim__nota--pie { color: var(--tx-3); }
+
+.sim__error {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--neg-line);
+  background: var(--neg-soft);
+  color: var(--tx-2);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+
+.sim__error--aviso {
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+}
+
+/* ── Alta de cuenta ── */
+.sim__alta { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.sim__alta-texto {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--tx-2);
+  font-size: var(--fs-md);
+  line-height: 1.6;
+}
+
+.sim__alta-texto strong { color: var(--brass-400); font-weight: 500; }
+
+.sim__alta-campos {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.sim__campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 11rem;
+}
+
+.sim__campo input {
+  width: 100%;
+  height: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Cifras de la cuenta ── */
+.sim__cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: var(--sp-3);
+}
+
+.sim__cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--ink-950);
+}
+
+.sim__cifra-valor {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--tx-1);
+}
+
+.sim__cifra-nota {
+  color: var(--tx-4);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.sim__estado {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sim__estado--ok { color: var(--pos-500); }
+.sim__estado--warn { color: var(--warn-500); }
+.sim__estado--neg { color: var(--neg-500); }
+
+.sim__pie-sep { color: var(--tx-4); }
+.sim__tope { color: var(--brass-400); }
+
+/* ── Tablas ── */
+.sim__tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.sim__tabla th {
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line-2);
+  color: var(--tx-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sim__tabla td {
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--line-1);
+  color: var(--tx-2);
+  vertical-align: middle;
+}
+
+.sim__tabla tbody tr:last-child td { border-bottom: 0; }
+.sim__tabla th.num, .sim__tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.sim__tabla--sugeridas td { vertical-align: top; }
+.sim__celda-riel { min-width: 12rem; }
+.sim__tabla--libro td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+
+.sim__ticker {
+  display: block;
+  color: var(--tx-1);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.sim__sub {
+  display: block;
+  color: var(--tx-4);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.sim__sub--motivo { max-width: 12rem; color: var(--tx-3); }
+
+/* El precio de liquidación va en latón: es un límite del sistema, no una
+   decisión del usuario, y comparte tratamiento con el tope de la fase. */
+.sim__liq { color: var(--brass-400); }
+
+.sim__motivo {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.sim__motivo--tp { color: var(--pos-500); }
+.sim__motivo--sl { color: var(--neg-500); }
+.sim__motivo--liquidacion { color: var(--neg-500); font-weight: 500; }
+.sim__motivo--manual, .sim__motivo--caducidad { color: var(--tx-3); }
+
+/* ── Confirmación de orden ── */
+.sim__confirmar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--acc-line);
+  border-radius: var(--r-md);
+  background: var(--acc-soft);
+}
+
+.sim__confirmar-cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.sim__confirmar-titulo {
+  flex: 1;
+  color: var(--tx-2);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sim__confirmar-campos {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.sim__confirmar-acciones {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* Los niveles son ficha de lectura, no formulario: se presentan como
+   definiciones y no como campos para que no invite a editarlos. */
+.sim__ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--ink-950);
+}
+
+.sim__ficha dt {
+  color: var(--tx-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sim__ficha dd {
+  margin: 2px 0 0;
+  color: var(--tx-1);
+  font-size: var(--fs-md);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .sim__tabla { display: block; overflow-x: auto; }
+}

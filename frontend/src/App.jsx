@@ -3,6 +3,7 @@ import Escaner from "./rutas/Escaner.jsx";
 import Proximamente from "./rutas/Proximamente.jsx";
 import Admin from "./rutas/Admin.jsx";
 import Cartera from "./rutas/Cartera.jsx";
+import Simulador from "./rutas/Simulador.jsx";
 import Login from "./rutas/acceso/Login.jsx";
 import Registro from "./rutas/acceso/Registro.jsx";
 import Recuperar from "./rutas/acceso/Recuperar.jsx";
@@ -42,25 +43,7 @@ export default function App() {
 
         <Route path="/cartera" element={<RequiereAprobado><Cartera /></RequiereAprobado>} />
 
-        <Route
-          path="/simulador"
-          element={
-            <RequiereAprobado>
-            <Proximamente
-              titulo="Simulador"
-              sprint={5}
-              descripcion="Saldo inicial ficticio, entradas sugeridas con Take Profit y Stop Loss, confirmación de orden con tu precio y fecha, y un motor que vigila el precio cada minuto, cierra la operación cuando toca un nivel, libera el margen y actualiza el balance. El saldo será derivado de un libro mayor inmutable, nunca un número editable."
-              historias={[
-                "H-22 — Cuentas de simulación y libro mayor",
-                "H-23 — Apertura de órdenes con los cinco guardarraíles",
-                "H-24 — Cierre idempotente, máquina de fases y Game Over",
-                "H-25 — Motor de monitoreo automatizado",
-                "H-26 — Recomendaciones y confirmación de orden",
-              ]}
-            />
-            </RequiereAprobado>
-          }
-        />
+        <Route path="/simulador" element={<RequiereAprobado><Simulador /></RequiereAprobado>} />
 
         <Route
           path="/agentes"

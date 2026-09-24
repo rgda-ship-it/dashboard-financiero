@@ -234,51 +234,74 @@ $inv$;
 
 
 -- ─────────────────────────────────────────────────────────────────────
--- 10. Retención de señales, con y sin la tabla `ordenes`.
+-- 10. Retención de señales y la evidencia del experimento.
 --
--- Se hace fuera del bloque anterior porque crea y destruye una tabla, y
--- conviene que el estado quede limpio incluso si algo falla por el camino.
+-- Hasta el Sprint 5 este bloque creaba una tabla `ordenes` de juguete
+-- para probar el anti-join, porque la de verdad no existía. Desde la
+-- migración 0011 existe, así que se prueba contra ella: una señal
+-- referenciada por una orden REAL —con su cuenta, su margen y sus
+-- niveles— es evidencia y no se borra jamás.
+--
+-- Se hace fuera del bloque anterior porque deja filas por el camino y
+-- conviene que un fallo aquí no arrastre al resto.
 -- ─────────────────────────────────────────────────────────────────────
 do $ret$
 declare
-    v_id      bigint;
-    v_json    jsonb;
-    v_conteo  bigint;
+    v_id       bigint;
+    v_json     jsonb;
+    v_conteo   bigint;
+    v_cuenta   bigint;
+    v_protegida bigint;
 begin
     select id into v_id from public.activos where simbolo = 'GM';
 
-    -- Sin `ordenes` en el esquema (estado real hasta el Sprint 5), la
-    -- función tiene que funcionar igual y no intentar el anti-join.
+    -- Con `ordenes` en el esquema, la función tiene que activar el
+    -- anti-join y decirlo en su informe.
     select public.fn_retencion_senales() into v_json;
-    if (v_json ->> 'evidencia_protegida')::boolean then
-        raise exception 'I10 FALLO: dice proteger evidencia sin que exista la tabla ordenes';
+    if not (v_json ->> 'evidencia_protegida')::boolean then
+        raise exception 'I10 FALLO: existiendo la tabla ordenes, la retención no protege la evidencia';
     end if;
-    raise notice 'PASS  I10 fn_retencion_senales() funciona antes de que exista `ordenes`';
+    raise notice 'PASS  I10 fn_retencion_senales() activa el anti-join cuando existe `ordenes`';
 
-    -- Ahora con `ordenes`, simulando el Sprint 5.
-    create table public.ordenes (
-        id       bigserial primary key,
-        senal_id bigint references public.senales(id) on delete set null
-    );
-
-    -- Tres señales del mismo día, hace 60 días: deben comprimirse a 1.
+    -- Tres señales del MISMO día, hace 60 días: deben comprimirse a 1.
+    --
+    -- Ancladas al mediodía y no a `now() - 60 días + g minutos`, que es
+    -- como estaban hasta el Sprint 5: si la CI corría en los últimos
+    -- minutos del día, los tres minutos consecutivos cruzaban la
+    -- medianoche, caían en DOS fechas distintas y la compresión dejaba
+    -- dos filas. Una invariante que solo falla a las 23:59 es peor que
+    -- una que no existe, porque enseña a desconfiar de la roja.
     insert into public.senales
         (activo_id, operable, leverage_tope, leverage_referencia_volatilidad,
          version_motor, calculado_en)
     select v_id, false, 5, 1, 'vieja' || g,
-           now() - interval '60 days' + (g || ' minutes')::interval
+           date_trunc('day', now() - interval '60 days') + interval '12 hours'
+           + (g || ' minutes')::interval
       from generate_series(1, 3) g;
 
     -- Dos de hace 400 días: deben borrarse... salvo la referenciada.
     insert into public.senales
         (activo_id, operable, leverage_tope, leverage_referencia_volatilidad,
          version_motor, calculado_en)
-    select v_id, false, 5, 1, 'antigua' || g, now() - interval '400 days'
+    select v_id, false, 5, 1, 'antigua' || g,
+           date_trunc('day', now() - interval '400 days') + interval '12 hours'
       from generate_series(1, 2) g;
 
-    insert into public.ordenes (senal_id)
-    select min(id) from public.senales
+    -- Una cuenta de agente sirve para esto y no necesita perfil: la clave
+    -- ajena a `agentes` no llega hasta el Sprint 6.
+    insert into public.cuentas_simulacion
+        (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
+    values (9001, 500, 500, 500)
+    returning id into v_cuenta;
+
+    select min(id) into v_protegida from public.senales
      where activo_id = v_id and calculado_en < now() - interval '1 year';
+
+    insert into public.ordenes
+        (cuenta_id, activo_id, senal_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_id, v_protegida, 'agente', 100, now() - interval '400 days',
+            1, 2, 50, 110, 90, 50);
 
     select public.fn_retencion_senales() into v_json;
 
@@ -307,7 +330,8 @@ begin
     end if;
     raise notice 'PASS  I12 la retención nunca borra una señal referenciada por una orden';
 
-    drop table public.ordenes;
+    delete from public.ordenes where cuenta_id = v_cuenta;
+    delete from public.cuentas_simulacion where id = v_cuenta;
     raise notice '── Retención: en verde ──';
 end
 $ret$;
@@ -875,3 +899,587 @@ begin
     raise notice '── Sprint 4: en verde ──';
 end
 $s4$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- Sprint 5 — el simulador. Se prueba lo que el dinero ficticio tiene en
+-- común con el de verdad: que si el saldo no cuadra, todo lo demás da
+-- igual.
+--
+-- La prueba de CONCURRENCIA de `rpc_cerrar_orden` (riesgo R4) no está
+-- aquí y no puede estarlo: un script de `psql` es una sola sesión y la
+-- carrera necesita diez. Vive en `supabase/pruebas/02_concurrencia.sh`,
+-- que abre diez conexiones de verdad. Lo que se prueba aquí es la
+-- idempotencia en secuencia, que es la mitad del contrato.
+-- ═════════════════════════════════════════════════════════════════════
+do $s5$
+declare
+    v_u        uuid := gen_random_uuid();
+    v_v        uuid := gen_random_uuid();
+    v_admin    uuid;
+    v_cuenta   bigint;
+    v_cuenta_v bigint;
+    v_btc      bigint;
+    v_eth      bigint;
+    v_sol      bigint;
+    v_senal    bigint;
+    v_orden    bigint;
+    v_json     jsonb;
+    v_conteo   bigint;
+    v_texto    text;
+    v_num      numeric;
+    v_disp     numeric;
+    v_fallo    boolean;
+    v_dim      record;
+    i          int;
+begin
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_u, 'sim@ejemplo.com', now()), (v_v, 'sim2@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id in (v_u, v_v);
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+
+    -- Las tres criptos de la semilla, en estado operable y con precio
+    -- vivo. Se usan criptos y no acciones a propósito: el monitor no
+    -- evalúa acciones fuera del horario de Nueva York, y una invariante
+    -- que solo pasa entre semana a media tarde no es una invariante.
+    select id into v_btc from public.activos where simbolo = 'bitcoin';
+    select id into v_eth from public.activos where simbolo = 'ethereum';
+    select id into v_sol from public.activos where simbolo = 'solana';
+    update public.activos set estado = 'activo', ultimo_precio = 100, ultimo_precio_en = now()
+     where id in (v_btc, v_eth, v_sol);
+
+    perform pg_temp.como(v_u);
+    perform public.rpc_seguir_activo(v_btc);
+    perform public.rpc_seguir_activo(v_eth);
+    perform public.rpc_seguir_activo(v_sol);
+    perform pg_temp.como(v_v);
+    perform public.rpc_seguir_activo(v_btc);
+    perform pg_temp.como_dueno();
+
+    -- ── I30 · El libro mayor es de verdad append-only ────────────────
+    perform pg_temp.como(v_u);
+    v_json := public.rpc_crear_cuenta_simulacion(1000);
+    v_cuenta := (v_json ->> 'cuenta_id')::bigint;
+    perform pg_temp.como(v_v);
+    v_cuenta_v := (public.rpc_crear_cuenta_simulacion(500) ->> 'cuenta_id')::bigint;
+    perform pg_temp.como_dueno();
+
+    -- El saldo materializado sale del libro mayor y no de un literal.
+    select saldo_disponible into v_num from public.cuentas_simulacion where id = v_cuenta;
+    if v_num <> 1000 then
+        raise exception 'I30 FALLO: la cuenta nació con saldo % y no con 1000', v_num;
+    end if;
+    if (select count(*) from public.movimientos_saldo
+         where cuenta_id = v_cuenta and tipo = 'deposito_inicial') <> 1 then
+        raise exception 'I30 FALLO: crear la cuenta no dejó un depósito inicial';
+    end if;
+
+    -- Como DUEÑO del esquema, que es más privilegio del que tiene
+    -- `service_role`: ni así se puede reescribir un apunte.
+    v_fallo := false;
+    begin
+        update public.movimientos_saldo set importe = 999999 where cuenta_id = v_cuenta;
+        v_fallo := true;
+    exception when others then null;
+    end;
+    if v_fallo then
+        raise exception 'I30 FALLO: se pudo ACTUALIZAR el libro mayor';
+    end if;
+    v_fallo := false;
+    begin
+        delete from public.movimientos_saldo where cuenta_id = v_cuenta;
+        v_fallo := true;
+    exception when others then null;
+    end;
+    if v_fallo then
+        raise exception 'I30 FALLO: se pudo BORRAR del libro mayor';
+    end if;
+
+    -- Titular único: ni las dos cosas a la vez, ni ninguna.
+    v_fallo := false;
+    begin
+        insert into public.cuentas_simulacion
+            (usuario_id, agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
+        values (v_u, 1, 100, 100, 100);
+        v_fallo := true;
+    exception when check_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I30 FALLO: se aceptó una cuenta con usuario Y agente';
+    end if;
+    v_fallo := false;
+    begin
+        insert into public.cuentas_simulacion
+            (saldo_inicial, saldo_disponible, capital_maximo_alcanzado) values (100, 100, 100);
+        v_fallo := true;
+    exception when check_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I30 FALLO: se aceptó una cuenta sin titular';
+    end if;
+    raise notice 'PASS  I30 el libro mayor no admite UPDATE ni DELETE ni como dueño; el saldo nace de él; el titular es único';
+
+    -- ── I31 · G1 · El tope de apalancamiento es el de la FASE ────────
+    -- Señal canónica de aquí en adelante: precio 100, sl 90, tp 130.
+    -- Distancia al stop 10 %, R:R 3,0, liquidación a 5x en 80 (por debajo
+    -- del stop, así que no hay ajuste).
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct)
+    values (v_btc, true, 5, 3, 'i31', 100, 90, 130, 5, 'alcista', 'largo', 'alta', 'estructura', 2)
+    returning id into v_senal;
+
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal, null, null, 6);
+        v_fallo := true;
+    exception when others then
+        v_texto := sqlerrm;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I31 FALLO: se abrió una orden a 6x';
+    end if;
+    if v_texto not like '%6%' or v_texto not like '%tope%' then
+        raise exception 'I31 FALLO: el rechazo de 6x no explica el tope: %', v_texto;
+    end if;
+
+    -- En Fase 2 el tope baja a 3x (regla protegida nº1).
+    update public.cuentas_simulacion set fase = 'fase_2_consolidacion' where id = v_cuenta;
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal, null, null, 4);
+        v_fallo := true;
+    exception when others then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I31 FALLO: una cuenta en fase 2 aceptó 4x';
+    end if;
+    update public.cuentas_simulacion set fase = 'fase_1_aceleracion' where id = v_cuenta;
+    raise notice 'PASS  I31 G1: 6x se rechaza siempre y 4x se rechaza en fase 2';
+
+    -- ── I32 · G5 · Señal operable y fresca, o no hay orden ───────────
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, direccion, fuerza)
+    values (v_eth, false, 5, 3, 'i32-no-operable', 100, 'neutral', 'baja')
+    returning id into v_orden;
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_orden);
+        v_fallo := true;
+    exception when others then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I32 FALLO: se abrió una orden sobre una señal no operable';
+    end if;
+
+    -- Una señal de hace dos horas: por encima de los 90 minutos.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, calculado_en)
+    values (v_eth, true, 5, 3, 'i32-aneja', 100, 90, 130, 5, now() - interval '2 hours')
+    returning id into v_orden;
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_orden);
+        v_fallo := true;
+    exception when others then
+        v_texto := sqlerrm;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I32 FALLO: se abrió una orden sobre una señal de hace dos horas';
+    end if;
+    if v_texto not like '%minutos%' then
+        raise exception 'I32 FALLO: el rechazo por antigüedad no lo explica: %', v_texto;
+    end if;
+    raise notice 'PASS  I32 G5: ni señal no operable ni señal de hace dos horas abren orden';
+
+    -- ── I33 · Dimensionado: el paso 6 BAJA el apalancamiento ─────────
+    -- Caso sin ajuste: precio 100, sl 90 -> liquidación a 5x en 80, por
+    -- debajo del stop. 2 % de 1.000 = 20 $ de riesgo; nominal 200;
+    -- margen 40; cantidad 2. Tocar el stop cuesta exactamente 20 $.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        1000, 1000, 0, 100, 90, 2, 60, 5, null, 5);
+    if v_dim.motivo is not null or v_dim.apalancamiento <> 5
+       or v_dim.margen <> 40 or v_dim.cantidad <> 2 then
+        raise exception 'I33 FALLO: dimensionado sin ajuste dio %', to_jsonb(v_dim);
+    end if;
+    if round(v_dim.cantidad * (100 - 90), 2) <> 20 then
+        raise exception 'I33 FALLO: tocar el stop no cuesta el riesgo declarado';
+    end if;
+
+    -- Caso CON ajuste: sl 75 -> a 5x la liquidación caería en 80, ENCIMA
+    -- del stop. El apalancamiento tiene que bajar a 3,9 (1/0,25 = 4,0
+    -- menos un decimal) y la liquidación quedar por debajo de 75.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        1000, 1000, 0, 100, 75, 2, 60, 5, null, 5);
+    if v_dim.motivo is not null or v_dim.apalancamiento <> 3.9 then
+        raise exception 'I33 FALLO: el ajuste por liquidación dio % en vez de 3,9', to_jsonb(v_dim);
+    end if;
+    if v_dim.precio_liquidacion >= 75 then
+        raise exception 'I33 FALLO: tras el ajuste la liquidación sigue por encima del stop (%)',
+              v_dim.precio_liquidacion;
+    end if;
+    if round(v_dim.cantidad * (100 - 75), 2) > 20 then
+        raise exception 'I33 FALLO: tras el ajuste el riesgo real supera el declarado';
+    end if;
+
+    -- Un stop tan lejano que ni a 1x la liquidación queda por debajo: no
+    -- hay operación, en vez de una operación con el riesgo mal declarado.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        1000, 1000, 0, 100, 1, 2, 60, 5, null, 5);
+    if v_dim.motivo <> 'sin_operacion_liquidacion_antes_del_stop' then
+        raise exception 'I33 FALLO: con el stop al 99 %% debería no haber operación, dio %',
+              to_jsonb(v_dim);
+    end if;
+
+    -- El tope de G3 recorta el margen: con el 60 % del equity ya
+    -- comprometido no queda nada libre.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        1000, 400, 600, 100, 90, 2, 60, 5, null, 5);
+    if v_dim.motivo <> 'margen_insuficiente' then
+        raise exception 'I33 FALLO: con el margen agotado debería no haber operación, dio %',
+              to_jsonb(v_dim);
+    end if;
+    raise notice 'PASS  I33 dimensionado: 5x sin ajuste, 3,9x cuando la liquidación adelanta al stop, y sin operación cuando no cabe';
+
+    -- ── I34 · G2, G3 y G4 ────────────────────────────────────────────
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal, null, null, null, 25);
+        v_fallo := true;
+    exception when others then null;
+    end;
+    if v_fallo then
+        raise exception 'I34 FALLO: se aceptó un riesgo del 25 %% del equity';
+    end if;
+
+    -- La orden buena, con los números de I33.
+    v_json := public.rpc_abrir_orden(v_cuenta, v_senal);
+    v_orden := (v_json ->> 'orden_id')::bigint;
+    perform pg_temp.como_dueno();
+    if (v_json ->> 'cantidad')::numeric <> 2 or (v_json ->> 'margen')::numeric <> 40
+       or (v_json ->> 'apalancamiento')::numeric <> 5 then
+        raise exception 'I34 FALLO: la orden se abrió con % ', v_json;
+    end if;
+    select saldo_disponible, saldo_bloqueado into v_disp, v_num
+      from public.cuentas_simulacion where id = v_cuenta;
+    if v_disp <> 960 or v_num <> 40 then
+        raise exception 'I34 FALLO: tras abrir, disponible % y bloqueado %', v_disp, v_num;
+    end if;
+    if (select count(*) from public.movimientos_saldo
+         where orden_id = v_orden and tipo = 'bloqueo_margen' and importe = -40) <> 1 then
+        raise exception 'I34 FALLO: abrir no dejó el apunte de bloqueo de margen';
+    end if;
+
+    -- Dos veces el mismo activo: no. (Índice único de orden abierta.)
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal);
+        v_fallo := true;
+    exception when others then null;
+    end;
+    if v_fallo then
+        raise exception 'I34 FALLO: se abrieron dos órdenes en el mismo activo';
+    end if;
+
+    -- G4: con `max_posiciones_abiertas` a 1, la segunda posición —en otro
+    -- activo— también se rechaza.
+    perform pg_temp.como_dueno();
+    update public.cuentas_simulacion set max_posiciones_abiertas = 1 where id = v_cuenta;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado)
+    values (v_sol, true, 5, 3, 'i34', 100, 90, 130, 5);
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(
+            v_cuenta, (select max(id) from public.senales where version_motor = 'i34'));
+        v_fallo := true;
+    exception when others then
+        v_texto := sqlerrm;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I34 FALLO: se superó el máximo de posiciones abiertas';
+    end if;
+    if v_texto not like '%posiciones abiertas%' then
+        raise exception 'I34 FALLO: el rechazo de G4 no lo explica: %', v_texto;
+    end if;
+    update public.cuentas_simulacion set max_posiciones_abiertas = 3 where id = v_cuenta;
+
+    -- Y la orden de otro usuario sobre MI cuenta, jamás.
+    perform pg_temp.como(v_v);
+    v_fallo := false;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal);
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I34 FALLO: otro usuario pudo abrir una orden en una cuenta ajena';
+    end if;
+    raise notice 'PASS  I34 G2/G3/G4: riesgo, margen, número de posiciones y propiedad de la cuenta se imponen en el servidor';
+
+    -- ── I35 · Cierre idempotente y P&L recalculado a mano ────────────
+    -- Cierre en TP: cantidad 2, entrada 100, salida 130 -> +60 $.
+    v_json := public.rpc_cerrar_orden(v_orden, 130, 'tp', 131);
+    if not (v_json ->> 'cerrada')::boolean or (v_json ->> 'pnl')::numeric <> 60 then
+        raise exception 'I35 FALLO: el cierre en TP dio %', v_json;
+    end if;
+    select saldo_disponible into v_disp from public.cuentas_simulacion where id = v_cuenta;
+    if v_disp <> 1060 then
+        raise exception 'I35 FALLO: tras cerrar en TP el disponible es % y debería ser 1060', v_disp;
+    end if;
+
+    -- La SEGUNDA llamada no toca ni un céntimo. Es el caso normal en un
+    -- monitor concurrente, así que no lanza: devuelve «ya cerrada».
+    v_json := public.rpc_cerrar_orden(v_orden, 130, 'tp', 131);
+    if (v_json ->> 'cerrada')::boolean then
+        raise exception 'I35 FALLO: la segunda llamada volvió a cerrar la orden';
+    end if;
+    if v_json ->> 'motivo' not like '%cerrada%' then
+        raise exception 'I35 FALLO: la segunda llamada no explica que ya estaba cerrada: %', v_json;
+    end if;
+    select saldo_disponible into v_num from public.cuentas_simulacion where id = v_cuenta;
+    if v_num <> v_disp then
+        raise exception 'I35 FALLO: la segunda llamada movió el saldo de % a %', v_disp, v_num;
+    end if;
+    if (select count(*) from public.movimientos_saldo
+         where orden_id = v_orden and tipo = 'resultado_operacion') <> 1 then
+        raise exception 'I35 FALLO: el resultado se acreditó más de una vez';
+    end if;
+    -- Dos apuntes por cierre, no uno: liberar margen y aplicar resultado
+    -- son hechos económicos distintos.
+    if (select count(*) from public.movimientos_saldo where orden_id = v_orden) <> 3 then
+        raise exception 'I35 FALLO: se esperaban 3 apuntes (bloqueo + liberación + resultado)';
+    end if;
+    raise notice 'PASS  I35 cerrar dos veces acredita el P&L una vez y deja tres apuntes por operación';
+
+    -- ── I36 · Una pérdida mayor que el margen deja el saldo en 0 ─────
+    -- Se inserta la orden a mano: es una posición a 5x con el stop al
+    -- 30 %, que el dimensionado NUNCA habría abierto (regla N4). Es justo
+    -- el caso que el monitor tiene que saber cerrar.
+    insert into public.ordenes
+        (cuenta_id, activo_id, senal_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_eth, null, 'manual', 100, now(), 2, 5, 40, 160, 70, 80)
+    returning id into v_orden;
+    perform public.fn_registrar_movimiento(v_cuenta, v_orden, 'bloqueo_margen', -40, 40);
+
+    -- Un hueco de mercado: cierre en 50 -> pérdida bruta de 100 $ sobre
+    -- un margen de 40. Sin el clamp, el saldo iría a negativo, el CHECK
+    -- abortaría y la orden quedaría abierta para siempre.
+    v_json := public.rpc_cerrar_orden(v_orden, 50, 'liquidacion', 45);
+    if (v_json ->> 'pnl')::numeric <> -40 then
+        raise exception 'I36 FALLO: la pérdida no se limitó al margen, dio %', v_json;
+    end if;
+    select estado into v_texto from public.ordenes where id = v_orden;
+    if v_texto <> 'cerrada' then
+        raise exception 'I36 FALLO: la orden quedó en estado % en vez de cerrada', v_texto;
+    end if;
+    if (select saldo_disponible from public.cuentas_simulacion where id = v_cuenta) < 0 then
+        raise exception 'I36 FALLO: el saldo quedó en negativo';
+    end if;
+    raise notice 'PASS  I36 una pérdida mayor que el margen se limita al margen y la orden queda cerrada';
+
+    -- ── I37 · El monitor y sus cuatro reglas ─────────────────────────
+    -- Cuatro escenarios sobre cuatro órdenes, una pasada del monitor.
+    -- Todas a mano por el mismo motivo que en I36: dos de ellas son
+    -- posiciones que el dimensionado no habría abierto.
+    perform pg_temp.como_dueno();
+    delete from public.ordenes where cuenta_id = v_cuenta and estado = 'abierta';
+    update public.cuentas_simulacion set max_posiciones_abiertas = 10 where id = v_cuenta;
+    -- Frontera para mirar SOLO las órdenes de esta invariante: dentro de
+    -- una transacción `now()` está congelado, así que filtrar por fecha de
+    -- salida arrastraría los cierres de I35 e I36.
+    select coalesce(max(id), 0) into v_conteo from public.ordenes;
+
+    -- A) TP: precio 131 -> cierra en 130 exacto (M3), +60 $.
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_btc, 'manual', 100, now(), 2, 5, 40, 130, 90, 80);
+    perform public.fn_registrar_movimiento(v_cuenta,
+        (select max(id) from public.ordenes where cuenta_id = v_cuenta), 'bloqueo_margen', -40, 40);
+    update public.activos set ultimo_precio = 131, ultimo_precio_en = now() where id = v_btc;
+
+    -- B) SL: precio 85, por debajo del stop pero por encima de la
+    --    liquidación -> cierra en 90 (M2 + M3), -20 $.
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_eth, 'manual', 100, now(), 2, 5, 40, 130, 90, 80);
+    perform public.fn_registrar_movimiento(v_cuenta,
+        (select max(id) from public.ordenes where cuenta_id = v_cuenta), 'bloqueo_margen', -40, 40);
+    update public.activos set ultimo_precio = 85, ultimo_precio_en = now() where id = v_eth;
+
+    -- C) Liquidación antes que el stop (M1): 5x, stop al 30 %, caída del
+    --    25 % -> el precio 75 ya cruzó la liquidación de 80. Cierra por
+    --    'liquidacion' y NO por 'sl'.
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_sol, 'manual', 100, now(), 2, 5, 40, 160, 70, 80);
+    perform public.fn_registrar_movimiento(v_cuenta,
+        (select max(id) from public.ordenes where cuenta_id = v_cuenta), 'bloqueo_margen', -40, 40);
+    update public.activos set ultimo_precio = 75, ultimo_precio_en = now() where id = v_sol;
+
+    -- D) Precio añejo (M4): la cuenta de V, con un precio de hace dos
+    --    horas sobre un activo propio. No se toca.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado,
+                                ultimo_precio, ultimo_precio_en)
+    values ('zzi37', 'cripto', 'coingecko', 'zzi37', 'activo', 50, now() - interval '2 hours')
+    returning id into v_num;
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta_v, v_num::bigint, 'manual', 100, now(), 1, 5, 20, 130, 90, 80)
+    returning id into v_orden;
+    perform public.fn_registrar_movimiento(v_cuenta_v, v_orden, 'bloqueo_margen', -20, 20);
+
+    v_json := public.fn_monitorear_ordenes();
+    if (v_json ->> 'tp')::int <> 1 or (v_json ->> 'sl')::int <> 1
+       or (v_json ->> 'liquidacion')::int <> 1 or (v_json ->> 'evaluadas')::int <> 3 then
+        raise exception 'I37 FALLO: la pasada del monitor cerró % (se esperaban 1 tp, 1 sl, 1 liquidación y 3 evaluadas)',
+              v_json;
+    end if;
+
+    -- El P&L de los tres, recalculado a mano, y el cierre AL NIVEL.
+    select string_agg(motivo_cierre || ':' || precio_salida || ':' || pnl_bruto
+                      || ':' || precio_observado_cierre, ' | ' order by id)
+      into v_texto
+      from public.ordenes where cuenta_id = v_cuenta and estado = 'cerrada' and id > v_conteo;
+    if v_texto <> 'tp:130.00000000:60.00:131.00000000'
+                  || ' | sl:90.00000000:-20.00:85.00000000'
+                  || ' | liquidacion:80.00000000:-40.00:75.00000000' then
+        raise exception 'I37 FALLO: los cierres fueron «%»', v_texto;
+    end if;
+
+    if (select estado from public.ordenes where id = v_orden) <> 'abierta' then
+        raise exception 'I37 FALLO: se cerró una orden con el precio de hace dos horas (M4)';
+    end if;
+    if (select count(*) from public.eventos_sistema
+         where tipo = 'orden_cerrada' and creado_en > now() - interval '1 minute') < 3 then
+        raise exception 'I37 FALLO: los cierres no dejaron evento en eventos_sistema';
+    end if;
+    raise notice 'PASS  I37 monitor: cierra en TP y SL al nivel exacto, la liquidación gana al stop, y un precio de hace dos horas no toca nada';
+
+    -- ── I38 · Máquina de fases, reversión y Game Over ────────────────
+    -- Drawdown desde el PICO, no desde el capital inicial: una cuenta que
+    -- subió a 2.000 y bajó a 1.300 ha perdido el 35 % de su máximo aunque
+    -- siga por encima del inicial. Es el caso #2 del Risk Manager.
+    insert into public.cuentas_simulacion
+        (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
+    values (9101, 1000, 1300, 2000) returning id into v_orden;
+    v_json := public.rpc_evaluar_fase(v_orden);
+    if (v_json ->> 'criterio') <> 'drawdown_maximo' then
+        raise exception 'I38 FALLO: no detectó el drawdown desde el pico, dio %', v_json;
+    end if;
+    -- Y de Fase 2 no se vuelve sola, por mucho que el capital crezca.
+    update public.cuentas_simulacion set saldo_disponible = 100000 where id = v_orden;
+    v_json := public.rpc_evaluar_fase(v_orden);
+    if (v_json ->> 'fase') <> 'fase_2_consolidacion' or (v_json ->> 'cambio')::boolean then
+        raise exception 'I38 FALLO: fase 2 cambió por evaluación automática: %', v_json;
+    end if;
+
+    -- Un solo evento por llamada aunque se cumplan dos criterios: aquí el
+    -- múltiplo (3x) y el contador de operaciones (8) a la vez.
+    insert into public.cuentas_simulacion
+        (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado, operaciones_en_fase)
+    values (9102, 1000, 3500, 3500, 9) returning id into v_orden;
+    v_json := public.rpc_evaluar_fase(v_orden);
+    if (v_json ->> 'criterio') <> 'multiplo_capital' then
+        raise exception 'I38 FALLO: con dos criterios cumplidos debía ganar el múltiplo, dio %', v_json;
+    end if;
+    if (select count(*) from public.eventos_sistema
+         where tipo = 'cambio_fase' and datos ->> 'cuenta_id' = v_orden::text) <> 1 then
+        raise exception 'I38 FALLO: una sola llamada generó más de un evento de cambio de fase';
+    end if;
+
+    -- Reversión manual: sin confirmación, excepción. Y solo un admin.
+    v_fallo := false;
+    perform pg_temp.como(v_admin);
+    begin
+        perform public.rpc_revertir_fase_manual(v_orden, false);
+        v_fallo := true;
+    exception when others then null;
+    end;
+    if v_fallo then
+        raise exception 'I38 FALLO: se revirtió la fase sin confirmación explícita';
+    end if;
+    v_json := public.rpc_revertir_fase_manual(v_orden, true);
+    perform pg_temp.como(v_u);
+    v_fallo := false;
+    begin
+        perform public.rpc_revertir_fase_manual(v_orden, true);
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I38 FALLO: un usuario normal pudo revertir la fase';
+    end if;
+    if (v_json ->> 'fase') <> 'fase_1_aceleracion'
+       or (select capital_maximo_alcanzado from public.cuentas_simulacion where id = v_orden) <> 3500
+    then
+        raise exception 'I38 FALLO: la reversión manual no reancló el pico: %', v_json;
+    end if;
+    if (select count(*) from public.auditoria_admin
+         where accion = 'revertir_fase' and objetivo_id = v_orden::text) <> 1 then
+        raise exception 'I38 FALLO: la reversión manual no quedó auditada';
+    end if;
+
+    -- `inoperante` y `game_over` son cosas distintas y el experimento
+    -- tiene que poder distinguirlas.
+    insert into public.cuentas_simulacion
+        (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
+    values (9103, 500, 8, 500) returning id into v_orden;
+    v_json := public.rpc_evaluar_game_over(v_orden);
+    if (v_json ->> 'estado') <> 'inoperante' then
+        raise exception 'I38 FALLO: 8 $ sin posiciones abiertas debería ser inoperante, dio %', v_json;
+    end if;
+    update public.cuentas_simulacion set saldo_disponible = 0 where id = v_orden;
+    v_json := public.rpc_evaluar_game_over(v_orden);
+    if (v_json ->> 'estado') <> 'game_over' then
+        raise exception 'I38 FALLO: con equity 0 debería ser game_over, dio %', v_json;
+    end if;
+    -- Terminal: ni con dinero nuevo vuelve.
+    update public.cuentas_simulacion set saldo_disponible = 5000 where id = v_orden;
+    if (public.rpc_evaluar_game_over(v_orden) ->> 'estado') <> 'game_over' then
+        raise exception 'I38 FALLO: un game over se revirtió solo';
+    end if;
+    raise notice 'PASS  I38 fases: drawdown desde el pico, un evento por llamada, fase 2 sin vuelta automática, reversión solo de admin con confirmación, game over terminal';
+
+    -- ── I39 · El cuadre del libro mayor ──────────────────────────────
+    -- La consulta del doc 01 §5.2, sobre TODO lo que este fichero ha
+    -- movido. Cero filas o hay un bug de saldo.
+    select count(*) into v_conteo from (
+        select c.id
+          from public.cuentas_simulacion c
+          left join public.movimientos_saldo m on m.cuenta_id = c.id
+         group by c.id, c.saldo_disponible, c.saldo_inicial
+        having abs(c.saldo_disponible - (c.saldo_inicial + coalesce(sum(m.importe) filter (
+                 where m.tipo <> 'deposito_inicial'), 0))) > 0.01
+           -- Las cuentas que este fichero crea a mano para probar la
+           -- máquina de fases no pasan por el libro mayor: no son un
+           -- descuadre, son un banco de pruebas. Se identifican por no
+           -- tener ni un apunte.
+           and exists (select 1 from public.movimientos_saldo m2 where m2.cuenta_id = c.id)
+    ) descuadres;
+    if v_conteo <> 0 then
+        raise exception 'I39 FALLO: % cuentas con el saldo descuadrado respecto al libro mayor', v_conteo;
+    end if;
+    raise notice 'PASS  I39 el saldo de toda cuenta con libro mayor se reconstruye sumando sus apuntes';
+
+    raise notice '── Sprint 5: en verde ──';
+end
+$s5$;

@@ -562,6 +562,84 @@ mi situación real en el simulador.
 **Objetivo**: una orden con TP y SL **se cierra sola** y el saldo cuadra
 contra el libro mayor. Requisito 6.
 
+> **Ejecución del Sprint 5 (2026-09-24).** Migración `0011_simulador.sql`
+> (la `0004_simulador` del plan ya estaba ocupada por las vistas con
+> `security_invoker`). Decisiones del dueño:
+>
+> | Tema | Plan | Decisión |
+> |---|---|---|
+> | Monitor (H-25) | Edge Function `monitor-ordenes` + `pg_cron` vía `pg_net` | **D8 — SQL puro sobre `pg_cron`**, sin Edge Functions, coherente con el Sprint 4 |
+> | Precio fresco para M4 | No especificado | **D9 — `pg_net` a CoinGecko, una petición por pasada con todos los ids y solo si hay posiciones abiertas** |
+> | Saldo inicial | 500 $ como los agentes | **D10 — lo elige el usuario**, entre 100 y 10.000 $ ficticios |
+>
+> Diferencias con la spec, con motivo:
+>
+> - **El monitor es SQL y no una Edge Function.** Lo que se gana: las
+>   cuatro reglas M1–M4 se prueban en cada pull request sobre un
+>   PostgreSQL limpio, que es la única validación automática que tiene
+>   este proyecto sin staging. Lo que se pierde: PostgreSQL no puede
+>   llamar a yfinance, y eso es lo que fuerza D9 y la ventana de frescura
+>   partida del punto siguiente.
+> - **La ventana de M4 se parte por clase: 15 min para cripto, 35 para
+>   acciones.** El precio de una acción lo escribe el ETL cada 30 minutos,
+>   así que con 15 la mitad de las pasadas no evaluarían nada. Lo que
+>   protege del riesgo R8 en una acción es la otra condición, que es más
+>   fuerte: no se evalúa ni una orden de acciones con la bolsa cerrada.
+> - **`pg_net` es asíncrono**, así que el ciclo tiene tres fases en este
+>   orden: cosechar la respuesta que pidió la pasada anterior, evaluar las
+>   órdenes con esos precios y pedir los de la siguiente. Retraso máximo
+>   entre el cruce de un nivel y el cierre: dos pasadas ≈ 2 minutos, que
+>   es el criterio de aceptación de H-25.
+> - **El paso 6 del dimensionado (doc 03 §5.3) tenía un fallo de orden**:
+>   termina con `margen := nominal / apalancamiento` y descarta los topes
+>   que el paso 5 acababa de aplicar. Bajar el apalancamiento SUBE el
+>   margen necesario, así que tal cual está escrito puede devolver un
+>   margen por encima del saldo o del tope de G3. Los topes se vuelven a
+>   aplicar después del paso 6, en las dos implementaciones.
+> - **`rpc_abrir_orden` no recibe el activo**: se deduce de la señal. Con
+>   los dos como parámetros, un cliente podía mandar la señal de un activo
+>   y el id de otro, y los tres niveles quedarían referidos al activo
+>   equivocado.
+> - **La función interna del libro mayor se llama
+>   `fn_registrar_movimiento`**, no `rpc_registrar_movimiento` como la
+>   nombra el doc 01 §5.1: en este esquema el prefijo decide los
+>   privilegios (I22 e I23), así que llamarla `rpc_` y revocarla después
+>   sería contradecir la convención que sostiene esas invariantes.
+> - **`movimientos_saldo.orden_id` sin `on delete set null`**: poner la
+>   columna a NULL es un `UPDATE` sobre el libro mayor y el trigger de
+>   inmutabilidad lo rechaza, lo que dejaría imposible borrar una orden.
+>   Con `no action` la relación se invierte y queda mejor: un apunte fija
+>   su orden.
+> - **`cuentas_simulacion.agente_id` sin clave ajena** hasta el Sprint 6,
+>   tal como anticipa la nota de orden de ejecución del doc 01 §7.
+> - **Dos parámetros de riesgo nuevos por cuenta** que el doc 01 §3.4 no
+>   listaba y que G3 y G5 necesitan para no ser constantes de código:
+>   `margen_comprometido_max_pct` (60 por defecto) y
+>   `antiguedad_senal_max_min` (90). Y `ratio_rr_minimo` (1,5), que es el
+>   «mínimo» al que se refiere el doc 01 §5.1 sin darle valor.
+> - **Sin Realtime todavía** (H-32): la pantalla sondea cada 30 s, y solo
+>   mientras haya posiciones abiertas. Sin nada abierto no hay nada que el
+>   monitor pueda cambiar, así que una pestaña olvidada no gasta lecturas.
+>
+> **La prueba de concurrencia no es una invariante y no puede serlo.**
+> `01_invariantes.sql` es una sola sesión de `psql`, y una sesión no
+> compite consigo misma: el `FOR UPDATE` que protege del cierre doble no
+> se ejercitaría nunca. Vive en `supabase/pruebas/02_concurrencia.sh`, que
+> abre diez conexiones de verdad citadas a la misma hora con `pg_sleep`, y
+> se comprobó contra una implementación ingenua a propósito (sin
+> `FOR UPDATE` ni `WHERE estado`) para confirmar que se pone en rojo.
+>
+> **Un hallazgo del camino**: la invariante I11 solo fallaba a las 23:59.
+> Sembraba tres señales como `now() - 60 días + g minutos`, y ejecutada en
+> los últimos minutos del día cruzaban la medianoche, caían en dos fechas
+> y la compresión dejaba dos filas. Ahora se anclan al mediodía. Una
+> invariante que solo falla a una hora concreta es peor que no tenerla:
+> enseña a desconfiar de la roja.
+>
+> Invariantes nuevas **I30–I39**; prueba de concurrencia y cuadre de
+> saldos como pasos propios de la CI; tests Python 118 → 133; tests de
+> frontend 12 (sin cambios: la lógica nueva vive en el servidor).
+
 ---
 
 ### H-22 · Cuentas de simulación y libro mayor · 5 pts

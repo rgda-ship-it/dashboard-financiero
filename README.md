@@ -30,8 +30,8 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 118 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 29 invariantes (no hay staging)
+│   ├── tests.yml              # Los 133 casos como puerta de merge
+│   ├── migraciones.yml        # El esquema desde cero + 39 invariantes + concurrencia + cuadre
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -41,7 +41,11 @@ dashboard-financiero/
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
 │   ├── config.toml
-│   ├── pruebas/               # Invariantes del esquema, que corre la CI
+│   ├── pruebas/               # Lo que sustituye al staging que el tier gratuito no da
+│   │   ├── 00_stubs_supabase.sql   # auth.users y los tres roles, para un Postgres limpio
+│   │   ├── 01_invariantes.sql      # 39 invariantes del esquema
+│   │   ├── 02_concurrencia.sh      # 10 cierres simultáneos de la misma orden (riesgo R4)
+│   │   └── 03_cuadre_saldos.sql    # 50 operaciones y el cuadre del libro mayor
 │   └── migrations/
 │       ├── 0000_base_fase1.sql  # Port del schema.sql de la Fase 1 + usuario_id
 │       ├── 0001_catalogo.sql    # activos, precios, indicadores, señales, vistas
@@ -53,7 +57,8 @@ dashboard-financiero/
 │       ├── 0007_gobierno.sql    # Perfiles, aprobación por admin, RLS completa
 │       ├── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
 │       ├── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
-│       └── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
+│       ├── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
+│       └── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -70,6 +75,7 @@ dashboard-financiero/
 │   ├── etl.py                 # FASE 2 — punto de entrada del job programado
 │   ├── escritor_supabase.py   # FASE 2 — adaptador de salida hacia PostgreSQL
 │   ├── ventana_mercado.py     # FASE 2 — ¿está abierta la bolsa? (lógica pura)
+│   ├── riesgo/dimensionado.py # FASE 2 — cuántas unidades comprar (lógica pura)
 │   ├── seleccion_universo.py  # FASE 2 — qué activos procesa cada pasada (lógica pura)
 │   ├── altas.py               # FASE 2 — valida y rellena activos nuevos (workflow altas)
 │   ├── catalogo_cripto.py     # FASE 2 — copia semanal de /coins/list de CoinGecko
@@ -124,12 +130,14 @@ dashboard-financiero/
         │   ├── senales.js      # FASE 2 — lectura del escáner de tu cartera
         │   ├── cartera.js      # FASE 2 — RPC de cartera, búsqueda, altas e importación
         │   ├── csvCartera.js   # FASE 2 — lectura del CSV en el navegador (+ .test.js)
+        │   ├── simulador.js    # FASE 2 — RPC del simulador; ni un cálculo vive aquí
         │   ├── frescura.js     # FASE 2 — ¿dato atrasado? por clase y mercado NY
         │   └── frescura.test.js # `npm test` — runner nativo de Node
         ├── rutas/
         │   ├── Escaner.jsx     # El armazón de la Fase 1, ahora una ruta
         │   ├── Admin.jsx       # FASE 2 — aprobar / rechazar / suspender + auditoría
         │   ├── Cartera.jsx     # FASE 2 — lo que sigues + posiciones importadas
+        │   ├── Simulador.jsx   # FASE 2 — cuenta, entradas sugeridas, posiciones y libro mayor
         │   ├── acceso/         # Login, registro, pendiente, recuperar contraseña
         │   └── Proximamente.jsx # Módulos pendientes, con su sprint y sus historias
         ├── useApi.js           # Hooks: useEscaner, useCartera, useEventLog
@@ -144,7 +152,8 @@ dashboard-financiero/
         │   ├── componentes.css # Paneles, tablas, medidores, stream
         │   ├── guia.css        # Panel lateral de ayuda y sus accesos
         │   ├── acceso.css      # FASE 2 — pantallas de acceso y panel de admin
-        │   └── cartera.css     # FASE 2 — módulo Cartera
+        │   ├── cartera.css     # FASE 2 — módulo Cartera
+        │   └── simulador.css   # FASE 2 — módulo Simulador
         └── components/
             ├── StatusBar.jsx      # Marca + estado de datos, stream y último escaneo
             ├── MetricsStrip.jsx   # Cuatro KPIs derivados de datos ya en pantalla
@@ -457,7 +466,7 @@ de Postgres, admite intervalos de segundos. Reparto final:
 
 | Trabajo | Planificador | Cadencia |
 |---------|--------------|----------|
-| Monitor de órdenes (Sprint 5) | `pg_cron` | cada minuto |
+| Monitor de órdenes | `pg_cron` → SQL (D8) | cada minuto |
 | Ciclo de agentes (Sprint 6) | `pg_cron` | cada 5 minutos |
 | ETL de acciones | GitHub Actions | cada 30 min, ventana UTC ancha |
 | ETL de cripto | GitHub Actions | cada hora, máximo 6 monedas por pasada |
@@ -466,6 +475,16 @@ La ventana de cron de acciones es ancha **a propósito**: los cron de
 GitHub Actions se evalúan en UTC y no entienden el horario de verano, así
 que la decisión real la toma `motor-analitico/ventana_mercado.py` en hora
 de Nueva York. Una pasada fuera de sesión termina en segundos.
+
+El monitor de órdenes es **SQL puro** y no una Edge Function (decisión D8
+del dueño, 2026-09-24): así las cuatro reglas del cierre automático se
+prueban en cada pull request sobre un PostgreSQL limpio, que es la única
+validación automática que tiene este proyecto. El coste de esa decisión es
+que PostgreSQL no puede llamar a yfinance, así que el precio vivo solo se
+refresca desde SQL para cripto —una petición a CoinGecko por pasada, con
+todos los ids a la vez, y ninguna cuando nadie tiene posiciones abiertas—
+y las acciones se evalúan con el precio del ETL y solo con Nueva York
+abierta.
 
 ### El presupuesto de cuotas, en una tabla
 
@@ -510,11 +529,12 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **118 casos**
+Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **133 casos**
 y todos pasan — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
 (`test_escritor_supabase.py` y `test_ventana_mercado.py`) 17 del Sprint 2
-(`test_seleccion_universo.py` y `test_etl_seleccion.py`) y 6 del Sprint 4
-(`test_altas.py` y uno más en `test_etl_seleccion.py`). La cota está
+(`test_seleccion_universo.py` y `test_etl_seleccion.py`), 6 del Sprint 4
+(`test_altas.py` y uno más en `test_etl_seleccion.py`) y 15 del Sprint 5
+(`test_dimensionado.py`). La cota está
 fijada en `scripts/resumen_tests.py`: si la suite recolecta MENOS casos de
 los esperados, la CI falla aunque todo esté en verde, porque un fichero de
 test que deja de importarse hace que pytest termine con éxito y menos

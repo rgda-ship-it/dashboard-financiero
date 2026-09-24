@@ -4,6 +4,95 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-24 — Fase 2, Sprint 5: el simulador se cierra solo
+
+### Añadido — cuentas, órdenes y libro mayor (0011)
+- `cuentas_simulacion`, `ordenes` y `movimientos_saldo`, con los
+  parámetros de riesgo **en la tabla** y no en variables de entorno
+  (deuda técnica nº3 de la Fase 1).
+- El saldo es derivado: nace de un apunte `deposito_inicial` y cambia
+  únicamente a través de `fn_registrar_movimiento`, que escribe el apunte
+  y actualiza el saldo en la misma sentencia. El libro mayor no admite
+  `UPDATE` ni `DELETE` — ni como `service_role`, ni como dueño del
+  esquema.
+- `/simulador`: cuenta con equity, disponible, margen comprometido y
+  caída desde el máximo; entradas sugeridas con el tamaño que le toca a
+  tu cuenta; posiciones abiertas con P&L flotante; histórico con el
+  precio observado además del nivel; y el libro mayor entero, porque el
+  saldo de arriba es la suma de esas líneas.
+
+### Añadido — los cinco guardarraíles, en PostgreSQL
+`rpc_abrir_orden` los impone: tope de apalancamiento de la fase (5×/3×),
+riesgo ≤ 10 % del equity, margen comprometido ≤ 60 %, número de posiciones
+abiertas, y solo señales operables de menos de 90 minutos. Una orden a 6×
+se **rechaza** con el motivo escrito, no se recorta en silencio.
+
+### Añadido — dimensionado con ajuste por liquidación
+`motor-analitico/riesgo/dimensionado.py` y su gemelo SQL
+`fn_dimensionar_posicion`. Lo que un dev no escribiría por su cuenta: si
+el precio de liquidación queda por ENCIMA del stop, el apalancamiento se
+baja hasta que quede por debajo (a 5× y un stop al 25 %, de 5× a 3,9×), y
+si ni a 1× cabe, no se ofrece la operación. Sin eso, la pérdida real sería
+el margen entero en vez del riesgo declarado. 15 tests nuevos (133 en
+total), incluido un barrido de 40 stops que comprueba la propiedad y no
+solo los casos.
+
+### Añadido — monitor cada minuto, en SQL puro
+Decisión del dueño (D8): las reglas M1–M4 viven en una función SQL que
+`pg_cron` ejecuta cada minuto, no en una Edge Function. Se gana que la CI
+las pruebe en cada pull request y se pierde poder llamar a yfinance desde
+la base de datos, que es lo que fuerza D9.
+
+- Liquidación antes que stop; ante la duda gana el stop; se cierra **al
+  nivel** y el precio que disparó el cierre se guarda aparte; sin precio
+  fresco no se evalúa nada.
+- El precio vivo (D9) sale de una sola petición a CoinGecko por pasada,
+  con todos los ids a la vez, y **solo si hay posiciones abiertas**.
+  `pg_net` es asíncrono, así que el ciclo cosecha la respuesta de la
+  pasada anterior, evalúa y pide la siguiente: retraso máximo de dos
+  minutos, que es el criterio de aceptación de H-25.
+- Ventana de frescura partida por clase: 15 min para cripto (el valor del
+  diseño) y 35 para acciones, cuyo precio escribe el ETL cada media hora,
+  más la exigencia de que Nueva York esté abierta.
+
+### Añadido — dos pruebas que no son invariantes
+- `supabase/pruebas/02_concurrencia.sh`: diez conexiones **de verdad**
+  cerrando la misma orden a la vez (riesgo R4). Un script de `psql` es una
+  sola sesión y no puede competir consigo misma, así que el `FOR UPDATE`
+  nunca se ejercitaría desde `01_invariantes.sql`. Comprobado contra una
+  implementación ingenua a propósito: se pone en rojo.
+- `supabase/pruebas/03_cuadre_saldos.sql`: cincuenta operaciones por los
+  RPC de verdad y después la consulta de cuadre del doc 01 §5.2. Cero
+  filas o hay un bug de saldo.
+
+### Corregido — una invariante que solo fallaba a las 23:59
+I11 sembraba tres señales como `now() - 60 días + g minutos`. Ejecutada en
+los últimos minutos del día, los tres minutos cruzaban la medianoche,
+caían en dos fechas distintas y la compresión dejaba dos filas en vez de
+una. Ahora se anclan al mediodía. Se descubrió al ejecutarla, no al
+leerla: una invariante que solo falla a una hora concreta es peor que no
+tenerla, porque enseña a desconfiar de la roja.
+
+### Decisiones del dueño
+- **D8** — el monitor es SQL sobre `pg_cron`, sin Edge Functions.
+- **D9** — el precio vivo del monitor sale de CoinGecko, una petición por
+  pasada y ninguna sin posiciones abiertas.
+- **D10** — el saldo inicial lo elige el usuario (100–10.000 $ ficticios);
+  los agentes seguirán arrancando con 500 $.
+
+### Desviaciones anotadas respecto al diseño
+- `cuentas_simulacion.agente_id` se crea **sin** clave ajena: `agentes` no
+  existe hasta el Sprint 6 y es esa migración la que la añade.
+- La función interna del libro mayor se llama `fn_registrar_movimiento` y
+  no `rpc_registrar_movimiento`: en este esquema el prefijo decide los
+  privilegios (invariantes I22 e I23).
+- El paso 6 del pseudocódigo de dimensionado descarta los topes que el
+  paso 5 acaba de aplicar; aquí se vuelven a aplicar después, porque son
+  límites duros.
+- `movimientos_saldo.orden_id` no lleva `on delete set null`: poner la
+  columna a NULL es un `UPDATE` sobre el libro mayor y el trigger lo
+  rechazaría, dejando imposible borrar una orden.
+
 ## [Sin publicar] - 2026-09-22 — Cierre del Sprint 4: el latido semanal, por REST
 
 ### Corregido — el latido nunca había podido conectar
