@@ -31,7 +31,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 133 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 39 invariantes + concurrencia + cuadre
+│   ├── migraciones.yml        # El esquema desde cero + 40 invariantes + concurrencia + cuadre
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -43,7 +43,7 @@ dashboard-financiero/
 │   ├── config.toml
 │   ├── pruebas/               # Lo que sustituye al staging que el tier gratuito no da
 │   │   ├── 00_stubs_supabase.sql   # auth.users y los tres roles, para un Postgres limpio
-│   │   ├── 01_invariantes.sql      # 39 invariantes del esquema
+│   │   ├── 01_invariantes.sql      # 40 invariantes del esquema
 │   │   ├── 02_concurrencia.sh      # 10 cierres simultáneos de la misma orden (riesgo R4)
 │   │   └── 03_cuadre_saldos.sql    # 50 operaciones y el cuadre del libro mayor
 │   └── migrations/
@@ -58,7 +58,8 @@ dashboard-financiero/
 │       ├── 0008_posiciones_...sql # cartera_posiciones -> posiciones_reales
 │       ├── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
 │       ├── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
-│       └── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
+│       ├── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
+│       └── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

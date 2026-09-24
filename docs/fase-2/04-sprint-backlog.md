@@ -636,7 +636,24 @@ contra el libro mayor. Requisito 6.
 > invariante que solo falla a una hora concreta es peor que no tenerla:
 > enseña a desconfiar de la roja.
 >
-> Invariantes nuevas **I30–I39**; prueba de concurrencia y cuadre de
+> **Y un fallo que llegó a producción, con su lección.** Aplicada la
+> 0011, `/simulador` cargaba con «permission denied for function
+> fn_tope_fase»: las vistas llevan `security_invoker` (I13), así que se
+> ejecutan con el rol de quien consulta, y la 0011 había revocado las
+> `fn_` a `authenticated` sin distinguir entre las que tocan datos y las
+> puras. Lo arregla la 0012 concediendo las cinco puras, y I23 pasa a
+> comprobar `prosecdef` —que es la propiedad que de verdad importaba—
+> en vez del prefijo del nombre.
+>
+> Por qué no lo vieron las invariantes: este fichero probaba los RPC con
+> el JWT de cada usuario, pero leía las VISTAS como dueño del esquema, y
+> el dueño ejecuta cualquier función. La nueva **I40** lee todas las
+> vistas con el rol `authenticated`. Y con un detalle que costó
+> encontrar: usando `count(*)` solo detectaba dos de las tres vistas
+> rotas, porque al contar PostgreSQL poda la lista de selección y no
+> comprueba el permiso; hay que usar `select * … limit 0`.
+>
+> Invariantes nuevas **I30–I40**; prueba de concurrencia y cuadre de
 > saldos como pasos propios de la CI; tests Python 118 → 133; tests de
 > frontend 12 (sin cambios: la lógica nueva vive en el servidor).
 
