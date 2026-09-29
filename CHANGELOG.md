@@ -4,6 +4,92 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-29 — Fase 2, Sprint 6: los agentes operan solos
+
+### Añadido — poder de trading por escalas (0014, D15)
+El dueño separa dos cifras que no se sustituyen: el **tope de
+apalancamiento** (5× / 3×) es lo recomendable y la regla protegida nº1,
+que no cambia; el **poder de trading** es lo que el bróker permite por el
+saldo, hasta 20× por escalas de equity (QuantFury): 1.000 $ → 20.000 $,
+2.000 → 40.000, 5.000 → 100.000, 10.000 → 200.000, 15.000 → 300.000,
+20.000 → 400.000, 25.000 → 500.000 y 50.000 → 1.000.000. Por debajo de
+1.000 $, 20 × el equity; por encima de 50.000 $, se queda en 1 M$.
+`fn_poder_trading()` y dos columnas nuevas en `v_cuentas_equity`
+(`poder_trading`, `nominal_abierto`). Sin guardarraíl en
+`rpc_abrir_orden`: con 5× y el tope de margen, el nominal no pasa de 3×
+el equity, así que no puede dispararse; I54 deja escrita esa relación.
+
+### Corregido — «no encuadra» en las entradas sugeridas
+Una sugerencia es confirmable si el dimensionado cabe **y** su R:R llega
+al mínimo de la cuenta. El caso del R:R caía en un «no encuadra»
+genérico; ahora dice la cifra y el mínimo.
+
+### Decisiones del dueño (2026-09-29)
+- **D11** — el ciclo de agentes y el corte semanal son SQL sobre
+  `pg_cron`, no Edge Functions: mismo motivo que D8, así los diez pasos
+  del ciclo se prueban en cada pull request.
+- **D12** — el universo de los agentes es todo el catálogo activo.
+- **D13** — los agentes nacen **en pausa**; los pone en marcha un
+  administrador desde `/admin`, y queda auditado.
+- **D14** — un solo pull request para el sprint.
+
+### Añadido — agentes deterministas (0013, H-27)
+- `agentes`, `agente_dias`, `agente_estrategia_versiones`, clave ajena
+  de `cuentas_simulacion.agente_id` (pendiente desde la 0011) y una
+  cuenta viva por agente.
+- Prudencia (2 %), Cadencia (5 %) y Audacia (7 %) con los perfiles del
+  doc 03 §3.1, 500 $ cada uno por el libro mayor. Los parámetros viven en
+  `estrategia jsonb` y se copian a la cuenta, que es lo que lee
+  `rpc_abrir_orden`: una estrategia con un 40 % de riesgo no llega a
+  escribirse porque el `CHECK` de la cuenta la rechaza.
+- `fn_decidir_agente` toma la decisión **sin efectos**: llamarla dos veces
+  con el mismo estado da el mismo JSON (criterio de determinismo).
+  `fn_ciclo_agente` la ejecuta: sincroniza el día, Game Over primero,
+  modo conservación con la meta cumplida (N9), filtro de candidatos con
+  sus motivos de descarte, prácticas adoptadas, orden de cuatro claves y
+  apertura por `rpc_abrir_orden`, que vuelve a validarlo todo.
+- El interés compuesto es una línea: la apertura de hoy es el equity con
+  el que amanece, el mismo número con el que se cierra ayer.
+
+### Añadido — corte semanal, prácticas y backlog (H-28, H-29, H-30)
+- `fn_corte_semanal` sobre días **operables** (N10): validada / aviso /
+  deficiente con sus consecuencias; dos deficientes, cuarentena.
+- `mejores_practicas`, `mp_adopciones`, `mp_valoraciones`: destilación
+  con ≥ 3 operaciones y ≥ 66 % (también como `CHECK`), adopción que
+  cambia de verdad el filtro de candidatos, evaluación a las dos semanas
+  y refutación tras dos adopciones que empeoran (N12).
+- `agente_backlog` con los siete disparadores del doc 03 §8, evidencia
+  obligatoria (N13) y deduplicación por clave; una ocurrencia es un par
+  (agente, día). Revisión humana con `rpc_revisar_backlog`.
+
+### Añadido — `/agentes`, Realtime y hardening (H-31, H-32, H-33)
+- `/agentes`: marcador, equity real frente a la teórica en escala
+  logarítmica, operaciones con su racional desplegable, backlog y
+  prácticas. Se actualiza por Realtime. `/admin` gana los controles de
+  agentes y la revisión del backlog.
+- El registro de eventos pasa de `localStorage` y WebSocket a
+  `eventos_sistema` por Realtime. Se retira `backend/src/services/websocket.js`.
+- CSP y HSTS en Vercel; 30 búsquedas y 30 altas por minuto y usuario;
+  aviso legal permanente con el supuesto de D3 en simulador y agentes;
+  `guia.js` explica los agentes y las limitaciones nuevas.
+
+### Corregido — el simulador habría mostrado la cuenta de un agente
+`leerCuenta()` cogía la última fila visible de `v_cuentas_equity`. Desde
+este sprint todo aprobado lee también las cuentas de los agentes, así que
+quien no tuviera cuenta propia habría visto la de Audacia como suya.
+Ahora filtra por el usuario de la sesión, y el libro mayor por cuenta.
+
+### Pruebas
+- Invariantes **I41–I53** contra el ciclo y el corte de verdad. Se
+  comprobó que se ponen en rojo rompiendo a propósito el modo
+  conservación, el filtro de prácticas y el denominador del corte.
+- `test_coherencia_guia.py` (H-34): lee los umbrales del texto de
+  `guia.js` y los contrasta con el motor y con las migraciones. Cambiar
+  el 6 % de `apalancamiento.py` sin tocar la guía rompe el build
+  (comprobado). Python 133 → 143; frontend 12 → 17.
+- El doble de `auth.uid()` de las pruebas ahora tolera claims vacíos,
+  como el real de Supabase: el ciclo llama a `rpc_abrir_orden` sin JWT.
+
 ## [Sin publicar] - 2026-09-24 — Corrección: las vistas no podían ejecutar sus funciones
 
 ### Corregido — `/simulador` cargaba con «permission denied for function fn_tope_fase» (0012)

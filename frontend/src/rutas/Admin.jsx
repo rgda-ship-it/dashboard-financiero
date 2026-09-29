@@ -4,7 +4,18 @@ import Panel from "../components/ui/Panel.jsx";
 import Navegacion from "../components/Navegacion.jsx";
 import { supabase } from "../supabase.js";
 import { useSesion } from "../auth/sesion.jsx";
-import { tiempoRelativo } from "../formato.js";
+import { formatearPrecio, tiempoRelativo } from "../formato.js";
+import {
+  ESTADOS_AGENTE,
+  ESTADOS_BACKLOG,
+  TIPOS_BACKLOG,
+  cambiarEstadoAgente,
+  colorDe,
+  leerBacklog,
+  leerRanking,
+  reiniciarAgente,
+  revisarBacklog,
+} from "../datos/agentes.js";
 
 const fechaHora = (iso) =>
   new Date(iso).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" });
@@ -29,7 +40,146 @@ const ACCIONES = {
   aprobar_usuario: "aprobó a",
   rechazar_usuario: "rechazó a",
   suspender_usuario: "suspendió a",
+  revertir_fase: "revirtió a Fase 1 la cuenta",
+  cambiar_estado_agente: "cambió el estado de",
+  reiniciar_agente: "reinició a",
+  resolver_backlog: "resolvió la petición",
 };
+
+// ── Agentes (Sprint 6, D13) ──────────────────────────────────────────
+// Nacen en pausa: ponerlos en marcha es una decisión humana y queda
+// auditada. Reiniciar tras un Game Over crea una cuenta NUEVA (N14).
+function FilaAgente({ a, ocupado, alCambiar, alReiniciar }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado };
+  return (
+    <li className="admin__fila">
+      <div className="admin__quien">
+        <p className="admin__email">
+          <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
+          {a.nombre} · {Number(a.objetivo_diario_pct)} % diario
+        </p>
+        <p className="admin__meta">
+          {estado.texto}
+          {a.estado_previo === "cuarentena" && " (vuelve a cuarentena al reanudar)"}
+          {" · "}equity {a.equity != null ? formatearPrecio(Number(a.equity)) : "—"}
+          {" · "}cuenta #{a.cuenta_id}
+        </p>
+      </div>
+      <div className="admin__acciones">
+        {a.estado === "pausado" && (
+          <button type="button" className="btn btn--accent" disabled={ocupado}
+                  onClick={() => alCambiar(a.agente_id, "activo")}>
+            Poner en marcha
+          </button>
+        )}
+        {(a.estado === "activo" || a.estado === "cuarentena") && (
+          <button type="button" className="btn" disabled={ocupado}
+                  onClick={() => alCambiar(a.agente_id, "pausado")}>
+            Pausar
+          </button>
+        )}
+        {a.estado === "game_over" &&
+          (confirmando ? (
+            <>
+              <button
+                type="button"
+                className="btn btn--peligro"
+                disabled={ocupado}
+                onClick={() => {
+                  setConfirmando(false);
+                  alReiniciar(a.agente_id);
+                }}
+              >
+                Confirmar: cuenta nueva de 500 $
+              </button>
+              <button type="button" className="btn" onClick={() => setConfirmando(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn" disabled={ocupado} onClick={() => setConfirmando(true)}>
+              Reiniciar
+            </button>
+          ))}
+      </div>
+    </li>
+  );
+}
+
+// ── Backlog de los agentes (H-30) ────────────────────────────────────
+function FilaBacklog({ b, ocupado, alRevisar }) {
+  const [rechazando, setRechazando] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const abierta = ["nuevo", "en_revision", "aceptado"].includes(b.estado);
+
+  function rechazar(e) {
+    e.preventDefault();
+    alRevisar(b.id, "rechazado", motivo.trim());
+    setRechazando(false);
+    setMotivo("");
+  }
+
+  return (
+    <li className="admin__fila">
+      <div className="admin__quien">
+        <p className="admin__email">
+          <span className="ag__etiqueta">{TIPOS_BACKLOG[b.tipo] ?? b.tipo}</span> {b.titulo}
+        </p>
+        <p className="admin__meta">
+          prioridad {b.prioridad} · {b.ocurrencias} ocurrencias · {(b.solicitantes ?? []).join(", ")}
+          {" · "}
+          {ESTADOS_BACKLOG[b.estado] ?? b.estado}
+          {b.resolucion && <> · «{b.resolucion}»</>}
+        </p>
+        <p className="admin__meta">{b.descripcion}</p>
+      </div>
+      {rechazando ? (
+        <form className="admin__motivo" onSubmit={rechazar}>
+          <input
+            className="acceso__input"
+            autoFocus
+            required
+            placeholder="Por qué se rechaza (obligatorio)"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+          <button type="submit" className="btn btn--peligro" disabled={ocupado || !motivo.trim()}>
+            Rechazar
+          </button>
+          <button type="button" className="btn" onClick={() => setRechazando(false)}>
+            Cancelar
+          </button>
+        </form>
+      ) : (
+        abierta && (
+          <div className="admin__acciones">
+            {b.estado === "nuevo" && (
+              <button type="button" className="btn" disabled={ocupado} onClick={() => alRevisar(b.id, "en_revision")}>
+                En revisión
+              </button>
+            )}
+            {b.estado !== "aceptado" && (
+              <button type="button" className="btn btn--accent" disabled={ocupado}
+                      onClick={() => alRevisar(b.id, "aceptado")}>
+                Aceptar
+              </button>
+            )}
+            {b.estado === "aceptado" && (
+              <button type="button" className="btn btn--accent" disabled={ocupado}
+                      onClick={() => alRevisar(b.id, "implementado")}>
+                Marcar implementado
+              </button>
+            )}
+            <button type="button" className="btn" disabled={ocupado} onClick={() => setRechazando(true)}>
+              Rechazar
+            </button>
+          </div>
+        )
+      )}
+    </li>
+  );
+}
 
 function FilaUsuario({ usuario, esYo, ocupado, alAprobar, alCambiar }) {
   // null | "rechazar" | "suspender": qué acción con motivo se está escribiendo.
@@ -106,6 +256,8 @@ export default function Admin() {
   const { perfil } = useSesion();
   const [usuarios, setUsuarios] = useState([]);
   const [auditoria, setAuditoria] = useState([]);
+  const [agentes, setAgentes] = useState([]);
+  const [backlog, setBacklog] = useState([]);
   const [filtro, setFiltro] = useState("pendiente");
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
@@ -117,13 +269,20 @@ export default function Admin() {
         .select("id, email, rol, estado, motivo_estado, creado_en, aprobado_en")
         .order("creado_en", { ascending: false }),
       supabase.from("auditoria_admin")
-        .select("id, actor_id, accion, objetivo_id, detalle, creado_en")
+        .select("id, actor_id, accion, objetivo_tipo, objetivo_id, detalle, creado_en")
         .order("creado_en", { ascending: false })
         .limit(20),
     ]);
     if (u.error || a.error) setError((u.error ?? a.error).message);
     setUsuarios(u.data ?? []);
     setAuditoria(a.data ?? []);
+    try {
+      const [ag, bl] = await Promise.all([leerRanking(), leerBacklog()]);
+      setAgentes(ag ?? []);
+      setBacklog(bl ?? []);
+    } catch (err) {
+      setError(err.message);
+    }
     setCargando(false);
   }, []);
 
@@ -148,6 +307,19 @@ export default function Admin() {
         p_motivo: motivo,
       })
     );
+
+  // Los RPC de agentes lanzan con el mensaje ya redactado.
+  async function ejecutarAgente(promesa) {
+    setOcupado(true);
+    setError(null);
+    try {
+      await promesa();
+    } catch (err) {
+      setError(err.message);
+    }
+    setOcupado(false);
+    await cargar();
+  }
 
   const visibles = useMemo(
     () => (filtro === "todos" ? usuarios : usuarios.filter((u) => u.estado === filtro)),
@@ -202,6 +374,43 @@ export default function Admin() {
           )}
         </Panel>
 
+        <Panel titulo="Agentes" flush meta="nacen en pausa · ponerlos en marcha queda auditado">
+          <ul className="admin__lista">
+            {agentes.map((a) => (
+              <FilaAgente
+                key={a.agente_id}
+                a={a}
+                ocupado={ocupado}
+                alCambiar={(id, estado) => ejecutarAgente(() => cambiarEstadoAgente(id, estado))}
+                alReiniciar={(id) => ejecutarAgente(() => reiniciarAgente(id))}
+              />
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel
+          titulo="Lo que piden los agentes"
+          flush
+          meta={`${backlog.filter((b) => b.estado === "nuevo").length} nuevas · por ocurrencias × agentes`}
+        >
+          {backlog.length === 0 ? (
+            <p className="prosa admin__vacio">Ningún agente ha pedido nada todavía.</p>
+          ) : (
+            <ul className="admin__lista">
+              {backlog.map((b) => (
+                <FilaBacklog
+                  key={b.id}
+                  b={b}
+                  ocupado={ocupado}
+                  alRevisar={(id, estado, resolucion) =>
+                    ejecutarAgente(() => revisarBacklog(id, estado, resolucion))
+                  }
+                />
+              ))}
+            </ul>
+          )}
+        </Panel>
+
         <Panel titulo="Auditoría" meta="últimas 20 acciones de administración" flush>
           {auditoria.length === 0 ? (
             <p className="prosa admin__vacio">Todavía no hay acciones registradas.</p>
@@ -212,7 +421,12 @@ export default function Admin() {
                   <span className="admin__hora">{fechaHora(a.creado_en)}</span>
                   <span>
                     {emailDe(a.actor_id)} {ACCIONES[a.accion] ?? a.accion}{" "}
-                    <strong>{a.detalle?.email ?? emailDe(a.objetivo_id)}</strong>
+                    <strong>
+                      {a.detalle?.email ??
+                        a.detalle?.agente ??
+                        (a.objetivo_tipo === "agente_backlog" ? `#${a.objetivo_id}` : emailDe(a.objetivo_id))}
+                    </strong>
+                    {a.detalle?.de && a.detalle?.a && <> ({a.detalle.de} → {a.detalle.a})</>}
                     {a.detalle?.motivo && <> — «{a.detalle.motivo}»</>}
                   </span>
                 </li>

@@ -1,21 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { leerSenalesVigentes } from "./datos/senales.js";
+import { supabase } from "./supabase.js";
 
 /**
- * El backend Express de la Fase 1 sigue sirviendo la cartera y el stream
- * de eventos, pero solo existe en localhost. En la nube no hay ningún
- * proceso Node escuchando, así que estas dos URL son opcionales:
- *
- *   · cartera  -> se migra a Edge Functions y RPC en el Sprint 4 (H-21)
- *   · eventos  -> se migra a Supabase Realtime en el Sprint 6 (H-32)
- *
- * Con `VITE_API_BASE` sin definir, los dos módulos se declaran pendientes
- * de migración en la interfaz en vez de intentar una conexión que va a
- * fallar. Un panel que dice "pendiente del Sprint 4" informa; un panel
- * que reintenta contra localhost cada pocos segundos, no.
+ * El backend Express de la Fase 1 sigue sirviendo el diagnóstico de
+ * cartera, pero solo existe en localhost. Con `VITE_API_BASE` sin definir,
+ * ese panel se declara pendiente de migración en vez de intentar una
+ * conexión que va a fallar. Los eventos ya no pasan por él: llegan por
+ * Supabase Realtime desde el Sprint 6 (H-32).
  */
 const API_BASE = import.meta.env.VITE_API_BASE || null;
-const WS_URL = import.meta.env.VITE_WS_URL || null;
 
 // Con el backend local de la Fase 1 disponible, el escáner conserva su
 // panel de diagnóstico de cartera (semáforo de salud y rotación, que
@@ -79,125 +73,89 @@ export function useEscaner() {
   };
 }
 
-const CLAVE_EVENTOS = "dashboard-financiero:eventos";
 const MAX_EVENTOS = 50;
 
+const aEvento = (fila) => ({
+  id: fila.id,
+  tipo: fila.tipo,
+  mensaje: fila.mensaje,
+  agenteId: fila.agente_id,
+  timestamp: fila.creado_en,
+});
+
 /**
- * El registro solo vive en el navegador, nunca en el servidor: son avisos
- * de sistema, no datos de cartera, así que no hay nada que cifrar ni que
- * persistir en PostgreSQL por ellos.
+ * Registro de eventos del sistema (H-32).
  *
- * Cada acceso va protegido porque `localStorage` puede lanzar —ventana
- * privada, almacenamiento bloqueado por el navegador— y quedarse sin
- * historial nunca debe impedir que el panel se monte.
+ * Hasta el Sprint 5 vivía en `localStorage` y llegaba por el WebSocket del
+ * Express de localhost, que en la nube no existe. Ahora vive en
+ * `eventos_sistema` y llega por Supabase Realtime: sobrevive al cierre de
+ * sesión y se ve igual en otro dispositivo.
+ *
+ * Quién recibe qué lo decide la RLS de la tabla, que Realtime respeta: los
+ * eventos globales (proveedor, agentes) llegan a todo aprobado; los de un
+ * usuario, solo a él. Esta capa no filtra nada.
+ *
+ * «Limpiar» ya no borra: los eventos globales son de todos. Mueve la marca
+ * de lectura del perfil (`rpc_vaciar_eventos`) y la vista `v_mis_eventos`
+ * devuelve solo lo posterior, en cualquier dispositivo.
  */
-function leerEventosGuardados() {
-  try {
-    const crudo = window.localStorage.getItem(CLAVE_EVENTOS);
-    if (!crudo) return [];
-    const guardados = JSON.parse(crudo);
-    return Array.isArray(guardados) ? guardados.slice(-MAX_EVENTOS) : [];
-  } catch {
-    return [];
-  }
-}
-
-function guardarEventos(eventos) {
-  try {
-    window.localStorage.setItem(CLAVE_EVENTOS, JSON.stringify(eventos));
-  } catch {
-    // Sin espacio o sin permiso: el stream en memoria sigue funcionando.
-  }
-}
-
 export function useEventLog() {
-  // Lazy initializer: se lee una sola vez, al montar, y no en cada render.
-  const [eventos, setEventos] = useState(leerEventosGuardados);
+  const [eventos, setEventos] = useState([]);
   const [conectado, setConectado] = useState(false);
 
   useEffect(() => {
-    let socket;
-    let temporizador;
-    let intentos = 0;
-    let montado = true;
-    let caidaAnunciada = false;
-
-    // Sin WebSocket configurado no hay nada a lo que conectarse: el
-    // servidor de eventos vive en el Express de localhost. Se deja un
-    // aviso en el propio stream y se sale, en vez de abrir un bucle de
-    // reconexión contra una URL que no existe.
-    if (!WS_URL) {
-      setEventos((prev) =>
-        prev.length
-          ? prev
-          : [
-              {
-                tipo: "sys",
-                mensaje: `[SYS] ${PENDIENTE_MIGRACION}`,
-                timestamp: new Date().toISOString(),
-              },
-            ]
-      );
+    if (!supabase) {
+      setEventos([
+        {
+          tipo: "sys",
+          mensaje: "[SYS] Falta la configuración de Supabase: no hay registro de eventos.",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
       return undefined;
     }
 
-    const agregar = (evento) =>
+    let vivo = true;
+    // Los que lleguen mientras se lee el histórico no se pierden: se
+    // fusionan por id al terminar la lectura.
+    const agregar = (nuevos) =>
       setEventos((prev) => {
-        const siguientes = [...prev, evento].slice(-MAX_EVENTOS);
-        guardarEventos(siguientes);
-        return siguientes;
+        const porId = new Map(prev.map((e) => [e.id, e]));
+        nuevos.forEach((e) => porId.set(e.id, e));
+        return [...porId.values()]
+          .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+          .slice(-MAX_EVENTOS);
       });
 
-    function conectar() {
-      socket = new WebSocket(WS_URL);
+    supabase
+      .from("v_mis_eventos")
+      .select("id, tipo, mensaje, agente_id, creado_en")
+      .order("id", { ascending: false })
+      .limit(MAX_EVENTOS)
+      .then(({ data }) => {
+        if (vivo && data) agregar(data.map(aEvento));
+      });
 
-      socket.onopen = () => {
-        intentos = 0;
-        caidaAnunciada = false;
-        setConectado(true);
-      };
-
-      socket.onmessage = (mensaje) => {
-        try {
-          agregar(JSON.parse(mensaje.data));
-        } catch {
-          // Un frame corrupto no debe tumbar el panel de eventos.
-        }
-      };
-
-      socket.onerror = () => socket.close();
-
-      socket.onclose = () => {
-        if (!montado) return;
-        setConectado(false);
-        if (!caidaAnunciada) {
-          caidaAnunciada = true;
-          agregar({
-            tipo: "sys",
-            mensaje: "[SYS] Stream interrumpido — reintentando conexión.",
-            timestamp: new Date().toISOString(),
-          });
-        }
-        // Backoff exponencial hasta 30 s: reiniciar el backend en la otra
-        // terminal no debe convertirse en una tormenta de reconexiones.
-        const espera = Math.min(30000, 1000 * 2 ** intentos);
-        intentos += 1;
-        temporizador = setTimeout(conectar, espera);
-      };
-    }
-
-    conectar();
+    const canal = supabase
+      .channel("eventos-sistema")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "eventos_sistema" },
+        (cambio) => agregar([aEvento(cambio.new)])
+      )
+      .subscribe((estado) => {
+        if (vivo) setConectado(estado === "SUBSCRIBED");
+      });
 
     return () => {
-      montado = false;
-      clearTimeout(temporizador);
-      socket?.close();
+      vivo = false;
+      supabase.removeChannel(canal);
     };
   }, []);
 
-  const limpiarEventos = useCallback(() => {
+  const limpiarEventos = useCallback(async () => {
     setEventos([]);
-    guardarEventos([]);
+    if (supabase) await supabase.rpc("rpc_vaciar_eventos");
   }, []);
 
   return { eventos, conectado, limpiarEventos };

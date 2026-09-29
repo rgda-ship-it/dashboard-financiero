@@ -1060,6 +1060,14 @@
 .log__item--deterioro .log__glyph::after { background: var(--neg-500); }
 .log__item--cambio_fase .log__glyph::after { background: var(--brass-500); }
 .log__item--proveedor .log__glyph::after { background: var(--warn-500); }
+/* Sprint 6: órdenes y agentes. El rojo solo para lo que destruye
+   capital (game over); el latón para lo que el sistema impone (corte). */
+.log__item--game_over .log__glyph::after { background: var(--neg-500); }
+.log__item--corte_semanal .log__glyph::after { background: var(--brass-500); }
+.log__item--orden_cerrada .log__glyph::after,
+.log__item--agente .log__glyph::after { background: var(--acc-600); }
+.log__item--backlog_nuevo .log__glyph::after,
+.log__item--practica .log__glyph::after { background: var(--acc-300); }
 
 .log__time {
   font-family: var(--font-mono);
@@ -1078,6 +1086,7 @@
 
 .log__item--deterioro .log__msg { color: var(--neg-500); }
 .log__item--cambio_fase .log__msg { color: var(--brass-400); }
+.log__item--game_over .log__msg { color: var(--neg-500); }
 
 @media (max-width: 720px) {
   .intake { grid-template-columns: minmax(0, 1fr); }

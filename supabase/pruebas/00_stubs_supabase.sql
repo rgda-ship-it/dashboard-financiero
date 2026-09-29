@@ -44,9 +44,14 @@ create or replace function auth.uid()
 returns uuid
 language sql stable
 as $$
+    -- El `nullif(…, '')` interior es el de la definición real: tras un
+    -- `set_config('request.jwt.claims', '', …)` —lo que hace
+    -- `pg_temp.como_dueno()`— el ajuste existe pero vacío, y sin él el
+    -- cast a jsonb revienta. Pasa de verdad en el ciclo de agentes, que
+    -- llama a `rpc_abrir_orden` sin JWT.
     select nullif(
-        coalesce(current_setting('request.jwt.claim.sub', true),
-                 current_setting('request.jwt.claims', true)::jsonb ->> 'sub'),
+        coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''),
+                 nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub'),
         '')::uuid
 $$;
 

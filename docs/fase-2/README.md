@@ -22,6 +22,7 @@ autónomo y tiene un destinatario distinto:
 | C | [`03-logica-de-agentes.md`](03-logica-de-agentes.md) | Backend / Quant | Pseudocódigo del ciclo de agente, interés compuesto, corte semanal, guardarraíles |
 | D | [`04-sprint-backlog.md`](04-sprint-backlog.md) | Devs / QA | 34 historias con tareas técnicas y criterios de aceptación |
 | R | [`RUNBOOK-sprint-1.md`](RUNBOOK-sprint-1.md) | Dueño | Los 11 pasos con credenciales del Sprint 1 y su lista de verificación |
+| R6 | [`RUNBOOK-sprint-6.md`](RUNBOOK-sprint-6.md) | Dueño | Comprobar la programación de los agentes y ponerlos en marcha desde /admin |
 
 ---
 

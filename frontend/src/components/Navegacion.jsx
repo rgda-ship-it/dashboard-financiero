@@ -17,7 +17,7 @@ const MODULOS = [
   { ruta: "/", etiqueta: "Escáner", listo: true },
   { ruta: "/cartera", etiqueta: "Cartera", listo: true },
   { ruta: "/simulador", etiqueta: "Simulador", listo: true },
-  { ruta: "/agentes", etiqueta: "Agentes", sprint: 6 },
+  { ruta: "/agentes", etiqueta: "Agentes", listo: true },
   // Solo aparece para administradores (la RLS lo cierra igualmente).
   { ruta: "/admin", etiqueta: "Admin", listo: true, soloAdmin: true },
 ];

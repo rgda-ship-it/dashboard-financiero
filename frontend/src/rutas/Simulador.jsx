@@ -6,6 +6,7 @@ import MedidorConfluencia from "../components/ui/MedidorConfluencia.jsx";
 import RielRiesgo from "../components/ui/RielRiesgo.jsx";
 import BarraApalancamiento from "../components/ui/BarraApalancamiento.jsx";
 import HelpDrawer from "../components/HelpDrawer.jsx";
+import AvisoLegal from "../components/AvisoLegal.jsx";
 import { IconoRefrescar, IconoCerrar, IconoAlerta } from "../components/ui/Iconos.jsx";
 import {
   ESTADOS_CUENTA,
@@ -46,9 +47,8 @@ import {
  * 3. No cierra posiciones. Eso lo hace el monitor cada minuto, solo. El
  *    botón de cerrar a mano existe para salir antes, no para vigilar.
  *
- * El refresco es por sondeo cada 30 s. Realtime llega en H-32; mientras
- * tanto, sondear una vista es más honesto que dejar la pantalla congelada
- * fingiendo que no pasa nada.
+ * El refresco es por sondeo cada 30 s mientras haya posiciones abiertas.
+ * Los cierres llegan además al registro de eventos por Realtime (H-32).
  */
 const RELECTURA_MS = 30000;
 
@@ -102,8 +102,8 @@ function AltaDeCuenta({ alCrear, avisar }) {
         </button>
       </div>
       <p className="sim__nota">
-        Entre {SALDO_MIN} y {SALDO_MAX} $. Los agentes del Sprint 6 arrancarán con 500 $, así que
-        ese valor hace tus resultados comparables con los suyos.
+        Entre {SALDO_MIN} y {SALDO_MAX} $. Los agentes arrancan con 500 $, así que ese valor hace
+        tus resultados comparables con los suyos.
       </p>
     </form>
   );
@@ -246,6 +246,29 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
   );
 }
 
+// ── Por qué una sugerencia no se puede confirmar ─────────────────────
+// La vista la marca confirmable solo si el dimensionado cabe Y su R:R
+// llega al mínimo de la cuenta. Antes, el caso del R:R —el más frecuente—
+// caía en un «no encuadra» que no decía nada.
+function motivoNoConfirmable(r, cuenta) {
+  const minimo = Number(cuenta?.ratio_rr_minimo);
+  if (!r.motivo && r.ratio_rr != null && Number(r.ratio_rr) < minimo) {
+    return `R:R ${Number(r.ratio_rr).toFixed(2)} por debajo del mínimo de tu cuenta (${minimo.toFixed(1)})`;
+  }
+  switch (r.motivo) {
+    case "sin_operacion_liquidacion_antes_del_stop":
+      return "el stop queda más lejos que la liquidación";
+    case "margen_insuficiente":
+      return "sin margen libre";
+    case "stop_por_encima_del_precio":
+      return "el stop está por encima del precio";
+    case "cantidad_nula":
+      return "tamaño demasiado pequeño";
+    default:
+      return "no encuadra";
+  }
+}
+
 // ── Cifra de la cabecera de cuenta ───────────────────────────────────
 function Cifra({ etiqueta, valor, tono, nota }) {
   return (
@@ -283,7 +306,7 @@ export default function Simulador() {
       const [r, o, m] = await Promise.all([
         leerRecomendaciones(),
         leerOrdenes(),
-        leerMovimientos(),
+        leerMovimientos(c.id),
       ]);
       setRecomendaciones(r ?? []);
       setOrdenes(o ?? []);
@@ -350,6 +373,7 @@ export default function Simulador() {
 
       <main className="main">
         <Navegacion />
+        <AvisoLegal />
 
         {aviso && (
           <p className={`acceso__aviso acceso__aviso--${aviso.tono} sim__aviso`} role="status">
@@ -404,6 +428,15 @@ export default function Simulador() {
                   <Cifra
                     etiqueta="Disponible"
                     valor={formatearPrecio(Number(cuenta.saldo_disponible))}
+                  />
+                  {/* D15: dos cifras que no se sustituyen. El poder de
+                      trading es lo que el bróker PERMITE por el saldo (hasta
+                      20×, por escalas); el tope de la fase, al pie del panel,
+                      es lo RECOMENDABLE y lo que el servidor impone. */}
+                  <Cifra
+                    etiqueta="Poder de trading"
+                    valor={formatearPrecio(Number(cuenta.poder_trading ?? 0))}
+                    nota={`escalas QuantFury · en uso ${formatearPrecio(Number(cuenta.nominal_abierto ?? 0))}`}
                   />
                   <Cifra
                     etiqueta="Margen bloqueado"
@@ -546,11 +579,7 @@ export default function Simulador() {
                             </button>
                           ) : (
                             <span className="sim__sub sim__sub--motivo">
-                              {r.motivo === "sin_operacion_liquidacion_antes_del_stop"
-                                ? "el stop queda más lejos que la liquidación"
-                                : r.motivo === "margen_insuficiente"
-                                  ? "sin margen libre"
-                                  : "no encuadra"}
+                              {motivoNoConfirmable(r, cuenta)}
                             </span>
                           )}
                         </td>

@@ -11,7 +11,6 @@ import {
   borrarCarteraReal,
   registrarConsentimiento,
 } from "../services/persistenciaCartera.js";
-import { emitirDeterioro } from "../services/websocket.js";
 
 const router = Router();
 
@@ -101,9 +100,8 @@ router.get("/analyze", async (req, res) => {
           ((analisis.precio_actual - posicion.precioCompra) / posicion.precioCompra) * 100;
         const pnlAbsoluto = posicion.monto * (pnlPct / 100);
 
-        if (analisis.nivel_salud === "rojo") {
-          emitirDeterioro(posicion.ticker, analisis.mensaje);
-        }
+        // El aviso de deterioro por WebSocket se retiró en el Sprint 6
+        // (H-32): el semáforo rojo ya viaja en la respuesta de este endpoint.
 
         return {
           ticker: posicion.ticker,

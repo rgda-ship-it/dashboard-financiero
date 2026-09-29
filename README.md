@@ -59,7 +59,9 @@ dashboard-financiero/
 │       ├── 0009_rpc_sin_anon.sql # anon no ejecuta ningún RPC
 │       ├── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
 │       ├── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
-│       └── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
+│       ├── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
+│       ├── 0013_agentes.sql     # Agentes, corte semanal, prácticas, backlog, Realtime y límites de uso
+│       └── 0014_poder_trading.sql # Poder de trading por escalas (D15), aparte del tope de 5×
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -103,7 +105,7 @@ dashboard-financiero/
 │   ├── db/
 │   │   └── schema.sql         # Esquema PostgreSQL (cartera cifrada + consentimientos)
 │   └── src/
-│       ├── server.js          # Punto de entrada — Express + WebSocket
+│       ├── server.js          # Punto de entrada — Express (el WebSocket se retiró en el Sprint 6)
 │       ├── routes/
 │       │   ├── escaner.js     # GET /api/scanner/signals
 │       │   └── portfolio.js   # Carga, diagnóstico, restauración y borrado de cartera
@@ -113,8 +115,7 @@ dashboard-financiero/
 │           ├── clienteMotorAnalitico.js # Cliente HTTP hacia el motor Python
 │           ├── circuitBreaker.js        # Protección ante caída de proveedores/motor
 │           ├── cifrado.js               # AES-256-GCM para datos de cartera
-│           ├── persistenciaCartera.js   # Guardado/restauración/borrado en PostgreSQL
-│           └── websocket.js             # Eventos en tiempo real (/ws/events)
+│           └── persistenciaCartera.js   # Guardado/restauración/borrado en PostgreSQL
 │
 └── frontend/                  # React — la terminal visual
     ├── package.json
@@ -468,7 +469,8 @@ de Postgres, admite intervalos de segundos. Reparto final:
 | Trabajo | Planificador | Cadencia |
 |---------|--------------|----------|
 | Monitor de órdenes | `pg_cron` → SQL (D8) | cada minuto |
-| Ciclo de agentes (Sprint 6) | `pg_cron` | cada 5 minutos |
+| Ciclo de agentes | `pg_cron` → SQL (D11) | cada 5 minutos |
+| Corte semanal de agentes | `pg_cron` → SQL (D11) | lunes 00:07 UTC, sobre la semana ISO cerrada |
 | ETL de acciones | GitHub Actions | cada 30 min, ventana UTC ancha |
 | ETL de cripto | GitHub Actions | cada hora, máximo 6 monedas por pasada |
 
@@ -608,13 +610,12 @@ código cerca de ellas, vale la pena recordarlas:
 
 ## Pendientes conocidos (no bloqueantes)
 
-- El registro de eventos se guarda en el `localStorage` del navegador
-  (últimos 50), así que sobrevive a una recarga pero no viaja entre
-  dispositivos ni llega al servidor. **En la Fase 2 esto cambia**: la
-  tabla `eventos_sistema` ya existe y el ETL escribe en ella; la
-  suscripción en tiempo real del frontend llega en el Sprint 6 (H-32). Son avisos de sistema, no datos de
-  cartera: no hay nada que cifrar ni que persistir en PostgreSQL por
-  ellos. El pie del panel ofrece vaciarlo.
+- El registro de eventos vive en `eventos_sistema` y llega por Supabase
+  Realtime (Sprint 6, H-32): sobrevive al cierre de sesión y se ve igual
+  en otro dispositivo. «Limpiar» no borra —los eventos globales son de
+  todos—: mueve la marca de lectura del perfil. La tabla no tiene aún
+  política de retención; con tres agentes cerrando órdenes crecerá unos
+  pocos miles de filas al mes, lejos del límite del tier gratuito.
 - `yfinance` no es una API oficial — si Yahoo cambia su estructura interna,
   `conectores/yahoo_finance.py` lanzará `ErrorEsquemaInesperado`. Revisar
   ese archivo primero si el escáner empieza a fallar solo para acciones

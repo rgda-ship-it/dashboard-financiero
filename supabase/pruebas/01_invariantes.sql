@@ -22,6 +22,15 @@
 
 \set ON_ERROR_STOP on
 
+-- Agentes de banco de pruebas. Desde la 0013 `cuentas_simulacion.agente_id`
+-- tiene clave ajena, así que las cuentas de agente que este fichero crea a
+-- mano necesitan un agente de verdad. En pausa y sin cuenta propia: el
+-- ciclo de agentes los ve pero no opera con ellos.
+insert into public.agentes (id, nombre, objetivo_diario_pct, estrategia)
+select g, 'prueba-' || g, 2, '{}'::jsonb
+  from unnest(array[9001, 9101, 9102, 9103]) g
+on conflict do nothing;
+
 do $inv$
 declare
     v_id_ibm  bigint;
@@ -287,8 +296,8 @@ begin
            date_trunc('day', now() - interval '400 days') + interval '12 hours'
       from generate_series(1, 2) g;
 
-    -- Una cuenta de agente sirve para esto y no necesita perfil: la clave
-    -- ajena a `agentes` no llega hasta el Sprint 6.
+    -- Una cuenta de agente sirve para esto y no necesita perfil (el
+    -- agente 9001 es de banco de pruebas, sembrado al principio).
     insert into public.cuentas_simulacion
         (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
     values (9001, 500, 500, 500)
@@ -1500,6 +1509,705 @@ begin
     raise notice '── Sprint 5: en verde ──';
 end
 $s5$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- Sprint 6 — los agentes.
+--
+-- Se prueban los criterios de aceptación de H-27…H-33 contra el ciclo de
+-- verdad (`fn_ciclo_agentes`, el mismo que llama `pg_cron`), no contra
+-- una copia. El universo de señales lo controla este bloque: suspende
+-- todo lo que estuviera activo y siembra cinco activos propios, así que
+-- lo que cada agente elige es predecible y comprobable.
+--
+-- Una sola licencia con el calendario: tras poner en marcha a los
+-- agentes se fuerza `operable = true` en el día de hoy. Prudencia solo
+-- opera acciones y, sin esto, este bloque pasaría entre semana y fallaría
+-- en sábado — y una invariante que depende del día en que se ejecuta
+-- enseña a desconfiar de la roja (lección de I11). Lo que decide si un
+-- día es operable se prueba aparte, en I47.
+-- ═════════════════════════════════════════════════════════════════════
+do $s6$
+declare
+    v_admin    uuid;
+    v_u        uuid := gen_random_uuid();
+    v_pend     uuid := gen_random_uuid();
+    v_hoy      date := (now() at time zone 'UTC')::date;
+    v_lunes    date := date_trunc('week', (now() at time zone 'UTC')::date)::date - 28;
+    v_pru      bigint;
+    v_cad      bigint;
+    v_auda     bigint;
+    v_c_pru    bigint;
+    v_c_cad    bigint;
+    v_c_auda   bigint;
+    v_zza      bigint;
+    v_z1       bigint;
+    v_z2       bigint;
+    v_z3       bigint;
+    v_z4       bigint;
+    v_ag       bigint;
+    v_ag2      bigint;
+    v_cta      bigint;
+    v_practica bigint;
+    v_senal    bigint;
+    v_orden    bigint;
+    v_json     jsonb;
+    v_json2    jsonb;
+    v_conteo   bigint;
+    v_texto    text;
+    v_num      numeric;
+    v_fallo    boolean;
+    v_d        date;
+    i          int;
+begin
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_u, 'agentes@ejemplo.com', now()), (v_pend, 'pendiente-agentes@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id = v_u;
+
+    select id into v_pru  from public.agentes where nombre = 'Prudencia';
+    select id into v_cad  from public.agentes where nombre = 'Cadencia';
+    select id into v_auda from public.agentes where nombre = 'Audacia';
+    v_c_pru  := public.fn_cuenta_agente(v_pru);
+    v_c_cad  := public.fn_cuenta_agente(v_cad);
+    v_c_auda := public.fn_cuenta_agente(v_auda);
+
+    -- ── I41 · La semilla: tres agentes en pausa con 500 $ del libro mayor
+    select count(*) into v_conteo from public.agentes
+     where nombre in ('Prudencia', 'Cadencia', 'Audacia') and estado = 'pausado';
+    if v_conteo <> 3 then
+        raise exception 'I41 FALLO: se esperaban los tres agentes en pausa (D13), hay %', v_conteo;
+    end if;
+    select count(*) into v_conteo from public.cuentas_simulacion c
+     where c.id in (v_c_pru, v_c_cad, v_c_auda) and c.saldo_disponible = 500
+       and exists (select 1 from public.movimientos_saldo m
+                    where m.cuenta_id = c.id and m.tipo = 'deposito_inicial' and m.importe = 500);
+    if v_conteo <> 3 then
+        raise exception 'I41 FALLO: % de 3 cuentas de agente nacen con 500 $ por el libro mayor', v_conteo;
+    end if;
+    -- Los guardarraíles leen la CUENTA: tiene que reflejar la estrategia.
+    select format('%s/%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas,
+                  margen_comprometido_max_pct, ratio_rr_minimo) into v_texto
+      from public.cuentas_simulacion where id = v_c_pru;
+    if v_texto <> '1.50/3/40.00/2.00' then
+        raise exception 'I41 FALLO: la cuenta de Prudencia no refleja su estrategia: %', v_texto;
+    end if;
+    if not exists (select 1 from public.agente_estrategia_versiones where agente_id = v_pru and version = 1) then
+        raise exception 'I41 FALLO: la versión 1 de la estrategia no quedó registrada';
+    end if;
+    v_fallo := false;
+    begin
+        insert into public.cuentas_simulacion (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)
+        values (424242, 500, 500, 500);
+        v_fallo := true;
+    exception when foreign_key_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I41 FALLO: se aceptó una cuenta de un agente que no existe';
+    end if;
+    -- Una estrategia absurda no llega a escribirse: el CHECK de la cuenta
+    -- la rechaza al sincronizar (doc 03 §4).
+    v_fallo := false;
+    begin
+        update public.agentes set estrategia = estrategia || '{"riesgo_pct_operacion": 40}' where id = v_cad;
+        v_fallo := true;
+    exception when check_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I41 FALLO: se aceptó una estrategia con un 40 %% de riesgo por operación';
+    end if;
+    raise notice 'PASS  I41 tres agentes en pausa con 500 $ del libro mayor; la cuenta refleja la estrategia; ni agente fantasma ni estrategia absurda';
+
+    -- ── Universo controlado ──────────────────────────────────────────
+    update public.activos set estado = 'suspendido' where estado = 'activo';
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('ZZAGA', 'accion', 'yahoo',     'ZZAGA', 'activo', 100, now()),
+        ('zzag1', 'cripto', 'coingecko', 'zzag1', 'activo', 100, now()),
+        ('zzag2', 'cripto', 'coingecko', 'zzag2', 'activo', 100, now()),
+        ('zzag3', 'cripto', 'coingecko', 'zzag3', 'activo', 100, now()),
+        ('zzag4', 'cripto', 'coingecko', 'zzag4', 'activo', 100, now());
+    select id into v_zza from public.activos where simbolo = 'ZZAGA';
+    select id into v_z1  from public.activos where simbolo = 'zzag1';
+    select id into v_z2  from public.activos where simbolo = 'zzag2';
+    select id into v_z3  from public.activos where simbolo = 'zzag3';
+    select id into v_z4  from public.activos where simbolo = 'zzag4';
+
+    -- ZZAGA: acción, alta, estructura, R:R 2,2, ATR 2   -> la de Prudencia
+    -- zzag1: cripto, media, atr, R:R 2,5, ATR 4         -> la de Audacia
+    -- zzag2: cripto, alta, atr, R:R 4, ATR 1            -> la de Cadencia (Audacia la
+    --                                                     descarta: ATR < 1,5)
+    -- zzag3: bajista, no operable                       -> descarte por dirección
+    -- zzag4: la mejor de todas, pero de hace tres horas -> descarte por antigüedad
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values
+        (v_zza, true, 5, 3, 's6', 100, 90, 122, 5, 'alcista', 'largo', 'alta',  'estructura', 2, 3, 0, now()),
+        (v_z1,  true, 5, 2, 's6', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr',        4, 2, 0, now()),
+        (v_z2,  true, 5, 3, 's6', 100, 90, 140, 5, 'alcista', 'largo', 'alta',  'atr',        1, 3, 0, now()),
+        (v_z4,  true, 5, 3, 's6', 100, 90, 150, 5, 'alcista', 'largo', 'alta',  'atr',        2, 3, 0, now() - interval '3 hours');
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, direccion, sesgo_operativo, fuerza, atr_pct,
+         indicadores_alcistas, indicadores_bajistas, calculado_en, soporte, resistencia)
+    values (v_z3, false, 5, 2, 's6', 100, 'bajista', 'sin_sesgo', 'alta', 3, 0, 3, now(), 90, 110);
+
+    -- ── I42 · En pausa no se opera; solo un admin los pone en marcha ─
+    perform public.fn_ciclo_agentes();
+    select count(*) into v_conteo from public.ordenes where cuenta_id in (v_c_pru, v_c_cad, v_c_auda);
+    if v_conteo <> 0 then
+        raise exception 'I42 FALLO: agentes en pausa abrieron % órdenes', v_conteo;
+    end if;
+    select count(*) into v_conteo from public.agente_dias
+     where agente_id in (v_pru, v_cad, v_auda) and fecha = v_hoy and not operable;
+    if v_conteo <> 3 then
+        raise exception 'I42 FALLO: el día de un agente en pausa no debe ser operable (% de 3)', v_conteo;
+    end if;
+
+    v_fallo := false;
+    begin
+        perform pg_temp.como(v_u);
+        perform public.rpc_cambiar_estado_agente(v_pru, 'activo');
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I42 FALLO: un usuario no admin puso en marcha a un agente';
+    end if;
+
+    perform pg_temp.como(v_admin);
+    perform public.rpc_cambiar_estado_agente(v_pru, 'activo');
+    perform public.rpc_cambiar_estado_agente(v_cad, 'activo');
+    perform public.rpc_cambiar_estado_agente(v_auda, 'activo');
+    perform pg_temp.como_dueno();
+    select count(*) into v_conteo from public.auditoria_admin
+     where accion = 'cambiar_estado_agente' and objetivo_id in (v_pru::text, v_cad::text, v_auda::text);
+    if v_conteo <> 3 or (select count(*) from public.agentes
+                          where id in (v_pru, v_cad, v_auda) and estado = 'activo') <> 3 then
+        raise exception 'I42 FALLO: poner en marcha no dejó el estado y la auditoría (% auditados)', v_conteo;
+    end if;
+    raise notice 'PASS  I42 un agente en pausa no opera ni cuenta el día; ponerlo en marcha es cosa de admin y queda auditado';
+
+    -- Ver la nota de la cabecera del bloque.
+    update public.agente_dias set operable = true
+     where agente_id in (v_pru, v_cad, v_auda) and fecha = v_hoy;
+
+    -- ── I43 · Determinismo y perfiles que diferencian ────────────────
+    foreach v_ag in array array[v_pru, v_cad, v_auda]
+    loop
+        v_json  := public.fn_decidir_agente(v_ag);
+        v_json2 := public.fn_decidir_agente(v_ag);
+        if v_json is distinct from v_json2 then
+            raise exception 'I43 FALLO: el agente % decidió distinto con el mismo estado', v_ag;
+        end if;
+    end loop;
+
+    v_json := public.fn_decidir_agente(v_auda);
+    if coalesce((v_json #>> '{descartes_por_motivo,atr_bajo}')::int, 0) <> 1
+       or coalesce((v_json #>> '{descartes_por_motivo,direccion}')::int, 0) <> 1
+       or coalesce((v_json #>> '{descartes_por_motivo,antiguedad}')::int, 0) <> 1 then
+        raise exception 'I43 FALLO: los descartes de Audacia no son los esperados: %', v_json -> 'descartes_por_motivo';
+    end if;
+
+    perform public.fn_ciclo_agentes();
+
+    select string_agg(g.nombre || '=' || a.simbolo, ',' order by g.id) into v_texto
+      from public.ordenes o
+      join public.cuentas_simulacion c on c.id = o.cuenta_id
+      join public.agentes g on g.id = c.agente_id
+      join public.activos a on a.id = o.activo_id
+     where g.id in (v_pru, v_cad, v_auda) and o.estado = 'abierta';
+    if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=zzag2,Audacia=zzag1' then
+        raise exception 'I43 FALLO: los perfiles no diferencian: %', v_texto;
+    end if;
+    -- El racional explica la decisión: qué faltaba, qué se evaluó y qué se descartó.
+    select count(*) into v_conteo from public.ordenes
+     where cuenta_id in (v_c_pru, v_c_cad, v_c_auda) and origen = 'agente'
+       and racional ? 'candidatos_evaluados' and racional ? 'descartados_top3'
+       and racional ? 'deficit_pendiente' and racional ? 'version_estrategia'
+       and racional ? 'elegido';
+    if v_conteo <> 3 then
+        raise exception 'I43 FALLO: % de 3 órdenes llevan el racional completo', v_conteo;
+    end if;
+    raise notice 'PASS  I43 misma decisión con el mismo estado; sobre las mismas señales los tres agentes eligen tres activos distintos, con su racional';
+
+    -- ── I44 · Ningún agente supera sus guardarraíles ─────────────────
+    -- La consulta que pide H-27. G2 se compara contra el PICO de capital,
+    -- que es una cota superior del equity al abrir: si supera el 10 % del
+    -- pico, seguro que superó el 10 % del equity.
+    select count(*) into v_conteo from (
+        select o.id
+          from public.ordenes o
+          join public.cuentas_simulacion c on c.id = o.cuenta_id
+          join public.agentes g on g.id = c.agente_id
+          left join public.senales s on s.id = o.senal_id
+         where g.id in (v_pru, v_cad, v_auda)
+           and (o.apalancamiento > public.fn_tope_fase(c.fase)                                        -- G1
+                or o.apalancamiento > (public.fn_parametros_agente(g) ->> 'apalancamiento_maximo_propio')::numeric
+                or o.cantidad * (o.precio_entrada - o.sl) > c.capital_maximo_alcanzado * 0.10 + 0.01   -- G2
+                or s.id is null or not s.operable                                                      -- G5
+                or o.fecha_entrada - s.calculado_en > make_interval(mins => c.antiguedad_senal_max_min)
+                or o.precio_liquidacion > o.sl)                                                        -- N4
+        union all
+        select c.id
+          from public.cuentas_simulacion c
+         where c.agente_id in (v_pru, v_cad, v_auda)
+           and ((select count(*) from public.ordenes o
+                  where o.cuenta_id = c.id and o.estado = 'abierta') > c.max_posiciones_abiertas     -- G4
+                or c.saldo_bloqueado > public.fn_equity(c.id) * c.margen_comprometido_max_pct / 100 + 0.01) -- G3
+    ) violaciones;
+    if v_conteo <> 0 then
+        raise exception 'I44 FALLO: % violaciones de guardarraíles en órdenes de agentes', v_conteo;
+    end if;
+    raise notice 'PASS  I44 la consulta de violaciones de G1-G5 sobre las órdenes de los agentes devuelve cero filas';
+
+    -- ── I48 · Prácticas: destilación, respaldo mínimo y efecto medido ─
+    -- (Va antes que I45: Cadencia necesita un hueco libre para que su
+    -- conjunto de candidatos se pueda comparar.)
+    --
+    -- Tres operaciones de Audacia, de hace tres días, en objetivo, sobre
+    -- una señal con firma cripto|alta|atr|ATR bajo|R:R alto; y dos con otra
+    -- firma, que no alcanzan el mínimo de tres (N11).
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_z2, true, 5, 3, 's6-hist', 100, 90, 130, 5, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0,
+            now() - interval '3 days')
+    returning id into v_senal;
+    insert into public.ordenes
+        (cuenta_id, activo_id, senal_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+         apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+         precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+    select v_c_auda, v_z2, v_senal, 'agente', 'cerrada', 100, now() - interval '3 days', 1,
+           1, 100, 130, 90, 0, 130, now() - interval '3 days' + interval '1 hour', 'tp', 30, 30
+      from generate_series(1, 3);
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_z1, true, 5, 2, 's6-hist', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr', 4, 2, 0,
+            now() - interval '3 days')
+    returning id into v_senal;
+    insert into public.ordenes
+        (cuenta_id, activo_id, senal_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+         apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+         precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+    select v_c_auda, v_z1, v_senal, 'agente', 'cerrada', 100, now() - interval '3 days', 1,
+           1, 100, 125, 90, 0, 125, now() - interval '3 days' + interval '1 hour', 'tp', 25, 25
+      from generate_series(1, 2);
+
+    if public.fn_destilar_practicas(v_auda) <> 1 then
+        raise exception 'I48 FALLO: la destilación no publicó exactamente una práctica';
+    end if;
+    select id into v_practica from public.mejores_practicas
+     where agente_autor_id = v_auda and firma = 'cripto|alta|atr|bajo|alto'
+       and estado = 'propuesta' and confianza = 1 and (resultado_observado ->> 'ops')::int = 3;
+    if v_practica is null then
+        raise exception 'I48 FALLO: la práctica publicada no tiene la firma ni el respaldo esperados';
+    end if;
+    v_fallo := false;
+    begin
+        insert into public.mejores_practicas
+            (agente_autor_id, firma, titulo, contexto, regla, condiciones, resultado_observado, confianza)
+        values (v_auda, 'x', 'x', 'x', 'x', '{}', '{"ops": 2}', 1);
+        v_fallo := true;
+    exception when check_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I48 FALLO: la base de datos aceptó una práctica con 2 operaciones (N11)';
+    end if;
+
+    -- Adoptarla CAMBIA el conjunto de candidatos de Cadencia: zzag1 es de
+    -- fuerza media y ZZAGA es una acción; la práctica exige cripto alta.
+    v_json := public.fn_decidir_agente(v_cad);
+    if public.fn_adoptar_practica(v_cad) is distinct from v_practica then
+        raise exception 'I48 FALLO: Cadencia no adoptó la única práctica compatible';
+    end if;
+    v_json2 := public.fn_decidir_agente(v_cad);
+    if (v_json ->> 'candidatos_evaluados')::int <> 2
+       or (v_json2 ->> 'candidatos_evaluados')::int <> 0
+       or (v_json2 ->> 'candidatos_antes_practicas')::int <> 2
+       or (v_json2 #>> '{descartes_por_motivo,practica}')::int <> 2 then
+        raise exception 'I48 FALLO: adoptar no cambió los candidatos como se esperaba: antes % después %',
+              v_json -> 'candidatos_evaluados', v_json2 -> 'candidatos_evaluados';
+    end if;
+    if (select version_estrategia from public.agentes where id = v_cad) <> 2
+       or not ((select estrategia -> 'practicas_adoptadas' from public.agentes where id = v_cad)
+               @> to_jsonb(v_practica)) then
+        raise exception 'I48 FALLO: adoptar no subió la versión ni quedó en estrategia.practicas_adoptadas';
+    end if;
+
+    -- Refutación (N12): dos adopciones que empeoran. Los dos agentes de
+    -- banco de pruebas la adoptan hace 15 días; antes rendían +5 %, después
+    -- cinco operaciones a -3 %.
+    foreach v_ag in array array[9101::bigint, 9102::bigint]
+    loop
+        v_cta := public.fn_cuenta_agente(v_ag);
+        insert into public.mp_adopciones (practica_id, agente_id, adoptada_en)
+        values (v_practica, v_ag, now() - interval '15 days');
+        insert into public.ordenes
+            (cuenta_id, activo_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+             apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+             precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+        values (v_cta, v_z2, 'agente', 'cerrada', 100, now() - interval '20 days', 1, 1, 100,
+                130, 90, 0, 105, now() - interval '20 days', 'manual', 5, 5);
+        insert into public.ordenes
+            (cuenta_id, activo_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+             apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+             precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+        select v_cta, v_z2, 'agente', 'cerrada', 100, now() - interval '10 days', 1, 1, 100,
+               130, 90, 0, 97, now() - interval '10 days', 'manual', -3, -3
+          from generate_series(1, 5);
+    end loop;
+
+    perform public.fn_evaluar_adopciones(9101);
+    if (select estado from public.mejores_practicas where id = v_practica) <> 'propuesta' then
+        raise exception 'I48 FALLO: una sola adopción fallida refutó la práctica';
+    end if;
+    perform public.fn_evaluar_adopciones(9102);
+    if (select estado from public.mejores_practicas where id = v_practica) <> 'refutada' then
+        raise exception 'I48 FALLO: dos adopciones que empeoraron no refutaron la práctica';
+    end if;
+    if (select count(*) from public.mp_valoraciones where practica_id = v_practica and valoracion = -1) <> 2 then
+        raise exception 'I48 FALLO: las adopciones fallidas no dejaron su valoración negativa';
+    end if;
+    -- Deja de ofrecerse y deja de aplicarse.
+    if exists (select 1 from public.mp_adopciones where practica_id = v_practica and abandonada_en is null) then
+        raise exception 'I48 FALLO: una práctica refutada sigue adoptada';
+    end if;
+    if public.fn_adoptar_practica(v_pru) is not null or public.fn_adoptar_practica(9001) is not null then
+        raise exception 'I48 FALLO: se ofreció una práctica refutada';
+    end if;
+    if (select estrategia -> 'practicas_adoptadas' from public.agentes where id = v_cad) <> '[]'::jsonb then
+        raise exception 'I48 FALLO: la estrategia de Cadencia sigue listando la práctica refutada';
+    end if;
+    raise notice 'PASS  I48 prácticas: se destila con ≥3 ops y ≥66 %%, adoptar cambia los candidatos y sube la versión, dos fracasos la refutan para todos';
+
+    -- ── I45 · N9: meta cumplida ⇒ no se abre nada más hoy ────────────
+    select id into v_orden from public.ordenes where cuenta_id = v_c_auda and estado = 'abierta';
+    perform public.rpc_cerrar_orden(v_orden, 125, 'tp', 125);   -- +62,50 $ sobre una meta de 35 $
+    if public.fn_decidir_agente(v_auda) ->> 'accion' <> 'meta_cumplida' then
+        raise exception 'I45 FALLO: con la meta cumplida Audacia no entra en modo conservación';
+    end if;
+    perform public.fn_ciclo_agentes();
+    if exists (select 1 from public.ordenes where cuenta_id = v_c_auda and estado = 'abierta') then
+        raise exception 'I45 FALLO: Audacia abrió otra posición con la meta del día cumplida (N9)';
+    end if;
+    if not (select cumplido from public.agente_dias where agente_id = v_auda and fecha = v_hoy) then
+        raise exception 'I45 FALLO: el día de Audacia no quedó cumplido';
+    end if;
+    -- H-32: el evento del cierre se etiqueta con su agente sin que
+    -- rpc_cerrar_orden sepa nada de agentes.
+    if not exists (select 1 from public.eventos_sistema
+                    where tipo = 'orden_cerrada' and agente_id = v_auda
+                      and (datos ->> 'orden_id')::bigint = v_orden) then
+        raise exception 'I45 FALLO: el evento del cierre no quedó etiquetado con el agente';
+    end if;
+    raise notice 'PASS  I45 meta cumplida: modo conservación, sin posiciones nuevas, y el día queda cumplido';
+
+    -- ── I46 · Interés compuesto: apertura de hoy = cierre de ayer ────
+    update public.agente_dias set fecha = fecha - 1 where agente_id = v_auda and fecha = v_hoy;
+    perform public.fn_ciclo_agente(v_auda);
+    select count(*) into v_conteo
+      from public.agente_dias ayer
+      join public.agente_dias hoy on hoy.agente_id = ayer.agente_id and hoy.fecha = ayer.fecha + 1
+     where ayer.agente_id = v_auda and ayer.fecha = v_hoy - 1
+       and ayer.cerrado_en is not null and ayer.saldo_cierre = hoy.saldo_apertura
+       and hoy.objetivo_importe = round(hoy.saldo_apertura * 0.07, 2);
+    if v_conteo <> 1 then
+        raise exception 'I46 FALLO: la apertura de hoy no coincide con el cierre de ayer o la meta no es el 7 %% de ella';
+    end if;
+    raise notice 'PASS  I46 el saldo de apertura de hoy es el de cierre de ayer y la meta se calcula sobre él';
+
+    -- ── I47 · Corte semanal ──────────────────────────────────────────
+    -- Un agente que solo opera acciones y cumple sus 5 días de mercado.
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-acciones', 2, 'activo', '{"clases_admitidas": ["accion"]}') returning id into v_ag;
+    v_cta := public.fn_crear_cuenta_agente(v_ag);
+    if public.fn_mercado_para_clases('["accion"]', v_lunes + 5)
+       or not public.fn_mercado_para_clases('["accion"]', v_lunes)
+       or not public.fn_mercado_para_clases('["cripto"]', v_lunes + 6) then
+        raise exception 'I47 FALLO: el calendario de mercado por clase no es el esperado';
+    end if;
+    insert into public.agente_dias
+        (agente_id, fecha, cuenta_id, saldo_apertura, saldo_cierre, objetivo_importe, operable, cumplido, cerrado_en)
+    select v_ag, d, v_cta, 500, 510, 10,
+           public.fn_mercado_para_clases('["accion"]', d), public.fn_mercado_para_clases('["accion"]', d), now()
+      from (select v_lunes + k as d from generate_series(0, 6) k) g;
+    v_json := public.fn_corte_semanal_agente(v_ag, v_lunes);
+    if v_json ->> 'veredicto' <> 'validada' or (v_json ->> 'dias_operables')::int <> 5 then
+        raise exception 'I47 FALLO: 5 de 5 días de mercado debía ser validada sobre 5, dio %', v_json;
+    end if;
+    if (public.fn_corte_semanal_agente(v_ag, v_lunes) ->> 'ya_evaluada')::boolean is not true
+       or (select count(*) from public.agente_semanas where agente_id = v_ag) <> 1 then
+        raise exception 'I47 FALLO: el corte de una semana ya evaluada no es idempotente';
+    end if;
+
+    -- Dos deficientes seguidas y después una validada.
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-deficiente', 2, 'activo',
+            '{"riesgo_pct_operacion": 4, "max_posiciones_abiertas": 3}') returning id into v_ag2;
+    v_cta := public.fn_crear_cuenta_agente(v_ag2);
+    for i in 0..2 loop
+        insert into public.agente_dias
+            (agente_id, fecha, cuenta_id, saldo_apertura, saldo_cierre, objetivo_importe, operable, cumplido, cerrado_en)
+        select v_ag2, d, v_cta, 500, 500, 10, true,
+               -- semanas 0 y 1: un día de siete; semana 2: los siete
+               case when i = 2 then true else d = v_lunes + 7 * i end, now()
+          from (select v_lunes + 7 * i + k as d from generate_series(0, 6) k) g;
+    end loop;
+
+    v_json := public.fn_corte_semanal_agente(v_ag2, v_lunes);
+    select format('%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas, a.estado) into v_texto
+      from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id where c.id = v_cta;
+    if v_json ->> 'veredicto' <> 'deficiente' or v_texto <> '2.00/3/activo' then
+        raise exception 'I47 FALLO: tras una deficiente el riesgo debía quedar a la mitad (2.00/3/activo), quedó % (%)',
+              v_texto, v_json ->> 'veredicto';
+    end if;
+    if not exists (select 1 from public.agente_backlog
+                    where clave_deduplicacion = 'ajuste_regla:semana_deficiente:agente_' || v_ag2) then
+        raise exception 'I47 FALLO: una semana deficiente no abrió su entrada de backlog';
+    end if;
+    perform public.fn_corte_semanal_agente(v_ag2, v_lunes + 7);
+    select format('%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas, a.estado) into v_texto
+      from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id where c.id = v_cta;
+    if v_texto <> '2.00/1/cuarentena' then
+        raise exception 'I47 FALLO: dos deficientes seguidas debían dar cuarentena con 1 posición, quedó %', v_texto;
+    end if;
+    perform public.fn_corte_semanal_agente(v_ag2, v_lunes + 14);
+    select format('%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas, a.estado) into v_texto
+      from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id where c.id = v_cta;
+    if v_texto <> '4.00/3/activo' then
+        raise exception 'I47 FALLO: una validada debía restaurar riesgo y salir de cuarentena, quedó %', v_texto;
+    end if;
+    if (select count(*) from public.eventos_sistema where tipo = 'corte_semanal' and agente_id = v_ag2) <> 3 then
+        raise exception 'I47 FALLO: cada veredicto debe dejar su evento';
+    end if;
+    -- Que no operen en lo que queda de fichero.
+    update public.agentes set estado = 'pausado' where id in (v_ag, v_ag2);
+    raise notice 'PASS  I47 corte: 5/5 de acciones es validada, idempotente; una deficiente deja el riesgo a la mitad, dos dan cuarentena, una validada lo restaura';
+
+    -- ── I49 · Backlog: una fila por clave, evidencia obligatoria ─────
+    for i in 0..2 loop
+        insert into public.agente_dias
+            (agente_id, fecha, cuenta_id, saldo_apertura, objetivo_importe, operable,
+             ciclos, ciclos_con_universo, ciclos_sin_alcistas)
+        values (v_ag, v_hoy - i, public.fn_cuenta_agente(v_ag), 500, 10, true, 4, 4, 4);
+    end loop;
+    for i in 1..5 loop
+        perform public.fn_disparadores_backlog(v_ag, '{}');
+    end loop;
+    select count(*), max(ocurrencias) into v_conteo, v_num
+      from public.agente_backlog where tipo = 'sesgo_corto';
+    if v_conteo <> 1 or v_num <> 1 then
+        raise exception 'I49 FALLO: tres días sin alcistas debían crear UNA entrada con 1 ocurrencia, hay % con %', v_conteo, v_num;
+    end if;
+    v_fallo := false;
+    begin
+        insert into public.agente_backlog
+            (agente_id, tipo, titulo, descripcion, justificacion, evidencia, clave_deduplicacion, agentes_solicitantes)
+        values (v_pru, 'nuevo_dato', 'x', 'x', 'x', '{}', 'sin-evidencia', array[v_pru]);
+        v_fallo := true;
+    exception when check_violation then null;
+    end;
+    if v_fallo then
+        raise exception 'I49 FALLO: se insertó una entrada de backlog sin evidencia (N13)';
+    end if;
+    foreach v_ag in array array[v_pru, v_cad, v_auda]
+    loop
+        perform public.fn_registrar_backlog(v_ag, 'nueva_herramienta', 'nueva_herramienta:prueba',
+            'x', 'x', 'x', jsonb_build_object('agente', v_ag), 3);
+        perform public.fn_registrar_backlog(v_ag, 'nueva_herramienta', 'nueva_herramienta:prueba',
+            'x', 'x', 'x', jsonb_build_object('agente', v_ag), 3);
+    end loop;
+    select clave_deduplicacion, prioridad into v_texto, v_num from public.v_backlog_priorizado limit 1;
+    if v_texto <> 'nueva_herramienta:prueba' or v_num <> 9 then
+        raise exception 'I49 FALLO: lo que piden los tres agentes debía encabezar el backlog con prioridad 9, encabeza % (%)', v_texto, v_num;
+    end if;
+
+    select id into v_orden from public.agente_backlog where clave_deduplicacion = 'nueva_herramienta:prueba';
+    v_fallo := false;
+    begin
+        perform pg_temp.como(v_u);
+        perform public.rpc_revisar_backlog(v_orden, 'aceptado', null);
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I49 FALLO: un usuario no admin revisó el backlog';
+    end if;
+    v_fallo := false;
+    perform pg_temp.como(v_admin);
+    begin
+        perform public.rpc_revisar_backlog(v_orden, 'rechazado', '  ');
+        v_fallo := true;
+    exception when invalid_parameter_value then null;
+    end;
+    perform public.rpc_revisar_backlog(v_orden, 'rechazado', 'Fuera del alcance de la Fase 2');
+    perform pg_temp.como_dueno();
+    if v_fallo or (select estado from public.agente_backlog where id = v_orden) <> 'rechazado'
+       or not exists (select 1 from public.auditoria_admin
+                       where accion = 'resolver_backlog' and objetivo_id = v_orden::text) then
+        raise exception 'I49 FALLO: rechazar exige motivo y queda auditado';
+    end if;
+    raise notice 'PASS  I49 backlog: una fila por clave aunque se dispare cada ciclo; sin evidencia no entra; lo que piden los tres encabeza; revisar es de admin';
+
+    -- ── I50 · Eventos: el registro viaja con el usuario ──────────────
+    insert into public.eventos_sistema (usuario_id, tipo, mensaje) values (v_pend, 'sys', 'privado de otro');
+    perform pg_temp.como(v_u);
+    select count(*) into v_conteo from public.v_mis_eventos where usuario_id = v_pend;
+    if v_conteo <> 0 then
+        perform pg_temp.como_dueno();
+        raise exception 'I50 FALLO: un usuario ve eventos privados de otro';
+    end if;
+    if not exists (select 1 from public.v_mis_eventos where agente_id = v_auda) then
+        perform pg_temp.como_dueno();
+        raise exception 'I50 FALLO: un aprobado no ve los eventos globales de los agentes';
+    end if;
+    perform public.rpc_vaciar_eventos();
+    select count(*) into v_conteo from public.v_mis_eventos;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 0 then
+        raise exception 'I50 FALLO: tras vaciar quedan % eventos visibles', v_conteo;
+    end if;
+    insert into public.eventos_sistema (tipo, mensaje) values ('sys', 'nuevo tras vaciar');
+    perform pg_temp.como(v_u);
+    select count(*) into v_conteo from public.v_mis_eventos;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 1 or (select count(*) from public.eventos_sistema) < 5 then
+        raise exception 'I50 FALLO: vaciar debe ocultar lo leído sin borrar nada (visibles %)', v_conteo;
+    end if;
+    raise notice 'PASS  I50 eventos: los globales para todos, los privados para su dueño; vaciar mueve la marca del perfil y no borra';
+
+    -- ── I51 · 30 búsquedas por minuto y usuario ──────────────────────
+    -- Se ancla al principio de un minuto para que el cambio de minuto no
+    -- reparta las 31 llamadas entre dos ventanas (y la prueba dependa de
+    -- la hora a la que corre).
+    if extract(second from clock_timestamp()) > 50 then
+        perform pg_sleep(61 - extract(second from clock_timestamp()));
+    end if;
+    perform pg_temp.como(v_u);
+    for i in 1..30 loop
+        perform * from public.rpc_buscar_activo('zz');
+    end loop;
+    v_fallo := false;
+    begin
+        perform * from public.rpc_buscar_activo('zz');
+        v_fallo := true;
+    exception when raise_exception then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I51 FALLO: la búsqueda 31 del minuto no se limitó';
+    end if;
+    raise notice 'PASS  I51 la búsqueda de activos se limita a 30 peticiones por minuto y usuario';
+
+    -- ── I52 · RLS: los agentes a la vista, los usuarios no ───────────
+    perform pg_temp.como(v_u);
+    select count(*) into v_conteo from public.v_operaciones_agentes where agente_id in (v_pru, v_cad, v_auda);
+    select count(*) into v_num from public.ordenes
+     where cuenta_id in (select id from public.cuentas_simulacion where usuario_id is not null);
+    select count(*) into i from public.v_ranking_agentes;
+    perform pg_temp.como_dueno();
+    if v_conteo < 3 or v_num <> 0 or i < 3 then
+        raise exception 'I52 FALLO: un aprobado ve % operaciones de agentes, % órdenes ajenas y % agentes', v_conteo, v_num, i;
+    end if;
+    perform pg_temp.como(v_pend);
+    select count(*) into v_conteo from public.agentes;
+    perform pg_temp.como_dueno();
+    if v_conteo <> 0 then
+        raise exception 'I52 FALLO: un usuario pendiente ve % agentes', v_conteo;
+    end if;
+    v_fallo := false;
+    begin
+        perform pg_temp.como(v_u);
+        update public.agentes set estado = 'activo' where id = 9001;
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I52 FALLO: un usuario escribió en agentes';
+    end if;
+    raise notice 'PASS  I52 un aprobado ve las operaciones de los agentes y no las de otros usuarios; un pendiente no ve nada; nadie escribe directo';
+
+    -- ── I53 · Game Over terminal; reiniciar crea otra cuenta (N14) ───
+    -- La cuenta del agente 9103 quedó en game over en I38.
+    if public.fn_ciclo_agente(9103) ->> 'accion' <> 'game_over'
+       or (select estado from public.agentes where id = 9103) <> 'game_over' then
+        raise exception 'I53 FALLO: el ciclo no propagó el Game Over de la cuenta al agente';
+    end if;
+    v_cta := public.fn_cuenta_agente(9103);
+    v_fallo := false;
+    perform pg_temp.como(v_admin);
+    begin
+        perform public.rpc_reiniciar_agente(9103, false);
+        v_fallo := true;
+    exception when raise_exception then null;
+    end;
+    begin
+        perform public.rpc_cambiar_estado_agente(9103, 'activo');
+        v_fallo := true;
+    exception when raise_exception then null;
+    end;
+    v_json := public.rpc_reiniciar_agente(9103, true);
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I53 FALLO: se reinició sin confirmación o se reanudó un Game Over';
+    end if;
+    if (v_json ->> 'cuenta_anterior')::bigint <> v_cta
+       or (select estado from public.cuentas_simulacion where id = v_cta) <> 'game_over'
+       or (select saldo_disponible from public.cuentas_simulacion
+            where id = (v_json ->> 'cuenta_nueva')::bigint) <> 500
+       or (select estado from public.agentes where id = 9103) <> 'pausado'
+       or not exists (select 1 from public.auditoria_admin
+                       where accion = 'reiniciar_agente' and objetivo_id = '9103') then
+        raise exception 'I53 FALLO: reiniciar debía conservar la cuenta vieja y crear otra de 500 $ en pausa: %', v_json;
+    end if;
+    raise notice 'PASS  I53 Game Over terminal: reiniciar exige admin y confirmación, crea una cuenta nueva y conserva la vieja';
+
+    raise notice '── Sprint 6: en verde ──';
+end
+$s6$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I54 · Poder de trading por escalas (D15, 0014).
+--
+-- Dos cosas: que las escalas son las del dueño, y la relación que justifica
+-- que `rpc_abrir_orden` no tenga un guardarraíl de poder de trading — con el
+-- tope de 5× y todo el equity comprometido, el nominal nunca llega al poder
+-- de trading (hasta 200.000 $ de equity; por encima, la tabla del dueño no
+-- dice nada y el poder se queda en 1 M$). Si un día sube el tope de
+-- apalancamiento, esto se pone en rojo y avisa de que el límite hace falta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i54$
+declare
+    v_texto text;
+begin
+    select string_agg(format('%s→%s', e, public.fn_poder_trading(e)), ' ' order by e) into v_texto
+      from unnest(array[500, 999.99, 1000, 1999, 2000, 5000, 10000, 15000, 20000, 25000, 50000, 90000]::numeric[]) e;
+    if v_texto <> '500→10000.00 999.99→19999.80 1000→20000 1999→20000 2000→40000 5000→100000 10000→200000 15000→300000 20000→400000 25000→500000 50000→1000000 90000→1000000' then
+        raise exception 'I54 FALLO: las escalas de poder de trading no son las del dueño: %', v_texto;
+    end if;
+
+    select string_agg(e::text, ', ') into v_texto
+      from generate_series(100, 200000, 50) e
+     where public.fn_tope_fase('fase_1_aceleracion') * e > public.fn_poder_trading(e);
+    if v_texto is not null then
+        raise exception 'I54 FALLO: con el tope de la fase el nominal superaría el poder de trading en: %', left(v_texto, 200);
+    end if;
+
+    if not exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'v_cuentas_equity'
+                      and column_name = 'poder_trading') then
+        raise exception 'I54 FALLO: v_cuentas_equity no expone el poder de trading';
+    end if;
+    raise notice 'PASS  I54 poder de trading: las escalas del dueño, y el tope de 5x nunca lo alcanza';
+end
+$i54$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
