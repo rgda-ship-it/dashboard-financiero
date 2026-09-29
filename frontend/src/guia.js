@@ -182,6 +182,14 @@ export const SECCIONES = [
           "No se elige cuánto comprar: se elige cuánto se está dispuesto a perder, y el tamaño se deduce. Con 1.000 $ de equity, un 2 % de riesgo y un stop un 10 % por debajo, el nominal tiene que ser 200 $ para que tocar el stop cueste exactamente 20 $. Ese es todo el cálculo; lo demás son topes.",
       },
       {
+        termino: "Poder de trading y tope de apalancamiento",
+        formula:
+          "poder de trading (lo que el bróker permite, escalas QuantFury):\n  equity <  1.000 $  →  20 × equity\n  equity ≥  1.000 $  →     20.000 $\n  equity ≥  2.000 $  →     40.000 $\n  equity ≥  5.000 $  →    100.000 $\n  equity ≥ 10.000 $  →    200.000 $\n  equity ≥ 15.000 $  →    300.000 $\n  equity ≥ 20.000 $  →    400.000 $\n  equity ≥ 25.000 $  →    500.000 $\n  equity ≥ 50.000 $  →  1.000.000 $\n\ntope de apalancamiento (lo recomendable): 5× en Fase 1, 3× en Fase 2",
+        lectura:
+          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× y el límite de margen comprometido, nunca pasa de 3 veces tu equity, muy lejos del poder de trading.",
+        nota: "Por encima de 50.000 $ de equity la escala no tiene más tramos: el poder de trading se queda en 1.000.000 $.",
+      },
+      {
         termino: "Precio de liquidación",
         formula: "precio_liquidacion = precio de entrada × (1 − 1 / apalancamiento)",
         lectura:

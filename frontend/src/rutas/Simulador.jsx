@@ -429,16 +429,14 @@ export default function Simulador() {
                     etiqueta="Disponible"
                     valor={formatearPrecio(Number(cuenta.saldo_disponible))}
                   />
-                  {/* Disponible es dinero; el poder de compra es lo que ese
-                      dinero mueve con el tope de la fase. No es lo que se
-                      abre de verdad: el riesgo por operación y el tope de
-                      margen comprometido lo recortan antes. */}
+                  {/* D15: dos cifras que no se sustituyen. El poder de
+                      trading es lo que el bróker PERMITE por el saldo (hasta
+                      20×, por escalas); el tope de la fase, al pie del panel,
+                      es lo RECOMENDABLE y lo que el servidor impone. */}
                   <Cifra
-                    etiqueta="Poder de compra"
-                    valor={formatearPrecio(
-                      Number(cuenta.saldo_disponible) * Number(cuenta.leverage_tope)
-                    )}
-                    nota={`disponible × ${formatearTope(Number(cuenta.leverage_tope))}x · nominal máximo`}
+                    etiqueta="Poder de trading"
+                    valor={formatearPrecio(Number(cuenta.poder_trading ?? 0))}
+                    nota={`escalas QuantFury · en uso ${formatearPrecio(Number(cuenta.nominal_abierto ?? 0))}`}
                   />
                   <Cifra
                     etiqueta="Margen bloqueado"

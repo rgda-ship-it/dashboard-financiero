@@ -6,6 +6,24 @@ Claude Code) para no perder contexto entre sesiones.
 
 ## [Sin publicar] - 2026-09-29 — Fase 2, Sprint 6: los agentes operan solos
 
+### Añadido — poder de trading por escalas (0014, D15)
+El dueño separa dos cifras que no se sustituyen: el **tope de
+apalancamiento** (5× / 3×) es lo recomendable y la regla protegida nº1,
+que no cambia; el **poder de trading** es lo que el bróker permite por el
+saldo, hasta 20× por escalas de equity (QuantFury): 1.000 $ → 20.000 $,
+2.000 → 40.000, 5.000 → 100.000, 10.000 → 200.000, 15.000 → 300.000,
+20.000 → 400.000, 25.000 → 500.000 y 50.000 → 1.000.000. Por debajo de
+1.000 $, 20 × el equity; por encima de 50.000 $, se queda en 1 M$.
+`fn_poder_trading()` y dos columnas nuevas en `v_cuentas_equity`
+(`poder_trading`, `nominal_abierto`). Sin guardarraíl en
+`rpc_abrir_orden`: con 5× y el tope de margen, el nominal no pasa de 3×
+el equity, así que no puede dispararse; I54 deja escrita esa relación.
+
+### Corregido — «no encuadra» en las entradas sugeridas
+Una sugerencia es confirmable si el dimensionado cabe **y** su R:R llega
+al mínimo de la cuenta. El caso del R:R caía en un «no encuadra»
+genérico; ahora dice la cifra y el mínimo.
+
 ### Decisiones del dueño (2026-09-29)
 - **D11** — el ciclo de agentes y el corte semanal son SQL sobre
   `pg_cron`, no Edge Functions: mismo motivo que D8, así los diez pasos

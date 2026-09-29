@@ -60,7 +60,8 @@ dashboard-financiero/
 │       ├── 0010_carteras_...sql # Carteras, cuotas D7, altas y posiciones CSV
 │       ├── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
 │       ├── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
-│       └── 0013_agentes.sql     # Agentes, corte semanal, prácticas, backlog, Realtime y límites de uso
+│       ├── 0013_agentes.sql     # Agentes, corte semanal, prácticas, backlog, Realtime y límites de uso
+│       └── 0014_poder_trading.sql # Poder de trading por escalas (D15), aparte del tope de 5×
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

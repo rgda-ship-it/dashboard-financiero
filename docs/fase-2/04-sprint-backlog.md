@@ -771,6 +771,7 @@ primer corte semanal. Requisitos 7, 8, 9 y 10.
 > | Universo | Sin especificar («la cartera del agente») | **D12 — todo el catálogo activo** |
 > | Arranque | Sin especificar | **D13 — en pausa; los activa un admin**, auditado |
 > | Entrega | — | **D14 — un solo PR** |
+> | Poder de trading | No existía | **D15 — escalas QuantFury hasta 20×** como cifra aparte; el tope de 5×/3× sigue siendo la regla (0014) |
 >
 > Diferencias con la spec, con motivo (el detalle, en la cabecera de la
 > migración):

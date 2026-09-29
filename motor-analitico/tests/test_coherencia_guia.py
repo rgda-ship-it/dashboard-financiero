@@ -158,3 +158,22 @@ def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, posici
     assert int(campo("max_posiciones_abiertas")) == int(posiciones)
     assert float(campo("rr_minimo")) == _num(rr)
     assert float(campo("margen_comprometido_max_pct")) == float(margen)
+
+
+# ── Poder de trading (0014, D15) ────────────────────────────────────
+
+SQL_PODER = (RAIZ / "supabase" / "migrations" / "0014_poder_trading.sql").read_text(encoding="utf-8")
+
+
+def test_escalas_de_poder_de_trading_de_la_guia_son_las_de_la_migracion():
+    def entero(texto):
+        return int(texto.replace(".", ""))
+
+    guia = [(entero(e), entero(p)) for e, p in
+            re.findall(r"equity ≥\s+([\d.]+) \$\s+→\s+([\d.]+) \$", GUIA)]
+    sql = [(int(e), int(p)) for e, p in
+           re.findall(r"when p_equity >=\s+(\d+) then\s+(\d+)", SQL_PODER)]
+    assert len(guia) == 8
+    assert sorted(guia) == sorted(sql)
+    # Y el tramo de abajo: 20 veces el equity en los dos sitios.
+    assert "20 × equity" in GUIA and "p_equity * 20" in SQL_PODER

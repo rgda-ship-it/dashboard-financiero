@@ -2174,6 +2174,42 @@ end
 $s6$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I54 · Poder de trading por escalas (D15, 0014).
+--
+-- Dos cosas: que las escalas son las del dueño, y la relación que justifica
+-- que `rpc_abrir_orden` no tenga un guardarraíl de poder de trading — con el
+-- tope de 5× y todo el equity comprometido, el nominal nunca llega al poder
+-- de trading (hasta 200.000 $ de equity; por encima, la tabla del dueño no
+-- dice nada y el poder se queda en 1 M$). Si un día sube el tope de
+-- apalancamiento, esto se pone en rojo y avisa de que el límite hace falta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i54$
+declare
+    v_texto text;
+begin
+    select string_agg(format('%s→%s', e, public.fn_poder_trading(e)), ' ' order by e) into v_texto
+      from unnest(array[500, 999.99, 1000, 1999, 2000, 5000, 10000, 15000, 20000, 25000, 50000, 90000]::numeric[]) e;
+    if v_texto <> '500→10000.00 999.99→19999.80 1000→20000 1999→20000 2000→40000 5000→100000 10000→200000 15000→300000 20000→400000 25000→500000 50000→1000000 90000→1000000' then
+        raise exception 'I54 FALLO: las escalas de poder de trading no son las del dueño: %', v_texto;
+    end if;
+
+    select string_agg(e::text, ', ') into v_texto
+      from generate_series(100, 200000, 50) e
+     where public.fn_tope_fase('fase_1_aceleracion') * e > public.fn_poder_trading(e);
+    if v_texto is not null then
+        raise exception 'I54 FALLO: con el tope de la fase el nominal superaría el poder de trading en: %', left(v_texto, 200);
+    end if;
+
+    if not exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'v_cuentas_equity'
+                      and column_name = 'poder_trading') then
+        raise exception 'I54 FALLO: v_cuentas_equity no expone el poder de trading';
+    end if;
+    raise notice 'PASS  I54 poder de trading: las escalas del dueño, y el tope de 5x nunca lo alcanza';
+end
+$i54$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
