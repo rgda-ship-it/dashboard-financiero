@@ -4,6 +4,26 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-29 — Corrección: el ETL casi nunca arrancaba a su hora (0015)
+
+### Corregido — criptos con 3 horas de atraso y agentes sin señales frescas
+Medido con `gh run list`: `etl-cripto`, programado cada hora, corría cada
+3-7 horas; `etl-acciones`, 18 pasadas al día en sesión, unas 3, y alguna
+horas tarde (una arrancó a las 23:59 UTC con la bolsa cerrada). Todas
+terminaban bien: el problema es que GitHub retrasa o descarta los
+`schedule`, sobre todo en repos privados del plan gratuito y en horas en
+punto. Desde el Sprint 6 no era solo un dato atrasado: los agentes solo
+aceptan señales de menos de 90 minutos, así que casi nunca tenían ninguna.
+
+- `pg_cron` (que sí es puntual) llama a la API de GitHub con
+  `workflow_dispatch` —que arranca en segundos— usando el token de Vault
+  que ya usaban las altas. Cripto cada hora a los :07; acciones a los :07
+  y :37 con Nueva York abierto (`fn_etl_toca`, pura y probada con
+  instantes fijos en I55).
+- Los `schedule` de GitHub quedan de red de seguridad y espaciados: si
+  corren detrás de un disparo, los activos están frescos y la pasada no
+  llama a ningún proveedor.
+
 ## [Sin publicar] - 2026-09-29 — Fase 2, Sprint 6: los agentes operan solos
 
 ### Añadido — poder de trading por escalas (0014, D15)
