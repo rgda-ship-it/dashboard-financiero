@@ -13,12 +13,16 @@
 
 name: etl-acciones
 
+# QUIÉN LO DISPARA (0015): Supabase, a los :07 y :37 de cada hora con Nueva
+# York abierto, por `workflow_dispatch` desde `pg_cron`. El `schedule` de
+# GitHub no es fiable: de 18 pasadas al día corrían unas 3, y alguna con
+# horas de retraso (medido el 2026-09-29). Se queda como RED DE SEGURIDAD,
+# tres veces por sesión; `ventana_mercado.py` sigue decidiendo si hay
+# mercado, y si los activos están frescos la pasada no llama a Yahoo.
+
 on:
   schedule:
-    # Cada 30 min entre las 13:00 y las 21:00 UTC, de lunes a viernes.
-    # Cubre la sesión completa tanto en EDT (13:30-20:00 UTC) como en EST
-    # (14:30-21:00 UTC).
-    - cron: '0,30 13-21 * * 1-5'
+    - cron: '45 14,17,20 * * 1-5'
   workflow_dispatch:
     inputs:
       forzar:

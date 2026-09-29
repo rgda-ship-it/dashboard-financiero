@@ -61,7 +61,8 @@ dashboard-financiero/
 │       ├── 0011_simulador.sql   # Cuentas, órdenes, libro mayor, guardarraíles y monitor
 │       ├── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
 │       ├── 0013_agentes.sql     # Agentes, corte semanal, prácticas, backlog, Realtime y límites de uso
-│       └── 0014_poder_trading.sql # Poder de trading por escalas (D15), aparte del tope de 5×
+│       ├── 0014_poder_trading.sql # Poder de trading por escalas (D15), aparte del tope de 5×
+│       └── 0015_etl_disparado_...sql # pg_cron dispara el ETL: el schedule de GitHub no llegaba
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -471,8 +472,9 @@ de Postgres, admite intervalos de segundos. Reparto final:
 | Monitor de órdenes | `pg_cron` → SQL (D8) | cada minuto |
 | Ciclo de agentes | `pg_cron` → SQL (D11) | cada 5 minutos |
 | Corte semanal de agentes | `pg_cron` → SQL (D11) | lunes 00:07 UTC, sobre la semana ISO cerrada |
-| ETL de acciones | GitHub Actions | cada 30 min, ventana UTC ancha |
-| ETL de cripto | GitHub Actions | cada hora, máximo 6 monedas por pasada |
+| Disparo del ETL | `pg_cron` → `workflow_dispatch` (0015) | :07 y :37; acciones solo con NY abierto |
+| ETL de acciones | GitHub Actions (disparado desde la BD) | cada 30 min en sesión; `schedule` de reserva 3 veces al día |
+| ETL de cripto | GitHub Actions (disparado desde la BD) | cada hora, máximo 6 monedas; `schedule` de reserva cada 3 h |
 
 La ventana de cron de acciones es ancha **a propósito**: los cron de
 GitHub Actions se evalúan en UTC y no entienden el horario de verano, así

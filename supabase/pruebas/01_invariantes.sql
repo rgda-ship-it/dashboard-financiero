@@ -2210,6 +2210,46 @@ end
 $i54$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I55 · El ETL lo dispara Supabase (0015).
+--
+-- Con instantes FIJOS: si la invariante dependiera de la hora de la CI,
+-- pasaría o fallaría según el día.
+-- ═════════════════════════════════════════════════════════════════════
+do $i55$
+declare
+    v_json  jsonb;
+    v_fallo boolean := false;
+begin
+    -- Martes 29-sep-2026: 13:00 UTC = 09:00 NY (cerrado), 14:00 UTC = 10:00
+    -- NY (abierto), 21:00 UTC = 17:00 NY (cerrado). Sábado 3-oct: cerrado.
+    if public.fn_etl_toca('accion', '2026-09-29 13:00+00')
+       or not public.fn_etl_toca('accion', '2026-09-29 14:00+00')
+       or public.fn_etl_toca('accion', '2026-09-29 21:00+00')
+       or public.fn_etl_toca('accion', '2026-10-03 15:00+00')
+       or not public.fn_etl_toca('cripto', '2026-10-03 03:00+00') then
+        raise exception 'I55 FALLO: la ventana del ETL de acciones no es la de Nueva York';
+    end if;
+
+    -- Sin pg_net ni Vault (la CI) no revienta: lo dice y sigue.
+    v_json := public.fn_programar_etl();
+    if v_json ->> 'cripto' <> 'sin_infraestructura' then
+        raise exception 'I55 FALLO: sin infraestructura el disparo debía decirlo, dio %', v_json;
+    end if;
+
+    -- Solo los dos workflows del ETL: el token no sirve para lanzar otros.
+    begin
+        perform public.fn_disparar_workflow('altas.yml', interval '1 minute');
+        v_fallo := true;
+    exception when invalid_parameter_value then null;
+    end;
+    if v_fallo then
+        raise exception 'I55 FALLO: fn_disparar_workflow aceptó un workflow que no es del ETL';
+    end if;
+    raise notice 'PASS  I55 el ETL se dispara desde la BD: ventana de NY con instantes fijos, sin infraestructura no revienta, solo workflows del ETL';
+end
+$i55$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

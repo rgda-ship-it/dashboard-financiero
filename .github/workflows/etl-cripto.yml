@@ -11,14 +11,21 @@
 #   1. criptos con una posición abierta -> en TODAS las pasadas
 #   2. el resto -> rotación por antigüedad de `ultimo_etl_en`
 #
-# Estimado: 720 pasadas/mes × ~60 s = 720 min/mes.
+# Estimado: 720 pasadas/mes × ~60 s = 720 min/mes, más ~240 min de la red
+# de seguridad cada 3 h (casi todas terminan al ver los activos frescos).
 
 name: etl-cripto
 
+# QUIÉN LO DISPARA (0015): Supabase, cada hora a los :07, con
+# `workflow_dispatch` desde `pg_cron`. El `schedule` de GitHub no es fiable:
+# programado cada hora, corría cada 3-7 horas (medido el 2026-09-29). Se
+# queda solo como RED DE SEGURIDAD, cada 3 horas y lejos de la hora en
+# punto; si corre detrás de un disparo, los activos están frescos y la
+# pasada termina sin llamar a CoinGecko.
+
 on:
   schedule:
-    # Cada hora. Cripto cotiza 24/7, así que no hay ventana que respetar.
-    - cron: '0 * * * *'
+    - cron: '37 */3 * * *'
   workflow_dispatch:
 
 concurrency:
