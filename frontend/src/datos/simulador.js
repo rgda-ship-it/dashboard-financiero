@@ -74,7 +74,7 @@ export const leerOrdenes = () =>
  * Confirmar una orden. El usuario ajusta PRECIO y FECHA (requisito 6) y
  * nada más: los niveles son del motor, y el tamaño lo calcula el servidor.
  */
-export const abrirOrden = ({ cuentaId, senalId, precioEntrada, fechaEntrada }) =>
+export const abrirOrden = ({ cuentaId, senalId, precioEntrada, fechaEntrada, cantidad }) =>
   llamar(
     supabase.rpc("rpc_abrir_orden", {
       p_cuenta_id: cuentaId,
@@ -84,8 +84,16 @@ export const abrirOrden = ({ cuentaId, senalId, precioEntrada, fechaEntrada }) =
       p_apalancamiento: null,
       p_riesgo_pct: null,
       p_origen: "recomendacion",
+      // La cantidad la elige el usuario (0016); el servidor deduce el margen
+      // e impone igualmente G1-G5.
+      p_cantidad: cantidad ?? null,
     })
   );
+
+/** Cerrar una parte de la posición al precio vivo (0016). Las acciones se
+ *  cierran por unidades enteras: el servidor redondea hacia abajo. */
+export const cerrarParcial = (ordenId, fraccion) =>
+  llamar(supabase.rpc("rpc_cerrar_parcial", { p_orden_id: ordenId, p_fraccion: fraccion }));
 
 /** Cierre a mano. El precio lo pone el servidor: es el último del mercado,
  *  y si está añejo se niega a cerrar (la misma regla M4 del monitor). */
@@ -119,7 +127,11 @@ export const MOTIVOS_CIERRE = {
   liquidacion: "liquidación",
   manual: "a mano",
   caducidad: "caducidad",
+  rotacion: "rotación",
 };
+
+/** Las acciones no se compran por fracciones; las criptos sí. */
+export const admiteFracciones = (clase) => clase === "cripto";
 
 export const FASES = {
   fase_1_aceleracion: "Fase 1 · aceleración",

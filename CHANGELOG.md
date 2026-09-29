@@ -4,6 +4,37 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-29 — Reparto del capital, cierres parciales y agentes que aprenden de cada decisión (0016, D16)
+
+### Corregido — una sola posición se llevaba todo el margen
+El tamaño sale del riesgo (nominal = riesgo ÷ distancia al stop): con un
+stop cercano, una orden pedía más margen del que admite la cuenta y G3 la
+recortaba al tope entero, sin hueco para otra. Nuevo **cupo por posición =
+margen máx ÷ nº máx de posiciones** (20 % del equity en una cuenta por
+defecto). Es la recomendación del sistema, no un límite del usuario.
+
+### Añadido
+- **Cantidad a mano** al confirmar una orden (`p_cantidad`); el servidor
+  deduce el margen y sigue imponiendo G1–G5.
+- **Acciones en unidades enteras**, criptos con fracciones: en el
+  dimensionado (SQL y Python), en la cantidad a mano y en el cierre parcial.
+- **Cierre parcial** (25/50/75 %) con sus dos apuntes en el libro mayor. El
+  P&L realizado del día sale ahora del libro mayor, para contarlo.
+- **Agentes**: tres parámetros nuevos por perfil —reparto (cupo o
+  concentrado), rotación (cerrar la posición con menos R:R restante si la
+  mejor señal la supera por un umbral) y toma parcial automática—.
+- **Aprendizaje por decisión**: cada rotación, toma parcial y apertura se
+  resuelve contra su contrafactual (`agente_decisiones`); cada 10 resueltas
+  de un tipo el agente mueve su parámetro un paso (`agente_ajustes`, con la
+  evidencia). Sustituye a la idea de reaccionar solo al veredicto semanal:
+  una semana mala puede tener una decisión excelente.
+- **Errores a evitar**: la destilación publica también las firmas que
+  pierden (≥ 3 ops, ≥ 66 % en stop, P&L medio < 0) como filtro de exclusión.
+
+### Pruebas
+Invariantes I56–I61 (I58 se pone en rojo si se rompe la regla de rotación;
+comprobado). Python 144 → 147.
+
 ## [Sin publicar] - 2026-09-29 — Corrección: el ETL casi nunca arrancaba a su hora (0015)
 
 ### Corregido — criptos con 3 horas de atraso y agentes sin señales frescas

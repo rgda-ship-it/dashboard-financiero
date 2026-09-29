@@ -62,7 +62,8 @@ dashboard-financiero/
 │       ├── 0012_permisos_...sql # Las vistas necesitan ejecutar sus funciones puras
 │       ├── 0013_agentes.sql     # Agentes, corte semanal, prácticas, backlog, Realtime y límites de uso
 │       ├── 0014_poder_trading.sql # Poder de trading por escalas (D15), aparte del tope de 5×
-│       └── 0015_etl_disparado_...sql # pg_cron dispara el ETL: el schedule de GitHub no llegaba
+│       ├── 0015_etl_disparado_...sql # pg_cron dispara el ETL: el schedule de GitHub no llegaba
+│       └── 0016_decisiones_...sql # Cupo, cantidad a mano, cierre parcial, rotación y aprendizaje (D16)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

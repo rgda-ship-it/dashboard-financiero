@@ -46,7 +46,7 @@ pseudocódigo no los convierte en sugerencias.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import ROUND_DOWN, ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_DOWN, ROUND_FLOOR, Decimal
 
 # Margen mínimo con el que merece la pena abrir algo (doc 03 §5.5). Por
 # debajo de esto la cuenta es `inoperante`, que no es lo mismo que muerta.
@@ -130,10 +130,12 @@ def dimensionar_posicion(
     leverage_recomendado: Decimal | float | str | None = None,
     apalancamiento_maximo_propio: Decimal | float | str | None = None,
     tope_fase: Decimal | float | str = Decimal("5"),
+    cupo_pct: Decimal | float | str | None = None,
+    unidades_enteras: bool = False,
 ) -> Dimension:
     """Traduce «cuánto estoy dispuesto a perder» en «cuántas unidades».
 
-    Los argumentos son de palabra clave a propósito: son diez números del
+    Los argumentos son de palabra clave a propósito: son doce argumentos del
     mismo tipo y una llamada posicional sería una invitación a cruzar dos.
 
     Lanza `SinOperacion` cuando no hay tamaño posible. Los motivos son los
@@ -188,20 +190,35 @@ def dimensionar_posicion(
     # 5. Topes por saldo y por margen total comprometido (G3). Después del
     #    paso 6, no antes: ver la desviación anotada en el docstring.
     margen_libre = equity * margen_max_pct / Decimal(100) - saldo_bloqueado
-    margen = min(
+    topes = [
         nominal / apalancamiento,
         saldo_disponible * FRACCION_SALDO_UTILIZABLE,
         margen_libre,
-    )
+    ]
+    # Cupo por posición (0016): la parte del margen máximo que le toca a una
+    # sola posición, para que una orden no se lleve todo el margen de la
+    # cuenta. Es la recomendación del sistema, no un límite del usuario.
+    if cupo_pct is not None:
+        topes.append(equity * _dec(cupo_pct) / Decimal(100))
+    margen = min(topes)
     # Céntimos hacia abajo: hacia arriba pediría un céntimo más de margen
     # del que hay y el CHECK de la base de datos abortaría el INSERT.
     margen = margen.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
     if margen <= 0:
         raise SinOperacion("margen_insuficiente")
 
-    cantidad = (margen * apalancamiento / precio).quantize(
-        Decimal("0.00000001"), rounding=ROUND_DOWN
-    )
+    # Las acciones no se compran por fracciones; las criptos sí. Hacia
+    # abajo, y el margen se recalcula para esas unidades (hacia arriba, al
+    # céntimo, igual que en SQL).
+    if unidades_enteras:
+        cantidad = (margen * apalancamiento / precio).to_integral_value(rounding=ROUND_FLOOR)
+        if cantidad < 1:
+            raise SinOperacion("cantidad_nula")
+        margen = (cantidad * precio / apalancamiento).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
+    else:
+        cantidad = (margen * apalancamiento / precio).quantize(
+            Decimal("0.00000001"), rounding=ROUND_DOWN
+        )
     if cantidad <= 0:
         raise SinOperacion("cantidad_nula")
 

@@ -259,3 +259,7 @@
 @media (max-width: 900px) {
   .sim__tabla { display: block; overflow-x: auto; }
 }
+
+/* ── Cierre parcial (0016) ── */
+.sim__cierre { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: nowrap; }
+.sim__btn-parcial { padding-inline: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-xs); }

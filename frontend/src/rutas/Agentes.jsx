@@ -15,8 +15,11 @@ import {
   TIPOS_BACKLOG,
   VEREDICTOS,
   colorDe,
+  TIPOS_DECISION,
+  leerAjustes,
   leerBacklog,
   leerCurvas,
+  leerDecisiones,
   leerOperaciones,
   leerPracticas,
   leerRanking,
@@ -60,6 +63,19 @@ function progresoLog(equity, inicial, objetivo) {
   const o = Number(objetivo);
   if (!(e > 0 && i > 0 && o > i)) return 0;
   return Math.max(0, Math.min(1, Math.log(e / i) / Math.log(o / i)));
+}
+
+// Los tres parámetros de la 0016, tal como están HOY: los mueve el propio
+// agente con lo que aprende (pestaña «Decisiones»).
+function parametrosLegibles(e) {
+  if (!e) return "";
+  const reparto = e.reparto === "concentrado" ? "concentra" : "reparte por cupo";
+  const rota = e.rotacion_umbral != null ? `rota si ≥ ${Number(e.rotacion_umbral)}×` : "no rota";
+  const tp = e.tp_parcial
+    ? `parcial ${e.tp_parcial.fraccion * 100} % al ${e.tp_parcial.recorrido * 100} %` +
+      (e.tp_parcial.mover_stop ? ", stop a la entrada" : "")
+    : "sin parciales";
+  return `${reparto} · ${rota} · ${tp}`;
 }
 
 function TarjetaAgente({ a }) {
@@ -138,6 +154,7 @@ function TarjetaAgente({ a }) {
       <footer className="ag__pie">
         <span>{FASES[a.fase] ?? a.fase} · tope {formatearMultiplicador(Number(a.leverage_tope))}x</span>
         <span>riesgo {Number(a.riesgo_pct_operacion)} %{a.riesgo_reducido ? " (reducido)" : ""}</span>
+        <span>{parametrosLegibles(a.estrategia)}</span>
         {a.hoy_cumplido && <span className="ag__cumplido">meta de hoy cumplida</span>}
         {accion && a.ultimo_ciclo_en && (
           <span>
@@ -209,7 +226,8 @@ function Racional({ r }) {
 }
 
 function FilaOperacion({ o, abierta, alAbrir }) {
-  const pnl = o.estado === "abierta" ? o.pnl_flotante : o.pnl_bruto;
+  const parciales = Number(o.pnl_parciales ?? 0);
+  const pnl = o.estado === "abierta" ? o.pnl_flotante : Number(o.pnl_bruto) + parciales;
   return (
     <>
       <tr className={`row${abierta ? " row--abierta" : ""}`}>
@@ -240,6 +258,7 @@ function FilaOperacion({ o, abierta, alAbrir }) {
         <td className={`num ${claseSigno(Number(pnl))}`}>
           {pnl != null ? formatearImporte(Number(pnl)) : "—"}
           {o.estado === "cerrada" && <span className="sim__sub">{formatearPorcentaje(Number(o.pnl_pct))}</span>}
+          {parciales !== 0 && <span className="sim__sub">{formatearImporte(parciales)} en parciales</span>}
         </td>
         <td style={{ width: 44 }}>
           <button
@@ -330,6 +349,7 @@ function TablaPracticas({ filas }) {
         {filas.map((p) => (
           <tr key={p.id} className={p.estado === "refutada" ? "ag__refutada" : undefined}>
             <td>
+              {p.sentido === "evitar" && <span className="ag__etiqueta ag__etiqueta--evitar">evitar</span>}
               {p.titulo}
               <span className="sim__sub">{p.regla}</span>
             </td>
@@ -350,6 +370,91 @@ function TablaPracticas({ filas }) {
   );
 }
 
+function TablaDecisiones({ decisiones, ajustes }) {
+  return (
+    <>
+      {ajustes.length > 0 && (
+        <table className="sim__tabla">
+          <thead>
+            <tr>
+              <th>Ajuste</th>
+              <th>Agente</th>
+              <th>De → a</th>
+              <th>Evidencia</th>
+              <th>Cuándo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ajustes.map((j) => (
+              <tr key={j.id}>
+                <td>{TIPOS_DECISION[j.tipo] ?? j.tipo}</td>
+                <td>{j.agente}</td>
+                <td className="num">
+                  {JSON.stringify(j.de)} → {JSON.stringify(j.a)}
+                </td>
+                <td className="sim__sub">
+                  {Object.entries(j.evidencia ?? {})
+                    .map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`)
+                    .join(" · ")}
+                </td>
+                <td className="sim__sub">{tiempoRelativo(j.creado_en)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {decisiones.length === 0 ? (
+        <p className="sim__nota">
+          Todavía no hay decisiones juzgadas. Cada rotación, toma parcial y apertura se compara con lo
+          que habría pasado sin ella; con 10 resueltas de un tipo, el agente mueve su parámetro un paso.
+        </p>
+      ) : (
+        <table className="sim__tabla">
+          <thead>
+            <tr>
+              <th>Decisión</th>
+              <th>Agente</th>
+              <th>Activo</th>
+              <th className="num">Efecto</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {decisiones.map((d) => (
+              <tr key={d.id}>
+                <td>
+                  {TIPOS_DECISION[d.tipo] ?? d.tipo}
+                  {d.tipo === "reparto" && <span className="sim__sub">{d.parametro?.reparto}</span>}
+                  {d.tipo === "rotacion" && d.datos?.candidato && (
+                    <span className="sim__sub">
+                      por {d.datos.candidato.simbolo} (R:R {Number(d.datos.candidato.ratio_rr).toFixed(2)} frente a{" "}
+                      {Number(d.datos.rr_restante).toFixed(2)} restante)
+                    </span>
+                  )}
+                </td>
+                <td>{d.agente}</td>
+                <td>{d.simbolo ?? "—"}</td>
+                {/* En dólares para rotación y parcial; en % sobre el margen
+                    para reparto. Positivo = la decisión acertó. */}
+                <td className={`num ${d.efecto != null ? claseSigno(Number(d.efecto)) : ""}`}>
+                  {d.efecto == null
+                    ? "—"
+                    : d.tipo === "reparto"
+                      ? formatearPorcentaje(Number(d.efecto))
+                      : formatearImporte(Number(d.efecto))}
+                </td>
+                <td className="sim__sub">
+                  {d.resuelta_en ? `resuelta ${tiempoRelativo(d.resuelta_en)}` : "pendiente"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
 // ── Pantalla ─────────────────────────────────────────────────────────
 export default function Agentes() {
   const [ranking, setRanking] = useState([]);
@@ -357,6 +462,8 @@ export default function Agentes() {
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
   const [practicas, setPracticas] = useState([]);
+  const [decisiones, setDecisiones] = useState([]);
+  const [ajustes, setAjustes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [enVivo, setEnVivo] = useState(false);
@@ -370,18 +477,22 @@ export default function Agentes() {
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p] = await Promise.all([
+      const [r, c, o, b, p, d, j] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
         leerBacklog(),
         leerPracticas(),
+        leerDecisiones(),
+        leerAjustes(),
       ]);
       setRanking(r ?? []);
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
       setPracticas(p ?? []);
+      setDecisiones(d ?? []);
+      setAjustes(j ?? []);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -586,11 +697,19 @@ export default function Agentes() {
           </Panel>
 
           <Panel
-            titulo={pestana === "backlog" ? "Lo que piden los agentes" : "Prácticas compartidas"}
+            titulo={
+              pestana === "backlog"
+                ? "Lo que piden los agentes"
+                : pestana === "practicas"
+                  ? "Prácticas compartidas"
+                  : "Decisiones y lo que aprendieron"
+            }
             meta={
               pestana === "backlog"
                 ? "ordenado por ocurrencias × agentes que lo piden"
-                : "ordenadas por efecto medido"
+                : pestana === "practicas"
+                  ? "ordenadas por efecto medido · también los errores a evitar"
+                  : "cada decisión frente a lo que habría pasado sin ella"
             }
             flush
             alPedirAyuda={() => setSeccionGuia("agentes")}
@@ -600,6 +719,7 @@ export default function Agentes() {
                 {[
                   ["backlog", `Backlog (${backlog.length})`],
                   ["practicas", `Prácticas (${practicas.length})`],
+                  ["decisiones", `Decisiones (${decisiones.length})`],
                 ].map(([id, texto]) => (
                   <button
                     key={id}
@@ -615,7 +735,13 @@ export default function Agentes() {
                 ))}
               </div>
             </div>
-            {pestana === "backlog" ? <TablaBacklog filas={backlog} /> : <TablaPracticas filas={practicas} />}
+            {pestana === "backlog" ? (
+              <TablaBacklog filas={backlog} />
+            ) : pestana === "practicas" ? (
+              <TablaPracticas filas={practicas} />
+            ) : (
+              <TablaDecisiones decisiones={decisiones} ajustes={ajustes} />
+            )}
           </Panel>
         </div>
       </main>

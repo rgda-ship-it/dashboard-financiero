@@ -16,6 +16,8 @@ import {
   SALDO_MIN,
   TIPOS_MOVIMIENTO,
   abrirOrden,
+  admiteFracciones,
+  cerrarParcial,
   cerrarOrden,
   crearCuenta,
   leerCuenta,
@@ -114,6 +116,9 @@ function AltaDeCuenta({ alCrear, avisar }) {
 // números que el servidor ya ha decidido y que el usuario acepta o no.
 function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
   const [precio, setPrecio] = useState(String(Number(fila.precio_actual)));
+  // La sugerida es la del cupo (margen máx ÷ nº de posiciones); el usuario
+  // manda. Las acciones van en unidades enteras.
+  const [cantidad, setCantidad] = useState(fila.cantidad != null ? String(Number(fila.cantidad)) : "");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 16));
   const [ocupado, setOcupado] = useState(false);
 
@@ -122,6 +127,14 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
   const sl = Number(fila.sl);
   const encuadra = Number.isFinite(precioNum) && precioNum > sl && precioNum < tp;
   const rr = encuadra ? (tp - precioNum) / (precioNum - sl) : null;
+  const fracciones = admiteFracciones(fila.clase);
+  const cantidadNum = Number(cantidad);
+  const cantidadValida =
+    Number.isFinite(cantidadNum) && cantidadNum > 0 && (fracciones || Number.isInteger(cantidadNum));
+  // Estimación para leer, no para decidir: el servidor recalcula el margen.
+  const apal = Number(fila.apalancamiento);
+  const margenEstimado = cantidadValida && apal > 0 ? (cantidadNum * precioNum) / apal : null;
+  const riesgoEstimado = cantidadValida && encuadra ? cantidadNum * (precioNum - sl) : null;
 
   async function enviar(e) {
     e.preventDefault();
@@ -132,6 +145,7 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
         senalId: fila.senal_id,
         precioEntrada: precioNum,
         fechaEntrada: new Date(fecha).toISOString(),
+        cantidad: cantidadNum,
       });
       avisar(
         `Orden abierta en ${r.simbolo}: ${r.cantidad} unidades a ${formatearMultiplicador(
@@ -174,6 +188,17 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
           />
         </label>
         <label className="field sim__campo">
+          <span className="label">{fracciones ? "Cantidad" : "Acciones (enteras)"}</span>
+          <input
+            type="number"
+            step={fracciones ? "any" : "1"}
+            min="0"
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+            inputMode={fracciones ? "decimal" : "numeric"}
+          />
+        </label>
+        <label className="field sim__campo">
           <span className="label">Fecha de entrada</span>
           <input
             type="datetime-local"
@@ -201,7 +226,25 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
         </div>
         <div>
           <dt>Tamaño sugerido</dt>
-          <dd className="num">{fila.cantidad ?? "—"}</dd>
+          <dd className="num">
+            {fila.cantidad ?? "—"}
+            {fila.cupo_pct != null && <span className="sim__sub">cupo {Number(fila.cupo_pct)} % del equity</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>Margen con tu cantidad</dt>
+          <dd className="num">{margenEstimado != null ? formatearPrecio(margenEstimado) : "—"}</dd>
+        </div>
+        <div>
+          <dt>Riesgo hasta el stop</dt>
+          <dd className="num">
+            {riesgoEstimado != null ? formatearPrecio(riesgoEstimado) : "—"}
+            {riesgoEstimado != null && Number(fila.equity) > 0 && (
+              <span className="sim__sub">
+                {((riesgoEstimado / Number(fila.equity)) * 100).toFixed(1)} % del equity · máx 10 %
+              </span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>Apalancamiento</dt>
@@ -222,10 +265,20 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
       </dl>
 
       <p className="sim__nota">
-        El tamaño y el margen se recalculan en el servidor con el precio que confirmes, así que
-        pueden variar respecto a lo de arriba. El stop y el objetivo no se tocan: los fija el
-        motor. Si mueves la entrada por encima del objetivo, no hay orden que registrar.
+        La cantidad sugerida reparte tu margen máximo entre tus posiciones posibles, para que una
+        sola no se lo lleve todo; puedes cambiarla. El servidor recalcula el margen e impone los
+        límites: riesgo hasta el stop ≤ 10 % del equity y margen total ≤ tu tope. El stop y el
+        objetivo no se tocan: los fija el motor.
       </p>
+
+      {cantidad !== "" && !cantidadValida && (
+        <p className="sim__error" role="alert">
+          <IconoAlerta size={14} />{" "}
+          {fracciones
+            ? "La cantidad tiene que ser mayor que cero."
+            : "Las acciones se compran por unidades enteras."}
+        </p>
+      )}
 
       {!encuadra && (
         <p className="sim__error" role="alert">
@@ -235,7 +288,7 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
       )}
 
       <div className="sim__confirmar-acciones">
-        <button type="submit" className="btn btn--accent" disabled={ocupado || !encuadra}>
+        <button type="submit" className="btn btn--accent" disabled={ocupado || !encuadra || !cantidadValida}>
           {ocupado ? "Abriendo…" : "Abrir posición"}
         </button>
         <button type="button" className="btn" onClick={alCancelar}>
@@ -336,7 +389,11 @@ export default function Simulador() {
   const cerradas = useMemo(() => ordenes.filter((o) => o.estado === "cerrada"), [ordenes]);
 
   const pnlFlotante = abiertas.reduce((t, o) => t + Number(o.pnl_flotante ?? 0), 0);
-  const pnlRealizado = cerradas.reduce((t, o) => t + Number(o.pnl_bruto ?? 0), 0);
+  // Con cierres parciales, lo realizado de una orden es su resultado final
+  // MÁS lo que ya se cerró por partes (también de las que siguen abiertas).
+  const pnlRealizado =
+    cerradas.reduce((t, o) => t + Number(o.pnl_bruto ?? 0), 0) +
+    ordenes.reduce((t, o) => t + Number(o.pnl_parciales ?? 0), 0);
 
   const estado = cuenta ? ESTADOS_CUENTA[cuenta.estado] ?? { texto: cuenta.estado, tono: "" } : null;
 
@@ -347,6 +404,26 @@ export default function Simulador() {
       avisar(
         r.cerrada
           ? `${orden.simbolo} cerrada a mano: ${formatearImporte(Number(r.pnl))}.`
+          : "Esa orden ya estaba cerrada.",
+        r.cerrada ? "ok" : "warn"
+      );
+      await cargar();
+    } catch (error) {
+      avisar(error.message, "neg");
+    } finally {
+      setCerrando(null);
+    }
+  }
+
+  async function cerrarParte(orden, fraccion) {
+    setCerrando(orden.id);
+    try {
+      const r = await cerrarParcial(orden.id, fraccion);
+      avisar(
+        r.cerrada
+          ? `${orden.simbolo}: cerradas ${Number(r.cantidad_cerrada)} unidades por ${formatearImporte(
+              Number(r.pnl)
+            )}; liberados ${formatearPrecio(Number(r.margen_liberado))} de margen.`
           : "Esa orden ya estaba cerrada.",
         r.cerrada ? "ok" : "warn"
       );
@@ -655,16 +732,38 @@ export default function Simulador() {
                               {formatearPorcentaje(Number(o.pnl_flotante_pct_margen))} del margen
                             </span>
                           )}
+                          {Number(o.pnl_parciales) !== 0 && (
+                            <span className="sim__sub">
+                              {formatearImporte(Number(o.pnl_parciales))} ya realizados
+                            </span>
+                          )}
                         </td>
                         <td>
-                          <button
-                            type="button"
-                            className="btn"
-                            disabled={cerrando === o.id}
-                            onClick={() => cerrar(o)}
-                          >
-                            {cerrando === o.id ? "Cerrando…" : "Cerrar"}
-                          </button>
+                          <div className="sim__cierre">
+                            {/* Cierre parcial (0016): libera esa parte del margen
+                                para otra operación. Una acción se cierra por
+                                unidades enteras. */}
+                            {[0.25, 0.5, 0.75].map((f) => (
+                              <button
+                                key={f}
+                                type="button"
+                                className="btn sim__btn-parcial"
+                                disabled={cerrando === o.id}
+                                onClick={() => cerrarParte(o, f)}
+                                title={`Cerrar el ${f * 100} % al precio de ahora`}
+                              >
+                                {f * 100}%
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={cerrando === o.id}
+                              onClick={() => cerrar(o)}
+                            >
+                              {cerrando === o.id ? "Cerrando…" : "Cerrar"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -709,8 +808,13 @@ export default function Simulador() {
                           ? formatearPrecio(Number(o.precio_observado_cierre))
                           : "—"}
                       </td>
-                      <td className={`num ${claseSigno(Number(o.pnl_bruto))}`}>
-                        {formatearImporte(Number(o.pnl_bruto))}
+                      <td className={`num ${claseSigno(Number(o.pnl_bruto) + Number(o.pnl_parciales ?? 0))}`}>
+                        {formatearImporte(Number(o.pnl_bruto) + Number(o.pnl_parciales ?? 0))}
+                        {Number(o.pnl_parciales) !== 0 && (
+                          <span className="sim__sub">
+                            {formatearImporte(Number(o.pnl_parciales))} en cierres parciales
+                          </span>
+                        )}
                         <span className="sim__sub">
                           {formatearPorcentaje(Number(o.pnl_pct))}
                         </span>
