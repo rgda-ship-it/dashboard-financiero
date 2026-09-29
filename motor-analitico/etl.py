@@ -17,7 +17,7 @@ DÓNDE guardar el resultado.
 
 Uso:
     python etl.py --clase accion              # pasada de acciones
-    python etl.py --clase cripto --max 6      # pasada de cripto, con techo
+    python etl.py --clase cripto --max 8      # pasada de cripto, con techo
     python etl.py --simbolo NVDA              # backfill de un activo nuevo
     python etl.py --clase accion --forzar     # ignora el horario de mercado
 """
