@@ -246,6 +246,29 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
   );
 }
 
+// ── Por qué una sugerencia no se puede confirmar ─────────────────────
+// La vista la marca confirmable solo si el dimensionado cabe Y su R:R
+// llega al mínimo de la cuenta. Antes, el caso del R:R —el más frecuente—
+// caía en un «no encuadra» que no decía nada.
+function motivoNoConfirmable(r, cuenta) {
+  const minimo = Number(cuenta?.ratio_rr_minimo);
+  if (!r.motivo && r.ratio_rr != null && Number(r.ratio_rr) < minimo) {
+    return `R:R ${Number(r.ratio_rr).toFixed(2)} por debajo del mínimo de tu cuenta (${minimo.toFixed(1)})`;
+  }
+  switch (r.motivo) {
+    case "sin_operacion_liquidacion_antes_del_stop":
+      return "el stop queda más lejos que la liquidación";
+    case "margen_insuficiente":
+      return "sin margen libre";
+    case "stop_por_encima_del_precio":
+      return "el stop está por encima del precio";
+    case "cantidad_nula":
+      return "tamaño demasiado pequeño";
+    default:
+      return "no encuadra";
+  }
+}
+
 // ── Cifra de la cabecera de cuenta ───────────────────────────────────
 function Cifra({ etiqueta, valor, tono, nota }) {
   return (
@@ -406,6 +429,17 @@ export default function Simulador() {
                     etiqueta="Disponible"
                     valor={formatearPrecio(Number(cuenta.saldo_disponible))}
                   />
+                  {/* Disponible es dinero; el poder de compra es lo que ese
+                      dinero mueve con el tope de la fase. No es lo que se
+                      abre de verdad: el riesgo por operación y el tope de
+                      margen comprometido lo recortan antes. */}
+                  <Cifra
+                    etiqueta="Poder de compra"
+                    valor={formatearPrecio(
+                      Number(cuenta.saldo_disponible) * Number(cuenta.leverage_tope)
+                    )}
+                    nota={`disponible × ${formatearTope(Number(cuenta.leverage_tope))}x · nominal máximo`}
+                  />
                   <Cifra
                     etiqueta="Margen bloqueado"
                     valor={formatearPrecio(Number(cuenta.saldo_bloqueado))}
@@ -547,11 +581,7 @@ export default function Simulador() {
                             </button>
                           ) : (
                             <span className="sim__sub sim__sub--motivo">
-                              {r.motivo === "sin_operacion_liquidacion_antes_del_stop"
-                                ? "el stop queda más lejos que la liquidación"
-                                : r.motivo === "margen_insuficiente"
-                                  ? "sin margen libre"
-                                  : "no encuadra"}
+                              {motivoNoConfirmable(r, cuenta)}
                             </span>
                           )}
                         </td>
