@@ -289,3 +289,6 @@
   .aviso-legal { margin: var(--sp-3) var(--sp-3) 0; }
   .graf__tooltip { min-width: 11rem; }
 }
+
+/* Práctica «a evitar» (0016): aviso, no mercado. */
+.ag__etiqueta--evitar { border-color: var(--warn-line); color: var(--warn-500); }

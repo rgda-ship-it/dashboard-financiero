@@ -1620,7 +1620,7 @@ begin
     -- ── Universo controlado ──────────────────────────────────────────
     update public.activos set estado = 'suspendido' where estado = 'activo';
     insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
-        ('ZZAGA', 'accion', 'yahoo',     'ZZAGA', 'activo', 100, now()),
+        ('ZZAGA', 'accion', 'yahoo',     'ZZAGA', 'activo', 10,  now()),
         ('zzag1', 'cripto', 'coingecko', 'zzag1', 'activo', 100, now()),
         ('zzag2', 'cripto', 'coingecko', 'zzag2', 'activo', 100, now()),
         ('zzag3', 'cripto', 'coingecko', 'zzag3', 'activo', 100, now()),
@@ -1631,7 +1631,9 @@ begin
     select id into v_z3  from public.activos where simbolo = 'zzag3';
     select id into v_z4  from public.activos where simbolo = 'zzag4';
 
-    -- ZZAGA: acción, alta, estructura, R:R 2,2, ATR 2   -> la de Prudencia
+    -- ZZAGA: acción a 10 $, alta, estructura, R:R 2,2 -> la de Prudencia (a
+    --        10 $ y no a 100: con unidades enteras, los 75 $ de nominal de
+    --        Prudencia no llegan para una acción de 100)
     -- zzag1: cripto, media, atr, R:R 2,5, ATR 4         -> la de Audacia
     -- zzag2: cripto, alta, atr, R:R 4, ATR 1            -> la de Cadencia (Audacia la
     --                                                     descarta: ATR < 1,5)
@@ -1642,7 +1644,7 @@ begin
          precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
          niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
     values
-        (v_zza, true, 5, 3, 's6', 100, 90, 122, 5, 'alcista', 'largo', 'alta',  'estructura', 2, 3, 0, now()),
+        (v_zza, true, 5, 3, 's6', 10, 9, 12.2, 5, 'alcista', 'largo', 'alta',  'estructura', 2, 3, 0, now()),
         (v_z1,  true, 5, 2, 's6', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr',        4, 2, 0, now()),
         (v_z2,  true, 5, 3, 's6', 100, 90, 140, 5, 'alcista', 'largo', 'alta',  'atr',        1, 3, 0, now()),
         (v_z4,  true, 5, 3, 's6', 100, 90, 150, 5, 'alcista', 'largo', 'alta',  'atr',        2, 3, 0, now() - interval '3 hours');
@@ -1821,6 +1823,7 @@ begin
 
     -- Adoptarla CAMBIA el conjunto de candidatos de Cadencia: zzag1 es de
     -- fuerza media y ZZAGA es una acción; la práctica exige cripto alta.
+    select version_estrategia into v_num from public.agentes where id = v_cad;
     v_json := public.fn_decidir_agente(v_cad);
     if public.fn_adoptar_practica(v_cad) is distinct from v_practica then
         raise exception 'I48 FALLO: Cadencia no adoptó la única práctica compatible';
@@ -1833,7 +1836,7 @@ begin
         raise exception 'I48 FALLO: adoptar no cambió los candidatos como se esperaba: antes % después %',
               v_json -> 'candidatos_evaluados', v_json2 -> 'candidatos_evaluados';
     end if;
-    if (select version_estrategia from public.agentes where id = v_cad) <> 2
+    if (select version_estrategia from public.agentes where id = v_cad) <> v_num + 1
        or not ((select estrategia -> 'practicas_adoptadas' from public.agentes where id = v_cad)
                @> to_jsonb(v_practica)) then
         raise exception 'I48 FALLO: adoptar no subió la versión ni quedó en estrategia.practicas_adoptadas';
@@ -2248,6 +2251,323 @@ begin
     raise notice 'PASS  I55 el ETL se dispara desde la BD: ventana de NY con instantes fijos, sin infraestructura no revienta, solo workflows del ETL';
 end
 $i55$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- 0016 — reparto, cierres parciales, rotación y aprendizaje por decisión.
+--
+-- Universo propio: se suspende lo que estuviera activo y se siembran una
+-- acción y tres criptos. Dos agentes de banco de pruebas, cada uno con UN
+-- parámetro nuevo activo, para que lo que se mide sea ese y no otro.
+-- ═════════════════════════════════════════════════════════════════════
+do $s7$
+declare
+    v_u      uuid := gen_random_uuid();
+    v_otro   uuid := gen_random_uuid();
+    v_hoy    date := (now() at time zone 'UTC')::date;
+    v_acc    bigint;
+    v_c1     bigint;
+    v_c2     bigint;
+    v_c3     bigint;
+    v_s_acc  bigint;
+    v_s1     bigint;
+    v_s3     bigint;
+    v_cuenta bigint;
+    v_orden  bigint;
+    v_rota   bigint;
+    v_parc   bigint;
+    v_c_rota bigint;
+    v_c_parc bigint;
+    v_json   jsonb;
+    v_num    numeric;
+    v_num2   numeric;
+    v_conteo bigint;
+    v_texto  text;
+    v_fallo  boolean;
+    v_dim    record;
+    v_senal  bigint;
+    i        int;
+begin
+    update public.activos set estado = 'suspendido' where estado = 'activo';
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('ZZDA',  'accion', 'yahoo',     'ZZDA',  'activo', 30,  now()),
+        ('zzd2',  'cripto', 'coingecko', 'zzd2',  'activo', 100, now()),
+        ('zzd3',  'cripto', 'coingecko', 'zzd3',  'activo', 100, now());
+    select id into v_acc from public.activos where simbolo = 'ZZDA';
+    -- Bitcoin y no una cripto nueva: el catálogo ya sigue 20 criptos (el
+    -- tope global por la cuota de CoinGecko) y el usuario no podría seguirla.
+    select id into v_c1  from public.activos where simbolo = 'bitcoin';
+    update public.activos set estado = 'activo', ultimo_precio = 100, ultimo_precio_en = now() where id = v_c1;
+    select id into v_c2  from public.activos where simbolo = 'zzd2';
+    select id into v_c3  from public.activos where simbolo = 'zzd3';
+
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_acc, true, 5, 3, 's7', 30,  27, 36,  5, 'alcista', 'largo', 'alta',  'estructura', 2, 3, 0, now())
+    returning id into v_s_acc;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    -- Bitcoin arrastra señales de bloques anteriores: esta tiene que ser
+    -- la vigente, así que va un segundo por delante de la más reciente.
+    values (v_c1,  true, 5, 3, 's7', 100, 90, 120, 5, 'alcista', 'largo', 'alta',  'atr', 2, 3, 0,
+            greatest(now(), (select max(calculado_en) + interval '1 second'
+                               from public.senales where activo_id = v_c1)))
+    returning id into v_s1;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_c3,  true, 5, 3, 's7', 100, 90, 120, 5, 'alcista', 'largo', 'media', 'atr', 2, 2, 0, now())
+    returning id into v_s3;
+
+    -- ── I56 · Cupo, unidades enteras y cantidad a mano ───────────────
+    select * into v_dim from public.fn_dimensionar_posicion(1000, 1000, 0, 100, 99.5, 2, 60, 5, null, 5);
+    if v_dim.margen <> 600 then
+        raise exception 'I56 FALLO: sin cupo, un stop al 0,5 %% debía llevarse el 60 %% (600 $), dio %', v_dim.margen;
+    end if;
+    select * into v_dim from public.fn_dimensionar_posicion(1000, 1000, 0, 100, 99.5, 2, 60, 5, null, 5, 20);
+    if v_dim.margen <> 200 then
+        raise exception 'I56 FALLO: con cupo del 20 %% el margen debía ser 200 $, dio %', v_dim.margen;
+    end if;
+    select * into v_dim from public.fn_dimensionar_posicion(1000, 1000, 0, 30, 27, 2, 60, 5, null, 5, null, true);
+    if v_dim.cantidad <> 6 or v_dim.margen <> 36 then
+        raise exception 'I56 FALLO: una acción debía dimensionarse en 6 unidades enteras y 36 $, dio % y %',
+              v_dim.cantidad, v_dim.margen;
+    end if;
+
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_u, 'reparto@ejemplo.com', now()), (v_otro, 'reparto2@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id in (v_u, v_otro);
+    perform pg_temp.como(v_u);
+    perform public.rpc_seguir_activo(v_acc);
+    perform public.rpc_seguir_activo(v_c1);
+    v_cuenta := (public.rpc_crear_cuenta_simulacion(1000) ->> 'cuenta_id')::bigint;
+    select cupo_pct into v_num from public.v_recomendaciones_usuario where senal_id = v_s_acc;
+    select cantidad into v_num2 from public.v_recomendaciones_usuario where senal_id = v_s_acc;
+    perform pg_temp.como_dueno();
+    if v_num <> 20 or v_num2 <> trunc(v_num2) then
+        raise exception 'I56 FALLO: la recomendación debía llevar cupo 20 %% y acciones enteras, dio % y %', v_num, v_num2;
+    end if;
+
+    v_fallo := false;
+    perform pg_temp.como(v_u);
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_s_acc, null, null, null, null, 'manual', null, 2.5);
+        v_fallo := true;
+    exception when invalid_parameter_value then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I56 FALLO: se aceptaron 2,5 acciones';
+    end if;
+    perform pg_temp.como(v_u);
+    v_json := public.rpc_abrir_orden(v_cuenta, v_s_acc, null, null, null, null, 'manual', null, 3);
+    perform pg_temp.como_dueno();
+    if (v_json ->> 'cantidad')::numeric <> 3 then
+        raise exception 'I56 FALLO: la cantidad a mano no se respetó: %', v_json;
+    end if;
+    -- A mano se puede pasar del cupo, pero no de G2: 40 unidades a 100 con
+    -- el stop en 90 son 400 $ de riesgo sobre 1.000 $.
+    v_fallo := false;
+    perform pg_temp.como(v_u);
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_s1, null, null, null, null, 'manual', null, 40);
+        v_fallo := true;
+    exception when raise_exception then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo then
+        raise exception 'I56 FALLO: una cantidad a mano con un 40 %% de riesgo se aceptó (G2)';
+    end if;
+    raise notice 'PASS  I56 cupo por posición en el dimensionado y la recomendación; acciones en unidades enteras; la cantidad a mano manda pero G2 sigue imponiéndose';
+
+    -- ── I57 · Cierre parcial ─────────────────────────────────────────
+    perform pg_temp.como(v_u);
+    v_orden := (public.rpc_abrir_orden(v_cuenta, v_s1, null, null, null, null, 'manual', null, 4) ->> 'orden_id')::bigint;
+    perform pg_temp.como_dueno();
+    update public.activos set ultimo_precio = 110, ultimo_precio_en = now() where id = v_c1;
+    select margen_comprometido into v_num from public.ordenes where id = v_orden;
+
+    perform pg_temp.como(v_u);
+    v_json := public.rpc_cerrar_parcial(v_orden, 0.5);
+    perform pg_temp.como_dueno();
+    select format('%s/%s/%s/%s', cantidad, margen_comprometido * 2 = v_num, pnl_parciales, estado) into v_texto
+      from public.ordenes where id = v_orden;
+    if v_texto <> '2.00000000/t/20.00/abierta' then
+        raise exception 'I57 FALLO: cerrar el 50 %% debía dejar 2 unidades, la mitad del margen y +20 $ realizados: %', v_texto;
+    end if;
+    if public.fn_pnl_realizado_dia(v_cuenta, v_hoy) <> 20 then
+        raise exception 'I57 FALLO: el P&L realizado del día no incluye el cierre parcial';
+    end if;
+    -- El libro mayor sigue cuadrando al céntimo.
+    select c.saldo_inicial + coalesce(sum(m.importe) filter (where m.tipo <> 'deposito_inicial'), 0) - c.saldo_disponible
+      into v_num2
+      from public.cuentas_simulacion c join public.movimientos_saldo m on m.cuenta_id = c.id
+     where c.id = v_cuenta group by c.id;
+    if v_num2 <> 0 then
+        raise exception 'I57 FALLO: el cierre parcial descuadró el libro mayor en % $', v_num2;
+    end if;
+
+    v_fallo := false;
+    perform pg_temp.como(v_otro);
+    begin
+        perform public.rpc_cerrar_parcial(v_orden, 0.5);
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como(v_u);
+    begin
+        perform public.rpc_cerrar_parcial(v_orden, 1);
+        v_fallo := true;
+    exception when invalid_parameter_value then null;
+    end;
+    -- 3 acciones al 50 %: 1 entera, no 1,5.
+    select id into v_senal from public.ordenes where cuenta_id = v_cuenta and activo_id = v_acc;
+    v_json := public.rpc_cerrar_parcial(v_senal, 0.5);
+    perform pg_temp.como_dueno();
+    if v_fallo or (v_json ->> 'cantidad_cerrada')::numeric <> 1 then
+        raise exception 'I57 FALLO: parcial ajeno, del 100 %% o de acciones fraccionadas: %', v_json;
+    end if;
+    raise notice 'PASS  I57 cierre parcial: libera la parte del margen, realiza su P&L, cuadra el libro mayor y cierra acciones enteras';
+
+    -- ── Agentes de banco de pruebas ──────────────────────────────────
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-rota', 50, 'activo', '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"],
+          "rr_minimo": 1.2, "max_posiciones_abiertas": 1, "margen_comprometido_max_pct": 60,
+          "riesgo_pct_operacion": 2, "reparto": "concentrado", "rotacion_umbral": 1.5}')
+    returning id into v_rota;
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-parcial', 50, 'activo', '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["media"],
+          "rr_minimo": 1.2, "max_posiciones_abiertas": 1, "margen_comprometido_max_pct": 60,
+          "riesgo_pct_operacion": 2, "reparto": "cupo",
+          "tp_parcial": {"recorrido": 0.5, "fraccion": 0.5, "mover_stop": true}}')
+    returning id into v_parc;
+    v_c_rota := public.fn_crear_cuenta_agente(v_rota);
+    v_c_parc := public.fn_crear_cuenta_agente(v_parc);
+    perform public.fn_sincronizar_dia_agente(v_rota, v_c_rota);
+    perform public.fn_sincronizar_dia_agente(v_parc, v_c_parc);
+    update public.agente_dias set operable = true where agente_id in (v_rota, v_parc) and fecha = v_hoy;
+
+    -- ── I58 · Rotación ───────────────────────────────────────────────
+    update public.activos set ultimo_precio = 100, ultimo_precio_en = now() where id = v_c1;
+    v_json := public.fn_ciclo_agente(v_rota);
+    select id into v_orden from public.ordenes where cuenta_id = v_c_rota and estado = 'abierta' and activo_id = v_c1;
+    if v_orden is null then
+        raise exception 'I58 FALLO: el agente de rotación no abrió su primera posición: %', v_json;
+    end if;
+    -- La posición madura y se acerca al objetivo: le queda poco que ganar
+    -- (R:R restante 2/28) y aparece una señal de R:R 3.
+    update public.ordenes set fecha_entrada = now() - interval '1 hour' where id = v_orden;
+    update public.activos set ultimo_precio = 118, ultimo_precio_en = now() where id = v_c1;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_c2, true, 5, 3, 's7', 100, 90, 130, 5, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0, now());
+    v_json := public.fn_ciclo_agente(v_rota);
+    if (select motivo_cierre from public.ordenes where id = v_orden) is distinct from 'rotacion'
+       or not exists (select 1 from public.ordenes where cuenta_id = v_c_rota and estado = 'abierta' and activo_id = v_c2)
+       or not exists (select 1 from public.agente_decisiones
+                       where agente_id = v_rota and tipo = 'rotacion' and orden_id = v_orden
+                         and orden_nueva_id is not null) then
+        raise exception 'I58 FALLO: debía cerrar la débil por rotación, abrir la nueva y registrar la decisión: %', v_json;
+    end if;
+    raise notice 'PASS  I58 rotación: cierra la posición con menos R:R restante, abre la mejor señal y deja la decisión para juzgarla';
+
+    -- ── I59 · Toma parcial automática y su contrafactual ─────────────
+    update public.activos set ultimo_precio = 100, ultimo_precio_en = now() where id = v_c3;
+    v_json := public.fn_ciclo_agente(v_parc);
+    select id into v_orden from public.ordenes where cuenta_id = v_c_parc and estado = 'abierta';
+    if v_orden is null then
+        raise exception 'I59 FALLO: el agente de parciales no abrió su posición: %', v_json;
+    end if;
+    select cantidad into v_num from public.ordenes where id = v_orden;
+    update public.activos set ultimo_precio = 111, ultimo_precio_en = now() where id = v_c3;
+    perform public.fn_ciclo_agente(v_parc);
+    select format('%s/%s/%s', cantidad * 2 = v_num, sl, sl_original) into v_texto
+      from public.ordenes where id = v_orden;
+    if v_texto <> 't/99.95000000/90.00000000' then
+        raise exception 'I59 FALLO: al 50 %% del recorrido debía cerrar la mitad y subir el stop a la entrada: %', v_texto;
+    end if;
+    -- La parte que quedaba sale por el stop movido: la parcial salvó
+    -- (110 − 99,95) × la mitad.
+    perform public.rpc_cerrar_orden(v_orden, 99.95, 'sl', 99.9);
+    perform public.fn_resolver_decisiones();
+    select efecto into v_num2 from public.agente_decisiones where agente_id = v_parc and tipo = 'parcial';
+    if v_num2 is null or v_num2 <= 0 then
+        raise exception 'I59 FALLO: una parcial que se adelantó al stop debía resolverse con efecto positivo, dio %', v_num2;
+    end if;
+    raise notice 'PASS  I59 toma parcial al nivel, stop a la entrada, y su efecto se mide contra lo que habría pasado sin ella';
+
+    -- ── I60 · Ajuste de parámetros con evidencia ─────────────────────
+    -- Diez rotaciones resueltas que salieron mal, y el reparto por cupo
+    -- rindiendo más que el concentrado en diez operaciones de cada modo.
+    insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
+    select v_rota, 'rotacion', '{"umbral": 1.5}', -3, now() from generate_series(1, 10);
+    insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
+    select v_parc, 'reparto', '{"reparto": "cupo"}', 50, now() from generate_series(1, 10);
+    insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
+    select v_rota, 'reparto', '{"reparto": "concentrado"}', -50, now() from generate_series(1, 10);
+    select version_estrategia into v_num from public.agentes where id = v_rota;
+
+    if public.fn_ajustar_parametros(v_rota) <> 2 then
+        raise exception 'I60 FALLO: con esa evidencia debía ajustar dos parámetros';
+    end if;
+    select format('%s/%s', estrategia -> 'rotacion_umbral', estrategia ->> 'reparto') into v_texto
+      from public.agentes where id = v_rota;
+    if v_texto <> '1.7/cupo' or (select version_estrategia from public.agentes where id = v_rota) <= v_num
+       or (select count(*) from public.agente_ajustes where agente_id = v_rota) <> 2 then
+        raise exception 'I60 FALLO: rotaciones que pierden suben el umbral un paso y el reparto cambia al que rinde más: %', v_texto;
+    end if;
+    -- Sin evidencia nueva no se vuelve a mover.
+    if public.fn_ajustar_parametros(v_rota) <> 0 then
+        raise exception 'I60 FALLO: un parámetro se movió dos veces con la misma evidencia';
+    end if;
+    raise notice 'PASS  I60 los parámetros se mueven un paso con 10 decisiones resueltas, quedan registrados y no se mueven dos veces por lo mismo';
+
+    -- ── I61 · Aprender de los errores: prácticas «a evitar» ──────────
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_c2, true, 5, 3, 's7-hist', 100, 90, 130, 5, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0,
+            now() - interval '5 days')
+    returning id into v_senal;
+    insert into public.ordenes
+        (cuenta_id, activo_id, senal_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+         apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+         precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+    select v_c_rota, v_c2, v_senal, 'agente', 'cerrada', 100, now() - interval '5 days', 1,
+           1, 100, 130, 90, 0, 90, now() - interval '5 days' + interval '1 hour', 'sl', -10, -10
+      from generate_series(1, 3);
+    perform public.fn_destilar_practicas(v_rota);
+    select id into v_orden from public.mejores_practicas
+     where agente_autor_id = v_rota and sentido = 'evitar' and firma = 'evitar|cripto|alta|atr|bajo|alto';
+    if v_orden is null then
+        raise exception 'I61 FALLO: tres stops con la misma firma debían publicarse como error a evitar';
+    end if;
+    -- Aplicada como «evitar», excluye justo las señales que la cumplen
+    -- (zzd2: alta, atr, ATR 2, R:R 3) y deja pasar las demás.
+    select string_agg(simbolo || '=' || coalesce(motivo, 'candidata'), ',' order by simbolo) into v_texto
+      from public.fn_universo_agente(
+               public.fn_parametros_agente((select a from public.agentes a where a.id = v_parc))
+                   || '{"fuerzas_admitidas": ["alta", "media"]}',
+               v_c_parc,
+               jsonb_build_array(jsonb_build_object(
+                   'c', (select condiciones from public.mejores_practicas where id = v_orden), 's', 'evitar')))
+     where simbolo in ('zzd2', 'zzd3');
+    if v_texto <> 'zzd2=practica,zzd3=candidata' then
+        raise exception 'I61 FALLO: la práctica a evitar debía excluir zzd2 y dejar zzd3: %', v_texto;
+    end if;
+    raise notice 'PASS  I61 los errores también se destilan: una firma que pierde se publica como «evitar» y excluye esas señales';
+
+    update public.agentes set estado = 'pausado' where id in (v_rota, v_parc);
+    raise notice '── 0016: en verde ──';
+end
+$s7$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

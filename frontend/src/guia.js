@@ -204,6 +204,20 @@ export const SECCIONES = [
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },
       {
+        termino: "Cuánto comprar: el cupo y tu cantidad",
+        formula:
+          "cupo por posición = margen máx ÷ nº máx de posiciones\n                   (60 % ÷ 3 = 20 % del equity por defecto)\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
+        lectura:
+          "La cantidad sugerida no deja que una sola posición se lleve todo el margen: si el stop está muy cerca, el cálculo por riesgo pediría un nominal enorme, y sin cupo esa primera orden agotaría el margen de la cuenta. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu tope) y el apalancamiento de la fase.",
+        nota: "Con unidades enteras, una cuenta pequeña puede no llegar a una acción cara: 75 $ de nominal no compran una acción de 100 $. Entonces no hay sugerencia para esa acción, y es correcto.",
+      },
+      {
+        termino: "Cerrar una parte",
+        formula: "cerrar el 25 / 50 / 75 %  →  libera esa parte del margen\n                          y realiza su P&L al precio de ahora",
+        lectura:
+          "Sirve para asegurar parte de la ganancia o para liberar margen y entrar en otra operación sin salir del todo. Deja sus dos apuntes en el libro mayor, como un cierre completo, y cuenta para el P&L realizado del día. Una acción se cierra por unidades enteras: la mitad de 3 acciones es 1.",
+      },
+      {
         termino: "Tú ajustas la entrada, no los niveles",
         formula: null,
         lectura:
@@ -288,6 +302,27 @@ export const SECCIONES = [
           "Los agentes no opinan: cada petición nace de un disparador que observa una limitación real —tres días sin ninguna señal alcista, un activo sin volatilidad conocida, stops que antes rozaron el objetivo— y lleva la evidencia con las órdenes o los días concretos. Sin evidencia, la base de datos no la admite. Lo que los tres piden a la vez sube solo a lo más alto.",
       },
       {
+        termino: "Repartir, rotar y asegurar",
+        formula:
+          "              reparto       rota si la nueva tiene…       toma parcial\nPrudencia     cupo          R:R ≥ 2,0 × el restante       mitad al 50 %, stop a la entrada\nCadencia      cupo          R:R ≥ 1,5 × el restante       mitad al 50 %\nAudacia       concentrado   R:R ≥ 1,2 × el restante       ninguna",
+        lectura:
+          "Es el punto de partida de cada uno, no una regla fija. «Restante» es lo que le queda a una posición abierta por ganar hasta el objetivo frente a lo que le queda por perder hasta el stop, al precio de ahora: una posición a punto de llegar al objetivo tiene poco recorrido, y si aparece una señal mucho mejor el agente la cierra para entrar en la otra. La toma parcial cierra la mitad a mitad de camino; con «stop a la entrada», lo que queda ya no puede perder.",
+      },
+      {
+        termino: "Aprender de cada decisión",
+        formula:
+          "rotación : lo que dio la nueva − lo que habría dado la cerrada\nparcial  : lo que se aseguró − lo que habría dado esa parte al final\nreparto  : retorno sobre el margen, concentrando frente a repartiendo\n\ncada 10 decisiones resueltas de un tipo → un paso del parámetro",
+        lectura:
+          "Cada decisión se juzga contra lo que habría pasado sin ella, no contra la nota de la semana: una semana mala puede tener una decisión excelente. Si sus rotaciones pierden, el agente sube su umbral; si las tomas parciales le cuestan dinero, las deja; si concentrar rinde menos que repartir, cambia de modo. Cada cambio queda registrado con su evidencia en la pestaña «Decisiones».",
+        nota: "El contrafactual de una rotación se observa con el precio que el ciclo ve cada 5 minutos: si el precio tocó el objetivo y volvió entre dos lecturas, no se ve.",
+      },
+      {
+        termino: "Los errores también enseñan",
+        formula: "firma con ≥ 3 operaciones, 2 de cada 3 en stop y P&L medio < 0\n  → práctica «evitar»: no entrar en esas señales",
+        lectura:
+          "Igual que se comparte lo que funciona, se comparte lo que falla: una combinación de rasgos que acaba en el stop una y otra vez se publica como filtro de exclusión. Otros agentes la adoptan, se mide si les mejora, y si no, se refuta.",
+      },
+      {
         termino: "Game Over y reinicio",
         formula: null,
         lectura:
@@ -345,10 +380,10 @@ export const SECCIONES = [
           "Ni tú ni los agentes operáis sobre el mercado de este segundo, sino sobre el último escaneo. Por eso una señal de más de 90 minutos no abre posiciones: describe un mercado que ya no existe.",
       },
       {
-        termino: "Sin cierre parcial ni trailing stop",
+        termino: "Sin trailing stop ni órdenes limitadas",
         formula: null,
         lectura:
-          "Una posición se abre y se cierra entera, a mercado: en el objetivo, en el stop, por liquidación o a mano. No hay órdenes limitadas, ni cierres parciales, ni stops que sigan al precio. Los agentes lo piden solos en su backlog cuando lo echan en falta, con las órdenes que lo demuestran.",
+          "Una posición se abre a mercado y se cierra en el objetivo, en el stop, por liquidación, a mano o por partes. No hay órdenes limitadas ni stops que sigan al precio: lo más parecido es la toma parcial con el stop a la entrada. Los agentes piden el trailing stop solos en su backlog cuando lo echan en falta, con las órdenes que lo demuestran.",
       },
       {
         termino: "Esto no es asesoramiento",

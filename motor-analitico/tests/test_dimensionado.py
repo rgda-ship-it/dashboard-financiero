@@ -204,3 +204,35 @@ def test_el_riesgo_nunca_supera_el_declarado_en_un_barrido_de_stops():
         assert d.precio_liquidacion <= sl, f"stop {stop_pct}%"
         # El margen nunca por encima de lo que la cuenta puede comprometer.
         assert d.margen <= Decimal("600"), f"stop {stop_pct}%"
+
+
+def test_el_cupo_impide_que_una_posicion_se_lleve_todo_el_margen():
+    # Stop a un 0,5 %: sin cupo, el riesgo del 2 % pediría un nominal de
+    # 4 veces el equity y el margen chocaría con el 60 % de G3.
+    base = dict(equity="1000", saldo_disponible="1000", saldo_bloqueado="0",
+                precio="100", sl="99.5", riesgo_pct="2", leverage_recomendado="5")
+    sin_cupo = dimensionar_posicion(**base)
+    con_cupo = dimensionar_posicion(**base, cupo_pct="20")
+    assert sin_cupo.margen == Decimal("600.00")
+    assert con_cupo.margen == Decimal("200.00")
+    # Y con cupo el riesgo real queda por debajo del declarado, nunca por encima.
+    assert riesgo_real(con_cupo, "100", "99.5") <= Decimal("20")
+
+
+def test_las_acciones_se_dimensionan_en_unidades_enteras():
+    # Nominal ideal 200 $ a 5x -> margen 40 $; a 30 $ la acción serían 6,67
+    # acciones: se compran 6 y el margen se recalcula para esas 6.
+    d = dimensionar_posicion(equity="1000", saldo_disponible="1000", saldo_bloqueado="0",
+                             precio="30", sl="27", riesgo_pct="2",
+                             leverage_recomendado="5", unidades_enteras=True)
+    assert d.cantidad == Decimal("6")
+    assert d.margen == Decimal("36.00")
+    assert riesgo_real(d, "30", "27") <= Decimal("20")
+
+
+def test_si_no_llega_para_una_accion_no_hay_operacion():
+    with pytest.raises(SinOperacion) as e:
+        dimensionar_posicion(equity="100", saldo_disponible="100", saldo_bloqueado="0",
+                             precio="900", sl="880", riesgo_pct="1",
+                             leverage_recomendado="1", unidades_enteras=True)
+    assert e.value.motivo == "cantidad_nula"

@@ -47,6 +47,22 @@ export const leerBacklog = () =>
 export const leerPracticas = () =>
   llamar(supabase.from("v_practicas_ranking").select("*"));
 
+/** Decisiones juzgadas contra su contrafactual, y los ajustes que motivaron
+ *  (0016). */
+export const leerDecisiones = (limite = 60) =>
+  llamar(
+    supabase.from("v_decisiones_agentes").select("*").order("id", { ascending: false }).limit(limite)
+  );
+
+export const leerAjustes = () =>
+  llamar(supabase.from("v_ajustes_agentes").select("*").order("id", { ascending: false }).limit(30));
+
+export const TIPOS_DECISION = {
+  rotacion: "rotación",
+  parcial: "toma parcial",
+  reparto: "reparto",
+};
+
 export const leerSemanas = () =>
   llamar(
     supabase
