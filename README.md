@@ -474,7 +474,7 @@ de Postgres, admite intervalos de segundos. Reparto final:
 | Corte semanal de agentes | `pg_cron` → SQL (D11) | lunes 00:07 UTC, sobre la semana ISO cerrada |
 | Disparo del ETL | `pg_cron` → `workflow_dispatch` (0015) | :07 y :37; acciones solo con NY abierto |
 | ETL de acciones | GitHub Actions (disparado desde la BD) | cada 30 min en sesión; `schedule` de reserva 3 veces al día |
-| ETL de cripto | GitHub Actions (disparado desde la BD) | cada hora, máximo 6 monedas; `schedule` de reserva cada 3 h |
+| ETL de cripto | GitHub Actions (disparado desde la BD) | cada hora, máximo 8 monedas; `schedule` de reserva cada 3 h |
 
 La ventana de cron de acciones es ancha **a propósito**: los cron de
 GitHub Actions se evalúan en UTC y no entienden el horario de verano, así

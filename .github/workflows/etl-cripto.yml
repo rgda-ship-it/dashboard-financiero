@@ -7,12 +7,17 @@
 #
 # Con 20 criptos en el catálogo, recorrerlas todas en cada pasada serían
 # ~4 minutos de reloj y 2.880 min/mes: POR ENCIMA de los 2.000 del tier
-# gratuito. De ahí el `--max 6` y la priorización de `seleccionar_activos`:
+# gratuito. De ahí el `--max 8` y la priorización de `seleccionar_activos`:
 #   1. criptos con una posición abierta -> en TODAS las pasadas
 #   2. el resto -> rotación por antigüedad de `ultimo_etl_en`
 #
-# Estimado: 720 pasadas/mes × ~60 s = 720 min/mes, más ~240 min de la red
-# de seguridad cada 3 h (casi todas terminan al ver los activos frescos).
+# Tope 8 y no 6 (2026-09-29): con 8 criptos seguidas y 6 por pasada, cada
+# una se refrescaba cada 1-2 horas, y a las 2 horas su señal pasa de los
+# 90 minutos que exigen los agentes. 8 monedas = 16 peticiones espaciadas
+# 6 s = 10 por minuto, dentro de lo que tolera CoinGecko sin clave.
+#
+# Estimado: 720 pasadas/mes × ~90 s = ~1.080 min/mes, más ~240 min de la
+# red de seguridad cada 3 h (casi todas terminan al ver los activos frescos).
 
 name: etl-cripto
 
@@ -67,4 +72,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LEVERAGE_HARD_CAP_FASE1: '5'
           VERSION_MOTOR: ${{ github.sha }}
-        run: python etl.py --clase cripto --max 6
+        run: python etl.py --clase cripto --max 8

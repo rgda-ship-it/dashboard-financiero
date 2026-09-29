@@ -361,7 +361,7 @@ de secretos.
 
 | Proveedor | Cuota | Consumo Fase 2 | Riesgo |
 |-----------|-------|----------------|--------|
-| **CoinGecko** (free, sin clave) | ~10-15 req/min; espaciado de 6 s y reintento con `Retry-After` ya implementados | 2 llamadas por cripto y pasada; máximo 6 criptos/pasada = 12 req en ~36 s | Controlado por diseño. **Este es el techo del sistema**: es lo que fija el límite de 20 criptos globales (D7) |
+| **CoinGecko** (free, sin clave) | ~10-15 req/min; espaciado de 6 s y reintento con `Retry-After` ya implementados | 2 llamadas por cripto y pasada; máximo 8 criptos/pasada = 16 req en ~96 s (subido de 6 el 2026-09-29) | Controlado por diseño. **Este es el techo del sistema**: es lo que fija el límite de 20 criptos globales (D7) |
 | **Yahoo (`yfinance`)** | Sin cuota publicada — API **no oficial** | 1 llamada por acción y pasada, en lote | Fragilidad estructural, no de cuota (riesgo R3) |
 
 La observación que importa para el producto: **el coste 0 no lo limita la
