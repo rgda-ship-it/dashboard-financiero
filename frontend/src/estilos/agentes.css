@@ -1,0 +1,291 @@
+/**
+ * Módulo Agentes (Sprint 6): marcador, gráfico de equity, operaciones con
+ * su racional, backlog y prácticas. Y el aviso legal, que comparte con el
+ * simulador.
+ *
+ * Ni un color ni un tamaño literal: todo sale de `tokens.css`. Cada agente
+ * tiene un tono de identidad (`--agente-1..3`) que solo marca QUIÉN es;
+ * el verde y el rojo siguen reservados a mercado (P&L, stop y objetivo).
+ * Por eso los estados de un agente no son verdes: «operando» y «validada»
+ * van en el cian de la marca, «cuarentena» y «aviso» en ámbar, y solo el
+ * Game Over —que es pérdida de capital— va en rojo.
+ */
+
+/* ── Aviso legal (H-33) ── */
+.aviso-legal {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-3) var(--sp-4) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--brass-line);
+  border-radius: var(--r-sm);
+  background: var(--brass-soft);
+  color: var(--tx-2);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+
+.aviso-legal svg { flex: none; margin-top: 2px; color: var(--brass-400); }
+.aviso-legal p { margin: 0; }
+.aviso-legal strong { color: var(--brass-400); font-weight: 500; }
+
+/* ── Estados ── */
+.ag__tono {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-2);
+  color: var(--tx-3);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ag__tono--ok { border-color: var(--acc-line); color: var(--acc-400); }
+.ag__tono--warn { border-color: var(--warn-line); color: var(--warn-500); }
+.ag__tono--neg { border-color: var(--neg-line); color: var(--neg-500); }
+
+.ag__vivo {
+  color: var(--tx-4);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.ag__vivo.is-vivo { color: var(--acc-400); }
+
+/* ── Marcador ── */
+.ag__marcador {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: var(--sp-3);
+}
+
+.ag__tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line-2);
+  border-top: 2px solid var(--color-agente, var(--line-3));
+  border-radius: var(--r-md);
+  background: var(--ink-900);
+  min-width: 0;
+}
+
+.ag__tarjeta-cabecera {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.ag__nombre { color: var(--tx-1); font-size: var(--fs-lg); font-weight: 500; }
+.ag__meta { color: var(--tx-3); font-size: var(--fs-xs); margin-right: auto; }
+
+.ag__equity { margin: 0; color: var(--tx-1); font-size: var(--fs-xl); }
+
+.ag__progreso {
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--ink-700);
+  overflow: hidden;
+}
+
+.ag__progreso span {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: var(--r-pill);
+  background: var(--color-agente, var(--acc-500));
+}
+
+.ag__sub { margin: 0; color: var(--tx-3); font-size: var(--fs-xs); line-height: 1.5; }
+
+.ag__cifras {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2) var(--sp-3);
+  margin: var(--sp-1) 0 0;
+}
+
+.ag__cifras dt {
+  color: var(--tx-4);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.ag__cifras dd { margin: 2px 0 0; color: var(--tx-2); font-size: var(--fs-sm); }
+
+.ag__de { color: var(--tx-4); font-size: var(--fs-xs); }
+
+.ag__pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  margin-top: auto;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--line-1);
+  color: var(--tx-3);
+  font-size: var(--fs-micro);
+}
+
+.ag__cumplido { color: var(--acc-400); }
+
+/* ── Operaciones ── */
+.ag__punto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  border-radius: var(--r-pill);
+  vertical-align: middle;
+}
+
+.ag__select { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
+.ag__select select {
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--ink-900);
+  color: var(--tx-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.ag__descartes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag__descartes li { display: flex; align-items: baseline; gap: var(--sp-2); }
+
+.ag__etiqueta {
+  display: inline-block;
+  margin-right: var(--sp-1);
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  color: var(--tx-3);
+  font-size: var(--fs-micro);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+}
+
+.ag__refutada td { color: var(--tx-4); text-decoration: line-through; text-decoration-color: var(--line-3); }
+
+/* ── Gráfico de equity ── */
+.graf { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.graf__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.graf__leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--tx-2);
+  font-size: var(--fs-xs);
+}
+
+.graf__leyenda li { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.graf__leyenda-trazo { color: var(--tx-3); }
+
+.graf__muestra {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-xs);
+  flex: none;
+}
+
+.graf__muestra-linea { stroke: var(--tx-3); stroke-width: 2; }
+.graf__muestra-linea--teorica { stroke-dasharray: 4 3; }
+
+/* El ancho lo pone el panel, nunca el SVG: sin esto el lienzo crece con
+   su propio contenido y el observador de tamaño no ve nunca uno menor. */
+.graf__lienzo { position: relative; contain: inline-size; }
+.graf__svg { display: block; overflow: visible; }
+
+.graf__rejilla { stroke: var(--line-1); stroke-width: 1; }
+
+.graf__eje {
+  fill: var(--tx-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+}
+
+.graf__linea {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* La teórica es referencia: discontinua y más tenue, del mismo tono. */
+.graf__linea--teorica { stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.55; }
+
+.graf__punto { fill: currentColor; stroke: var(--ink-850); stroke-width: 2; }
+
+.graf__etiqueta { fill: var(--tx-2); font-size: var(--fs-micro); }
+
+.graf__cruceta { stroke: var(--line-3); stroke-width: 1; }
+
+.graf__captura { fill: transparent; }
+
+.graf__tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  min-width: 13rem;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--ink-800);
+  box-shadow: var(--sh-pop);
+  pointer-events: none;
+  font-size: var(--fs-xs);
+}
+
+.graf__tooltip-fecha { margin: 0 0 var(--sp-1); color: var(--tx-3); }
+
+.graf__tooltip-fila {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  color: var(--tx-1);
+}
+
+.graf__tooltip-nombre { margin-right: auto; color: var(--tx-2); }
+.graf__tooltip-teorica { color: var(--tx-4); }
+
+.graf__tabla-envoltura { max-height: 18rem; overflow: auto; }
+
+.graf__nota { margin: 0; color: var(--tx-4); font-size: var(--fs-xs); }
+
+/* ── Administración de agentes ── */
+.admin__agentes { display: flex; flex-direction: column; }
+
+@media (max-width: 720px) {
+  .ag__cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aviso-legal { margin: var(--sp-3) var(--sp-3) 0; }
+  .graf__tooltip { min-width: 11rem; }
+}

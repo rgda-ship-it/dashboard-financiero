@@ -42,6 +42,8 @@ begin
     delete from public.ordenes
      where cuenta_id in (select id from public.cuentas_simulacion where agente_id = 990002);
     delete from public.cuentas_simulacion where agente_id = 990002;
+    insert into public.agentes (id, nombre, objetivo_diario_pct, estrategia)
+    values (990002, 'prueba-cuadre', 2, '{}') on conflict do nothing;
 
     insert into public.cuentas_simulacion
         (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado, max_posiciones_abiertas)

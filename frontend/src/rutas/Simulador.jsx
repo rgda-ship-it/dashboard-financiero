@@ -6,6 +6,7 @@ import MedidorConfluencia from "../components/ui/MedidorConfluencia.jsx";
 import RielRiesgo from "../components/ui/RielRiesgo.jsx";
 import BarraApalancamiento from "../components/ui/BarraApalancamiento.jsx";
 import HelpDrawer from "../components/HelpDrawer.jsx";
+import AvisoLegal from "../components/AvisoLegal.jsx";
 import { IconoRefrescar, IconoCerrar, IconoAlerta } from "../components/ui/Iconos.jsx";
 import {
   ESTADOS_CUENTA,
@@ -46,9 +47,8 @@ import {
  * 3. No cierra posiciones. Eso lo hace el monitor cada minuto, solo. El
  *    botón de cerrar a mano existe para salir antes, no para vigilar.
  *
- * El refresco es por sondeo cada 30 s. Realtime llega en H-32; mientras
- * tanto, sondear una vista es más honesto que dejar la pantalla congelada
- * fingiendo que no pasa nada.
+ * El refresco es por sondeo cada 30 s mientras haya posiciones abiertas.
+ * Los cierres llegan además al registro de eventos por Realtime (H-32).
  */
 const RELECTURA_MS = 30000;
 
@@ -102,8 +102,8 @@ function AltaDeCuenta({ alCrear, avisar }) {
         </button>
       </div>
       <p className="sim__nota">
-        Entre {SALDO_MIN} y {SALDO_MAX} $. Los agentes del Sprint 6 arrancarán con 500 $, así que
-        ese valor hace tus resultados comparables con los suyos.
+        Entre {SALDO_MIN} y {SALDO_MAX} $. Los agentes arrancan con 500 $, así que ese valor hace
+        tus resultados comparables con los suyos.
       </p>
     </form>
   );
@@ -283,7 +283,7 @@ export default function Simulador() {
       const [r, o, m] = await Promise.all([
         leerRecomendaciones(),
         leerOrdenes(),
-        leerMovimientos(),
+        leerMovimientos(c.id),
       ]);
       setRecomendaciones(r ?? []);
       setOrdenes(o ?? []);
@@ -350,6 +350,7 @@ export default function Simulador() {
 
       <main className="main">
         <Navegacion />
+        <AvisoLegal />
 
         {aviso && (
           <p className={`acceso__aviso acceso__aviso--${aviso.tono} sim__aviso`} role="status">

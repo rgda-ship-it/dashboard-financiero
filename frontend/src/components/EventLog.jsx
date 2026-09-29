@@ -9,7 +9,7 @@ import { horaCorta } from "../formato.js";
  *
  * Se lee como una traza continua, no como una lista de mensajes sueltos:
  * un raíl vertical une los eventos y el color del punto codifica el tipo
- * (sistema, deterioro, cambio de fase, proveedor). El auto-scroll solo se
+ * (sistema, deterioro, cambio de fase, proveedor, órdenes y agentes). El auto-scroll solo se
  * aplica si el usuario ya estaba mirando el final — si subió a leer algo,
  * no se le arrastra la vista.
  */
@@ -43,14 +43,14 @@ export default function EventLog({ eventos, conectado, alLimpiar, alPedirAyuda }
       }
       pie={
         <>
-          <span>Últimos {Math.min(eventos.length, 50)} eventos · guardados en este navegador</span>
+          <span>Últimos {Math.min(eventos.length, 50)} eventos · en tu cuenta, en cualquier dispositivo</span>
           {eventos.length > 0 && (
             <button
               type="button"
               className="enlace"
               style={{ marginLeft: "auto" }}
               onClick={alLimpiar}
-              title="Vaciar el historial guardado en este navegador"
+              title="Marcar todo como leído: los eventos siguen en el servidor"
             >
               <IconoLimpiar />
               Limpiar
@@ -63,14 +63,14 @@ export default function EventLog({ eventos, conectado, alLimpiar, alPedirAyuda }
         <div className="empty">
           <strong>Sin eventos todavía</strong>
           <span>
-            Aquí aparecen los cambios de fase, el deterioro detectado en cartera y el estado de
-            los proveedores de datos, en cuanto ocurren.
+            Aquí aparecen los cambios de fase, los cierres de órdenes, lo que hacen los agentes
+            y el estado de los proveedores de datos, en cuanto ocurren.
           </span>
         </div>
       ) : (
         <div className="log__list" ref={listaRef} onScroll={alDesplazar}>
           {eventos.map((e, i) => (
-            <article key={`${e.timestamp ?? "sin-hora"}-${i}`} className={`log__item log__item--${e.tipo ?? "sys"}`}>
+            <article key={e.id ?? `${e.timestamp ?? "sin-hora"}-${i}`} className={`log__item log__item--${e.tipo ?? "sys"}`}>
               <span className="log__glyph" aria-hidden="true" />
               <time className="log__time">{horaCorta(e.timestamp)}</time>
               <p className="log__msg">{e.mensaje}</p>

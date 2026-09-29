@@ -34,9 +34,8 @@ echo "── Concurrencia de rpc_cerrar_orden (riesgo R4) ──"
 
 # ── 1. Fixture ──────────────────────────────────────────────────────
 # Cuenta de AGENTE: no necesita perfil ni usuario de auth, así que el
-# fixture no depende de nada del gobierno. `agente_id` no tiene clave
-# ajena hasta el Sprint 6 (H-27), y cuando la tenga habrá que sembrar un
-# agente aquí.
+# fixture no depende de nada del gobierno. Desde la 0013 `agente_id` tiene
+# clave ajena, así que se siembra un agente de banco de pruebas.
 #
 # La orden se inserta a mano en vez de por `rpc_abrir_orden` a propósito:
 # lo que se prueba es el CIERRE, y montar la apertura entera (cartera,
@@ -52,6 +51,8 @@ begin
     delete from public.ordenes
      where cuenta_id in (select id from public.cuentas_simulacion where agente_id = 990001);
     delete from public.cuentas_simulacion where agente_id = 990001;
+    insert into public.agentes (id, nombre, objetivo_diario_pct, estrategia)
+    values (990001, 'prueba-concurrencia', 2, '{}') on conflict do nothing;
 
     insert into public.cuentas_simulacion
         (agente_id, saldo_inicial, saldo_disponible, capital_maximo_alcanzado)

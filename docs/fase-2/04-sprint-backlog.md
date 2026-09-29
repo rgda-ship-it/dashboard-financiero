@@ -760,6 +760,58 @@ operaciones, **para** operar con la lógica del sistema.
 **Objetivo**: los tres agentes operan solos una semana completa y pasan su
 primer corte semanal. Requisitos 7, 8, 9 y 10.
 
+> **Ejecución del Sprint 6 (2026-09-29).** Migración `0013_agentes.sql`
+> (la numeración del plan —0005, 0006, 0007— ya estaba ocupada: las
+> historias se agrupan en una sola migración, como en el Sprint 5).
+> Decisiones del dueño:
+>
+> | Tema | Plan | Decisión |
+> |---|---|---|
+> | Ciclo y corte (H-27, H-28) | Edge Functions `ciclo-agentes` y `corte-semanal` | **D11 — SQL sobre `pg_cron`**, como D8 |
+> | Universo | Sin especificar («la cartera del agente») | **D12 — todo el catálogo activo** |
+> | Arranque | Sin especificar | **D13 — en pausa; los activa un admin**, auditado |
+> | Entrega | — | **D14 — un solo PR** |
+>
+> Diferencias con la spec, con motivo (el detalle, en la cabecera de la
+> migración):
+>
+> - **El corte corre los lunes a las 00:07 UTC** sobre la semana ISO que
+>   acaba de terminar, no el domingo a las 23:59: a esa hora el domingo
+>   aún no está cerrado y las órdenes del último minuto se perderían.
+> - **Un dimensionado por debajo de 10 $ descarta el candidato** en vez
+>   de marcar la cuenta `inoperante` (paso 8): ese margen pequeño suele
+>   ser G3, no ruina, y `rpc_evaluar_game_over` la devolvería a `activa`
+>   en el ciclo siguiente.
+> - **Una ocurrencia del backlog es un par (agente, día)**, no un ciclo:
+>   con 288 ciclos al día, el contador mediría el cron y no el problema.
+> - **El riesgo reducido dura hasta la siguiente `validada`** (criterio de
+>   H-28), no «la semana siguiente» (doc 03 §6.2): se contradicen y manda
+>   el criterio de aceptación. No se acumula.
+> - **Un agente en pausa no tiene días operables**, igual que Prudencia
+>   no los tiene en fin de semana.
+> - **Solo se adoptan prácticas compatibles** con el perfil del agente:
+>   una de cripto dejaría a Prudencia sin ningún candidato.
+> - **«Mejoró» se mide contra el valor absoluto** del rendimiento previo:
+>   `despues > antes × 1,1` invierte el sentido con un `antes` negativo.
+> - **Sin Edge Functions no hay `resolver-activo`** (se retiró en el
+>   Sprint 4): el límite de 30 por minuto y usuario se aplica a
+>   `rpc_buscar_activo` y `rpc_solicitar_activo`, que son su sucesor.
+> - **H-34 ya estaba casi entero**: RLS en todas las tablas (I8),
+>   `search_path` en toda `SECURITY DEFINER` (I9), concurrencia,
+>   cuadre y guardarraíles son de sprints anteriores y corren en cada PR.
+>   Lo nuevo es la coherencia de `guia.js`.
+>
+> **Un fallo que habría llegado a producción**: desde este sprint todo
+> aprobado lee las cuentas de los agentes (requisito 10), y
+> `leerCuenta()` del simulador cogía «la última cuenta visible». Un
+> usuario sin cuenta habría visto la de Audacia como suya. Filtra ahora
+> por el usuario de la sesión.
+>
+> Invariantes nuevas **I41–I53** (el ciclo y el corte de verdad, con un
+> universo de señales controlado); se comprobó que I45, I47 e I48 se
+> ponen en rojo al romper N9, N10 y el filtro de prácticas. Tests Python
+> 133 → 143; frontend 12 → 17.
+
 ---
 
 ### H-27 · Ciclo de agente determinista · 5 pts

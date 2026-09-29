@@ -142,7 +142,7 @@ export const SECCIONES = [
         formula:
           "cian   · sistema (estado del stream)\námbar  · proveedor de datos (reintentos, 429)\nlatón  · cambio de fase de riesgo\nrojo   · deterioro detectado en una posición",
         lectura:
-          "Se conservan los últimos 50 eventos en este navegador, así que sobreviven a una recarga. No viajan a ningún servidor: son avisos del sistema, no datos de cartera. El botón «Limpiar» del pie vacía ese historial.",
+          "Los eventos viven en la base de datos y llegan en tiempo real, sin recargar: los del sistema y los de los agentes los ve todo usuario aprobado; los tuyos, solo tú. El histórico sobrevive al cierre de sesión y se ve igual en cualquier dispositivo. «Limpiar» no borra nada —los eventos globales son de todos—: mueve tu marca de lectura, que se guarda en tu perfil y te sigue a otro equipo.",
       },
       {
         termino: "Fases de riesgo",
@@ -232,6 +232,62 @@ export const SECCIONES = [
     ],
   },
   {
+    id: "agentes",
+    titulo: "Agentes",
+    resumen: "Tres estrategias deterministas sobre el mismo mercado, con meta diaria, corte semanal y memoria compartida.",
+    items: [
+      {
+        termino: "Tres perfiles, no tres números",
+        formula:
+          "            meta   riesgo/op   posiciones   R:R mín   fuerza         margen máx\nPrudencia    2 %     1,5 %          3          2,0     alta             40 %\nCadencia     5 %     3,0 %          2          1,5     media o alta     55 %\nAudacia      7 %     5,0 %          2          1,2     media o alta     60 %",
+        lectura:
+          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
+      },
+      {
+        termino: "Cómo elige un agente",
+        formula:
+          "candidatos = señales frescas de todo el catálogo activo\n             con MÁS indicadores alcistas que bajistas\n             operables, de su fuerza, origen y R:R\n             sin posición abierta en ese activo\n             que cumplan las prácticas que ha adoptado\n\nelegido, por orden:\n  1. mayor R:R   2. mayor fuerza\n  3. mayor dominancia neta   4. símbolo alfabético",
+        lectura:
+          "Cada cinco minutos. «Sin candidatos» es una salida válida: no se relaja ningún criterio para forzar una operación. Cada orden guarda su racional —cuánto faltaba para la meta, qué se evaluó y los tres mejores descartes con su motivo— y se lee desplegando la fila en la tabla de operaciones.",
+        nota: "El agente propone y la base de datos dispone: sus órdenes pasan por los mismos cinco límites del servidor que las tuyas.",
+      },
+      {
+        termino: "Meta diaria sobre saldo compuesto",
+        formula:
+          "objetivo de hoy = saldo con el que amanece × meta %\ncumplido        = P&L REALIZADO de hoy ≥ objetivo\nmeta cumplida   → no abre nada más hoy",
+        lectura:
+          "El interés compuesto no es una fórmula: es que el objetivo de cada día se calcula sobre el saldo con el que ese día empieza. Si ayer se perdió, hoy la meta es más pequeña en dólares. Solo cuenta el dinero que volvió a la cuenta: una posición flotando a favor no cumple nada, porque mañana puede revertir. Y con la meta cumplida el agente deja de abrir posiciones — sin esa regla, quien llega al 7 % a las diez sigue operando hasta perderlo.",
+        nota: "La línea discontinua del gráfico es la trayectoria teórica si se cumpliera la meta todos los días operables: 500 × (1 + meta)^n. Es una referencia, no un plan.",
+      },
+      {
+        termino: "Corte semanal",
+        formula:
+          "ratio = días cumplidos / días OPERABLES (nunca / 7)\n\nvalidada    ratio ≥ 0,70  → publica lo que le funcionó\naviso       ratio ≥ 0,40  → adopta una práctica ajena\ndeficiente  ratio < 0,40  → adopta, y riesgo a la mitad\n2 deficientes seguidas    → cuarentena: solo fuerza alta, 1 posición",
+        lectura:
+          "Lo hace el sistema cada lunes de madrugada (UTC) sobre la semana que acaba de terminar. Prudencia se mide sobre sus cinco días de bolsa y Audacia sobre siete: cada uno contra su propio calendario. Un agente en pausa tampoco suma días operables. El riesgo reducido y la cuarentena se levantan con la siguiente semana validada.",
+      },
+      {
+        termino: "Prácticas compartidas",
+        formula:
+          "se publica si:  ≥ 3 operaciones con la misma firma\n                ≥ 66 % cerradas en objetivo\n                P&L medio > 0\n\nse refuta si:   2 agentes la adoptan y les empeora",
+        lectura:
+          "Una práctica no es un consejo en prosa: es un filtro ejecutable sobre las señales —clase, fuerza, origen de niveles, tramo de ATR y de R:R— que otro agente aplica al elegir. Adoptarla cambia de verdad sus candidatos. Dos semanas después se compara su rendimiento medio antes y después; si empeora, la abandona y le pone un voto negativo, y con dos fracasos la práctica deja de ofrecerse a nadie.",
+      },
+      {
+        termino: "Lo que piden los agentes",
+        formula: "prioridad  = ocurrencias × agentes distintos que lo piden\nocurrencia = un agente, un día",
+        lectura:
+          "Los agentes no opinan: cada petición nace de un disparador que observa una limitación real —tres días sin ninguna señal alcista, un activo sin volatilidad conocida, stops que antes rozaron el objetivo— y lleva la evidencia con las órdenes o los días concretos. Sin evidencia, la base de datos no la admite. Lo que los tres piden a la vez sube solo a lo más alto.",
+      },
+      {
+        termino: "Game Over y reinicio",
+        formula: null,
+        lectura:
+          "Un Game Over no se revierte. Reiniciar a un agente es una acción de administrador que crea una cuenta NUEVA de 500 $ y conserva la anterior entera: el histórico del intento fallido es el dato más valioso del experimento.",
+      },
+    ],
+  },
+  {
     id: "limites",
     titulo: "Límites que conviene conocer",
     resumen: "Lo que el sistema no puede ver hoy, por el origen de los datos.",
@@ -269,10 +325,29 @@ export const SECCIONES = [
           "Bajo el precio aparece «atrasado · hace N» cuando ese activo debería haberse recalculado ya y no lo ha hecho; se muestra su última lectura válida. Con la bolsa cerrada una acción no se atrasa: el dato del cierre es el último posible. «Suspendido» significa tres fallos seguidos del proveedor: el sistema lo reintenta con espera creciente y, mientras, conserva la última lectura. Los festivos de NYSE no se descuentan aquí y pueden marcar acciones como atrasadas.",
       },
       {
+        termino: "El monitor ve un precio por minuto",
+        formula: null,
+        lectura:
+          "Las posiciones se evalúan una vez por minuto contra un único precio: lo que el mercado haga entre dos pasadas no se ve. Entre que un precio cruza un nivel y la posición se cierra pueden pasar unos dos minutos, y un hueco de mercado se registra al nivel, no al precio del hueco.",
+      },
+      {
+        termino: "Las señales tienen la edad del escaneo",
+        formula: "acciones: cada 30 min con la bolsa abierta · cripto: cada hora",
+        lectura:
+          "Ni tú ni los agentes operáis sobre el mercado de este segundo, sino sobre el último escaneo. Por eso una señal de más de 90 minutos no abre posiciones: describe un mercado que ya no existe.",
+      },
+      {
+        termino: "Sin cierre parcial ni trailing stop",
+        formula: null,
+        lectura:
+          "Una posición se abre y se cierra entera, a mercado: en el objetivo, en el stop, por liquidación o a mano. No hay órdenes limitadas, ni cierres parciales, ni stops que sigan al precio. Los agentes lo piden solos en su backlog cuando lo echan en falta, con las órdenes que lo demuestran.",
+      },
+      {
         termino: "Esto no es asesoramiento",
         formula: null,
         lectura:
-          "El sistema describe confluencias técnicas y acota el riesgo con topes duros. No conoce tu situación financiera, tu horizonte ni tu tolerancia a la pérdida, y ninguna de sus cifras es una recomendación de inversión.",
+          "Es una simulación educativa. El sistema describe confluencias técnicas y acota el riesgo con topes duros. No conoce tu situación financiera, tu horizonte ni tu tolerancia a la pérdida, y ninguna de sus cifras es una recomendación de inversión.",
+        nota: "Ninguna cifra de este sistema es dinero real, y por eso los importes se guardan sin cifrar. Es la condición que hace segura esa decisión: si algún día hubiera dinero real, habría que revisarla antes de introducir un solo importe.",
       },
     ],
   },

@@ -59,6 +59,15 @@
   --warn-soft: rgba(233, 185, 73, 0.12);
   --warn-line: rgba(233, 185, 73, 0.3);
 
+  /* ── Identidad de los agentes (Sprint 6) ─────────────────────────── */
+  /* Tres tonos categóricos validados juntos sobre --ink-850 con el
+     comprobador de paletas (todos los pares: CVD ΔE ≥ 8,4 · visión normal
+     ≥ 16,2 · contraste ≥ 3:1). Ni verde ni rojo, que son de mercado, ni
+     latón, que es de lo que el sistema protege. Identifican, no valoran. */
+  --agente-1: #199eb0;   /* Prudencia */
+  --agente-2: #d95926;   /* Cadencia  */
+  --agente-3: #9085e9;   /* Audacia   */
+
   /* ── Trazos ──────────────────────────────────────────────────────── */
   --line-1: rgba(255, 255, 255, 0.06);   /* separadores internos */
   --line-2: rgba(255, 255, 255, 0.1);    /* bordes de panel */

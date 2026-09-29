@@ -10,7 +10,6 @@ import http from "node:http";
 
 import escanerRouter from "./routes/escaner.js";
 import portfolioRouter from "./routes/portfolio.js";
-import { iniciarWebSocket } from "./services/websocket.js";
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -65,10 +64,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor." });
 });
 
-// Se usa un servidor HTTP crudo (no app.listen directo) para que Express
-// y el WebSocket compartan el mismo puerto, tal como definió el Arquitecto.
+// El WebSocket de eventos que compartía este puerto se retiró en el
+// Sprint 6 (H-32): los eventos viven en `eventos_sistema` y llegan al
+// navegador por Supabase Realtime.
 const servidorHttp = http.createServer(app);
-iniciarWebSocket(servidorHttp);
 
 servidorHttp.listen(PORT, () => {
   console.log(`[SYS] Backend escuchando en http://localhost:${PORT}`);

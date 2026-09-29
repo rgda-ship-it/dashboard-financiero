@@ -33,10 +33,23 @@ async function llamar(consulta) {
 }
 
 /** La cuenta del usuario, con el equity calculado al precio de ahora.
- *  `null` si todavía no ha declarado saldo. */
+ *  `null` si todavía no ha declarado saldo.
+ *
+ *  El filtro por usuario NO es redundante con la RLS: desde el Sprint 6
+ *  todo aprobado lee también las cuentas de los agentes (requisito 10), y
+ *  un administrador lee todas. Sin él, «la última cuenta visible» sería la
+ *  de Audacia para quien aún no ha abierto la suya. */
 export async function leerCuenta() {
+  const { data } = await supabase.auth.getSession();
+  const uid = data.session?.user?.id;
+  if (!uid) return null;
   const filas = await llamar(
-    supabase.from("v_cuentas_equity").select("*").order("id", { ascending: false }).limit(1)
+    supabase
+      .from("v_cuentas_equity")
+      .select("*")
+      .eq("usuario_id", uid)
+      .order("id", { ascending: false })
+      .limit(1)
   );
   return filas?.[0] ?? null;
 }
@@ -81,11 +94,13 @@ export const cerrarOrden = (ordenId) =>
 
 /** El libro mayor. Se muestra porque el saldo de esta pantalla no es un
  *  número guardado: es la suma de estas líneas. */
-export const leerMovimientos = (limite = 40) =>
+export const leerMovimientos = (cuentaId, limite = 40) =>
   llamar(
     supabase
       .from("movimientos_saldo")
       .select("id, orden_id, tipo, importe, saldo_disponible_resultante, saldo_bloqueado_resultante, creado_en")
+      // Por cuenta: un administrador lee el libro mayor de todas.
+      .eq("cuenta_id", cuentaId)
       .order("id", { ascending: false })
       .limit(limite)
   );
