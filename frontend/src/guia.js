@@ -209,7 +209,7 @@ export const SECCIONES = [
           "cupo por posición = margen máx ÷ nº máx de posiciones\n                   (60 % ÷ 3 = 20 % del equity por defecto)\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
         lectura:
           "La cantidad sugerida no deja que una sola posición se lleve todo el margen: si el stop está muy cerca, el cálculo por riesgo pediría un nominal enorme, y sin cupo esa primera orden agotaría el margen de la cuenta. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu tope) y el apalancamiento de la fase.",
-        nota: "Con unidades enteras, una cuenta pequeña puede no llegar a una acción cara: 75 $ de nominal no compran una acción de 100 $. Entonces no hay sugerencia para esa acción, y es correcto.",
+        nota: "Con unidades enteras, el riesgo declarado puede no llegar para una acción: con 500 $ y un 1,5 % de riesgo (7,50 $), una acción de 100 $ con el stop al 10 % arriesga 10 $. Entonces se compra UNA, siempre que su riesgo no pase del 10 % del equity y su margen quepa. No es falta de poder de compra: el apalancamiento cambia el margen, no lo que se pierde si salta el stop.",
       },
       {
         termino: "Cerrar una parte",

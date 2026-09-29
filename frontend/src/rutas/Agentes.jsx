@@ -167,8 +167,16 @@ function TarjetaAgente({ a }) {
 }
 
 // ── Racional de una orden ────────────────────────────────────────────
-function Racional({ r }) {
+function Racional({ r, o }) {
   if (!r) return <p className="detail__motivo">Esta orden no guarda racional.</p>;
+  // Riesgo con el que se abrió frente al que declara la estrategia. Solo
+  // supera lo declarado por el mínimo de una acción entera (0017), y nunca
+  // el 10 % del equity (G2).
+  const stop = Number(o?.sl_original ?? o?.sl);
+  const cantidadInicial = Number(r.elegido?.cantidad ?? o?.cantidad);
+  const riesgo = o ? cantidadInicial * (Number(o.precio_entrada) - stop) : null;
+  const riesgoPct = riesgo != null && Number(r.equity) > 0 ? (riesgo / Number(r.equity)) * 100 : null;
+  const declarado = Number(r.parametros?.riesgo_pct_operacion);
   const elegido = r.elegido ?? {};
   const descartes = Object.entries(r.descartes_por_motivo ?? {}).filter(([m]) => m !== "candidata");
   return (
@@ -191,6 +199,14 @@ function Racional({ r }) {
           {formatearPrecio(Number(elegido.margen))} de margen. Estrategia v{r.version_estrategia}
           {r.practicas_aplicadas?.length > 0 && `, con las prácticas ${r.practicas_aplicadas.map((p) => `#${p}`).join(", ")}`}.
         </p>
+        {riesgoPct != null && Number.isFinite(riesgoPct) && (
+          <p className="detail__motivo">
+            Riesgo hasta el stop al abrir: {formatearPrecio(riesgo)} ({riesgoPct.toFixed(1)} % del equity;
+            declara {declarado} %).
+            {riesgoPct > declarado + 0.05 &&
+              " Por encima de lo declarado porque su riesgo no llegaba para una acción entera: compró una, dentro del 10 % que admite el servidor."}
+          </p>
+        )}
         {r.rechazos_servidor?.length > 0 && (
           <p className="detail__motivo">
             Antes, el servidor rechazó:{" "}
@@ -276,7 +292,7 @@ function FilaOperacion({ o, abierta, alAbrir }) {
       {abierta && (
         <tr className="detail">
           <td colSpan={8}>
-            <Racional r={o.racional} />
+            <Racional r={o.racional} o={o} />
           </td>
         </tr>
       )}
