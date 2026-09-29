@@ -236,3 +236,16 @@ def test_si_no_llega_para_una_accion_no_hay_operacion():
                              precio="900", sl="880", riesgo_pct="1",
                              leverage_recomendado="1", unidades_enteras=True)
     assert e.value.motivo == "cantidad_nula"
+
+
+def test_si_el_riesgo_no_llega_para_una_accion_se_compra_una_dentro_de_g2():
+    # Prudencia: 1,5 % de 500 $ = 7,50 $. Una acción de 100 $ con el stop
+    # al 10 % arriesga 10 $ (el 2 % del equity): se compra una.
+    d = dimensionar_posicion(equity="500", saldo_disponible="500", saldo_bloqueado="0",
+                             precio="100", sl="90", riesgo_pct="1.5",
+                             margen_comprometido_max_pct="40", leverage_recomendado="5",
+                             apalancamiento_maximo_propio="3", cupo_pct="13.33",
+                             unidades_enteras=True)
+    assert d.cantidad == Decimal("1")
+    assert d.margen == Decimal("33.34")
+    assert riesgo_real(d, "100", "90") <= Decimal("50")

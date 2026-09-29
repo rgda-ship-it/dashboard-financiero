@@ -2570,6 +2570,39 @@ end
 $s7$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I62 · Mínimo de una acción (0017).
+-- ═════════════════════════════════════════════════════════════════════
+do $i62$
+declare
+    v_dim record;
+begin
+    -- Prudencia con 500 $: 7,50 $ de riesgo no llegan para una acción de
+    -- 100 $ con el stop al 10 % (10 $). Se compra una: 2 % del equity.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        500, 500, 0, 100, 90, 1.5, 40, 5, 3, 5, 13.33, true);
+    if v_dim.cantidad is distinct from 1 or v_dim.margen <> 33.34 then
+        raise exception 'I62 FALLO: debía comprar 1 acción con 33,34 $ de margen, dio % y %',
+              v_dim.cantidad, v_dim.margen;
+    end if;
+    -- Pero nunca por encima de G2: una acción de 900 $ con el stop a 20 $
+    -- arriesga el 20 % de una cuenta de 100 $.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        100, 100, 0, 900, 880, 1, 60, 1, null, 5, null, true);
+    if v_dim.motivo is distinct from 'cantidad_nula' then
+        raise exception 'I62 FALLO: el mínimo de una acción no puede saltarse G2, dio %', v_dim.motivo;
+    end if;
+    -- Ni por encima del saldo: una acción de 2.000 $ a 5x pide 400 $ de
+    -- margen y solo hay 300 disponibles.
+    select * into v_dim from public.fn_dimensionar_posicion(
+        1000, 300, 0, 2000, 1990, 0.1, 60, 5, null, 5, null, true);
+    if v_dim.motivo is distinct from 'cantidad_nula' then
+        raise exception 'I62 FALLO: el mínimo de una acción no puede pasar del saldo, dio %', v_dim.motivo;
+    end if;
+    raise notice 'PASS  I62 si el riesgo no llega para una acción se compra una, sin pasar de G2 ni del saldo';
+end
+$i62$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

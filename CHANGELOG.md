@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-29 — Mínimo de una acción (0017)
+
+### Cambiado — si el riesgo no llega para una acción entera, se compra una
+Con acciones enteras, el riesgo declarado podía no llegar para una sola:
+Prudencia arriesga 7,50 $ de sus 500 $ y una acción de 100 $ con el stop
+al 10 % arriesga 10 $. No le faltaba poder de compra (a 5× mueve 2.500 $):
+el apalancamiento cambia el margen, no lo que se pierde si salta el stop.
+Ahora se compra una acción si su riesgo no pasa del 10 % del equity (G2) y
+su margen cabe en el saldo y en G3. El racional de la orden muestra el
+riesgo real frente al declarado. I62 y un test más en Python (147 → 148).
+
 ## [Sin publicar] - 2026-09-29 — Reparto del capital, cierres parciales y agentes que aprenden de cada decisión (0016, D16)
 
 ### Corregido — una sola posición se llevaba todo el margen

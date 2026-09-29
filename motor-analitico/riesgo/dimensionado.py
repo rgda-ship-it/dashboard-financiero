@@ -60,6 +60,10 @@ PASO_APALANCAMIENTO = Decimal("0.1")
 # señal, y un margen calculado al céntimo del saldo fallaría el CHECK.
 FRACCION_SALDO_UTILIZABLE = Decimal("0.95")
 
+# G2: el riesgo de una operación nunca pasa del 10 % del equity. Lo impone
+# `rpc_abrir_orden`; aquí solo lo usa el mínimo de una acción (0017).
+RIESGO_MAXIMO_PCT = Decimal("10")
+
 
 class SinOperacion(Exception):
     """El dimensionado no encuadra ninguna operación.
@@ -212,6 +216,17 @@ def dimensionar_posicion(
     # céntimo, igual que en SQL).
     if unidades_enteras:
         cantidad = (margen * apalancamiento / precio).to_integral_value(rounding=ROUND_FLOOR)
+        # Mínimo de UNA acción (0017): si el riesgo declarado no llega para
+        # una, se compra una siempre que su riesgo no pase del 10 % del
+        # equity (G2) y su margen quepa en el saldo y en G3. El cupo no se
+        # aplica: es una recomendación, y la alternativa es no operar.
+        margen_una = (precio / apalancamiento).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
+        if (
+            cantidad < 1
+            and precio - sl <= equity * RIESGO_MAXIMO_PCT / Decimal(100)
+            and margen_una <= min(saldo_disponible * FRACCION_SALDO_UTILIZABLE, margen_libre)
+        ):
+            cantidad = Decimal(1)
         if cantidad < 1:
             raise SinOperacion("cantidad_nula")
         margen = (cantidad * precio / apalancamiento).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
