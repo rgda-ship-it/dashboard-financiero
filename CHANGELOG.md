@@ -4,6 +4,20 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-30 — Corrección: las criptos dejaban de ser operables cada madrugada
+
+### Corregido — ATR nulo entre las 00:00 y las 04:00 UTC
+CoinGecko fecha cada vela de 4 h por su cierre, así que en las primeras
+horas UTC el día en curso aún no tiene ninguna vela cerrada: su fila queda
+sin máximo ni mínimo reales y el ATR de la última fila —el que usaba el
+escaneo— salía NaN. Por la regla protegida nº4 eso dejaba todas las
+criptos no operables unas cuatro horas cada noche. Lo detectaron los propios
+agentes: las peticiones «Volatilidad de bitcoin/ethereum/…» de su backlog,
+con señales sin ATR fechadas siempre entre las 02:00 y las 04:10 UTC.
+
+`atr_vigente` usa el ATR de ayer cuando el de hoy falta solo por eso; si
+faltan los dos últimos días sigue siendo «volatilidad no disponible». Cuatro
+tests, uno de punta a punta que reproduce el caso (153 → 157).
 ## [Sin publicar] - 2026-09-30 — Tus límites y volver a Fase 1 desde /admin (0020)
 
 ### Añadido
