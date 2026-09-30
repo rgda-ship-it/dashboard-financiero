@@ -2637,6 +2637,57 @@ end
 $i63$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I64 · Cada usuario ajusta los límites de SU cuenta (0020).
+-- ═════════════════════════════════════════════════════════════════════
+do $i64$
+declare
+    v_u      uuid := gen_random_uuid();
+    v_sin    uuid := gen_random_uuid();
+    v_json   jsonb;
+    v_texto  text;
+    v_malos  int := 0;
+begin
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_u, 'ajustes@ejemplo.com', now()), (v_sin, 'sin-cuenta@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id in (v_u, v_sin);
+    perform pg_temp.como(v_u);
+    perform public.rpc_crear_cuenta_simulacion(1000);
+    v_json := public.rpc_configurar_cuenta(6, 1.5, 50, 1.2);
+    select format('%s/%s/%s/%s', max_posiciones_abiertas, riesgo_pct_operacion,
+                  margen_comprometido_max_pct, ratio_rr_minimo) into v_texto
+      from public.v_cuentas_equity where usuario_id = v_u;
+    -- Nulo = no tocar.
+    perform public.rpc_configurar_cuenta(null, null, null, 2.0);
+    if (select ratio_rr_minimo from public.v_cuentas_equity where usuario_id = v_u) <> 2.0
+       or (select max_posiciones_abiertas from public.v_cuentas_equity where usuario_id = v_u) <> 6 then
+        perform pg_temp.como_dueno();
+        raise exception 'I64 FALLO: un parámetro nulo debía dejar el valor como estaba';
+    end if;
+    -- Fuera de rango: ni 11 posiciones, ni 12 % de riesgo, ni 90 % de margen.
+    begin perform public.rpc_configurar_cuenta(11); v_malos := v_malos + 1;
+    exception when invalid_parameter_value then null; end;
+    begin perform public.rpc_configurar_cuenta(null, 12); v_malos := v_malos + 1;
+    exception when invalid_parameter_value then null; end;
+    begin perform public.rpc_configurar_cuenta(null, null, 90); v_malos := v_malos + 1;
+    exception when invalid_parameter_value then null; end;
+    -- Sin cuenta propia no hay nada que configurar (y no toca la de otro).
+    perform pg_temp.como(v_sin);
+    begin perform public.rpc_configurar_cuenta(4); v_malos := v_malos + 1;
+    exception when no_data_found then null; end;
+    perform pg_temp.como_dueno();
+
+    if v_texto <> '6/1.50/50.00/1.20' or v_malos <> 0 then
+        raise exception 'I64 FALLO: ajustes guardados % y % valores fuera de rango aceptados', v_texto, v_malos;
+    end if;
+    if not exists (select 1 from public.eventos_sistema
+                    where usuario_id = v_u and datos ? 'antes' and datos ? 'despues') then
+        raise exception 'I64 FALLO: el cambio de límites no dejó su evento';
+    end if;
+    raise notice 'PASS  I64 cada usuario ajusta los límites de su cuenta dentro de rango; nulo no toca; fuera de rango y sin cuenta se rechazan';
+end
+$i64$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

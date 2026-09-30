@@ -263,3 +263,16 @@
 /* ── Cierre parcial (0016) ── */
 .sim__cierre { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: nowrap; }
 .sim__btn-parcial { padding-inline: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+/* ── Tus límites (0020) ── */
+.sim__ajustar { margin-top: var(--sp-3); }
+.sim__limites {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--ink-900);
+}

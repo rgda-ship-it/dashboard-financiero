@@ -11,6 +11,7 @@ import {
   TIPOS_BACKLOG,
   cambiarEstadoAgente,
   colorDe,
+  revertirFase,
   leerBacklog,
   leerRanking,
   reiniciarAgente,
@@ -49,8 +50,9 @@ const ACCIONES = {
 // ── Agentes (Sprint 6, D13) ──────────────────────────────────────────
 // Nacen en pausa: ponerlos en marcha es una decisión humana y queda
 // auditada. Reiniciar tras un Game Over crea una cuenta NUEVA (N14).
-function FilaAgente({ a, ocupado, alCambiar, alReiniciar }) {
+function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
   const [confirmando, setConfirmando] = useState(false);
+  const [revirtiendo, setRevirtiendo] = useState(false);
   const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado };
   return (
     <li className="admin__fila">
@@ -64,6 +66,8 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar }) {
           {a.estado_previo === "cuarentena" && " (vuelve a cuarentena al reanudar)"}
           {" · "}equity {a.equity != null ? formatearPrecio(Number(a.equity)) : "—"}
           {" · "}cuenta #{a.cuenta_id}
+          {" · "}
+          {a.fase === "fase_2_consolidacion" ? "Fase 2 (tope 3×)" : "Fase 1 (tope 5×)"}
         </p>
       </div>
       <div className="admin__acciones">
@@ -79,6 +83,31 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar }) {
             Pausar
           </button>
         )}
+        {/* Regla protegida nº5: de Fase 2 no se vuelve sola. Volverá a Fase 2
+            con el primer criterio que cumpla (8 cierres, −30 %, 3×). */}
+        {a.fase === "fase_2_consolidacion" && a.estado !== "game_over" &&
+          (revirtiendo ? (
+            <>
+              <button
+                type="button"
+                className="btn btn--peligro"
+                disabled={ocupado}
+                onClick={() => {
+                  setRevirtiendo(false);
+                  alRevertir(a.cuenta_id);
+                }}
+              >
+                Confirmar: volver a Fase 1 (5×)
+              </button>
+              <button type="button" className="btn" onClick={() => setRevirtiendo(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn" disabled={ocupado} onClick={() => setRevirtiendo(true)}>
+              Volver a Fase 1
+            </button>
+          ))}
         {a.estado === "game_over" &&
           (confirmando ? (
             <>
@@ -383,6 +412,7 @@ export default function Admin() {
                 ocupado={ocupado}
                 alCambiar={(id, estado) => ejecutarAgente(() => cambiarEstadoAgente(id, estado))}
                 alReiniciar={(id) => ejecutarAgente(() => reiniciarAgente(id))}
+                alRevertir={(cuentaId) => ejecutarAgente(() => revertirFase(cuentaId))}
               />
             ))}
           </ul>
