@@ -715,3 +715,37 @@ if __name__ == "__main__":
             print(f"PASS  {t.__name__}")
         except AssertionError as e:
             print(f"FAIL  {t.__name__}: {e}")
+
+
+
+# ── ATR en la madrugada UTC (2026-09-30) ────────────────────────────
+
+def test_en_la_madrugada_se_usa_el_atr_de_ayer():
+    """Entre las 00:00 y las 04:00 UTC el día en curso no tiene ninguna vela
+    de 4 h cerrada: su ATR es NaN y dejaba todas las criptos no operables."""
+    serie = pd.Series([2.1, 2.2, np.nan])
+    assert servicio_interno.atr_vigente(serie) == 2.2
+
+
+def test_con_el_atr_de_hoy_se_usa_el_de_hoy():
+    assert servicio_interno.atr_vigente(pd.Series([2.1, 2.2, 2.3])) == 2.3
+
+
+def test_si_faltan_dos_dias_no_se_inventa_volatilidad():
+    # Ya no es la madrugada: es un problema de datos, y la regla nº4 tiene
+    # que degradar al mínimo.
+    assert math.isnan(servicio_interno.atr_vigente(pd.Series([2.1, np.nan, np.nan])))
+    assert math.isnan(servicio_interno.atr_vigente(pd.Series([], dtype="float64")))
+
+
+def test_la_vela_del_dia_sin_velas_de_4h_cerradas_da_atr_nan_en_la_ultima_fila():
+    """El caso real, de punta a punta: sin velas de 4 h del día en curso, la
+    última fila no tiene rango y su ATR es NaN; el de la penúltima sí existe."""
+    market_chart = _market_chart_sintetico()
+    ultimo_dia = pd.Timestamp(market_chart["prices"][-1][0], unit="ms", tz="UTC").normalize()
+    velas = [v for v in _ohlc_4h_sintetico()
+             if pd.Timestamp(v[0], unit="ms", tz="UTC").normalize() < ultimo_dia]
+    marco = construir_velas_diarias(market_chart, velas)
+    atr = calcular_indicadores(marco)["ATR_14"]
+    assert math.isnan(atr.iloc[-1])
+    assert math.isfinite(servicio_interno.atr_vigente(atr))

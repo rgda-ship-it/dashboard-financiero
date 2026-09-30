@@ -91,6 +91,34 @@ def _obtener_fundamentales(ticker: str) -> dict:
     return conector_acciones.obtener_fundamentales(ticker)
 
 
+def atr_vigente(serie_atr):
+    """El ATR con el que se decide hoy.
+
+    Normalmente el de la última fila. La excepción es la madrugada UTC en
+    cripto: CoinGecko fecha cada vela de 4 h por su CIERRE, así que entre
+    las 00:00 y las 04:00 el día en curso todavía no tiene ninguna vela
+    cerrada, su fila no tiene máximo ni mínimo reales y su ATR es NaN. Hasta
+    el 2026-09-30 eso dejaba TODAS las criptos «sin volatilidad» —y por la
+    regla protegida nº4, no operables— unas cuatro horas cada noche; los
+    agentes lo denunciaron en su backlog («Volatilidad de bitcoin», etc.).
+
+    Solo se mira UN día atrás: el ATR es una media de 14 días y el de ayer
+    describe la volatilidad igual de bien que el de hoy a medio hacer. Si
+    faltan los dos últimos, ya no es la madrugada sino un problema de datos,
+    y se devuelve NaN para que la regla nº4 degrade al mínimo.
+    """
+    def valido(v) -> bool:
+        return v is not None and math.isfinite(float(v))
+
+    if len(serie_atr) == 0:
+        return float("nan")
+    if valido(serie_atr.iloc[-1]):
+        return serie_atr.iloc[-1]
+    if len(serie_atr) >= 2 and valido(serie_atr.iloc[-2]):
+        return serie_atr.iloc[-2]
+    return float("nan")
+
+
 def _obtener_ohlcv_y_fundamentales(ticker: str):
     return _obtener_ohlcv(ticker), _obtener_fundamentales(ticker)
 
@@ -153,7 +181,7 @@ def _escanear_ticker(ticker: str) -> dict:
     # Todo lo que venga del proveedor entra por _num(): un NaN en Close o en
     # ATR_14 (series demasiado cortas) no puede propagarse a las comparaciones
     # ni al JSON.
-    atr = _num(df_indicadores["ATR_14"].iloc[-1])
+    atr = _num(atr_vigente(df_indicadores["ATR_14"]))
     precio_actual = _num(df_indicadores["Close"].iloc[-1])
 
     # Volatilidad relativa. La guarda `if precio_actual` de antes era
