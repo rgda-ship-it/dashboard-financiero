@@ -18,6 +18,21 @@ con señales sin ATR fechadas siempre entre las 02:00 y las 04:10 UTC.
 `atr_vigente` usa el ATR de ayer cuando el de hoy falta solo por eso; si
 faltan los dos últimos días sigue siendo «volatilidad no disponible». Cuatro
 tests, uno de punta a punta que reproduce el caso (153 → 157).
+## [Sin publicar] - 2026-09-30 — Tus límites y volver a Fase 1 desde /admin (0020)
+
+### Añadido
+- **«Ajustar tus límites»** en el simulador (`rpc_configurar_cuenta`): cada
+  usuario cambia en SU cuenta las posiciones abiertas máx. (1–10), el riesgo
+  por operación (0,1–10 %), el margen comprometido máx. (10–80 %) y el R:R
+  mínimo (0–5). El apalancamiento no se ajusta (regla protegida nº1). Cada
+  cambio deja un evento con los valores de antes y de después. Salió de que
+  el simulador no dejaba abrir una cuarta posición (G4, 3 por defecto) y no
+  había dónde cambiarlo.
+- **«Volver a Fase 1»** en el panel de agentes de `/admin`, con
+  confirmación: llama a `rpc_revertir_fase_manual`, que ya existía pero solo
+  se podía usar con SQL. Auditado.
+
+I64.
 
 ## [Sin publicar] - 2026-09-30 — Cortafuegos de moneda: solo acciones en USD (0019)
 

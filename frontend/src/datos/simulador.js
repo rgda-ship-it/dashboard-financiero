@@ -90,6 +90,25 @@ export const abrirOrden = ({ cuentaId, senalId, precioEntrada, fechaEntrada, can
     })
   );
 
+/** Los límites de TU cuenta (0020). Nulo = no cambiar. El servidor valida
+ *  los rangos; estos solo sirven para avisar antes de la llamada. */
+export const configurarCuenta = ({ maxPosiciones, riesgoPct, margenMaxPct, rrMinimo }) =>
+  llamar(
+    supabase.rpc("rpc_configurar_cuenta", {
+      p_max_posiciones: maxPosiciones ?? null,
+      p_riesgo_pct: riesgoPct ?? null,
+      p_margen_max_pct: margenMaxPct ?? null,
+      p_ratio_rr_minimo: rrMinimo ?? null,
+    })
+  );
+
+export const RANGOS_CUENTA = {
+  maxPosiciones: { min: 1, max: 10, paso: 1 },
+  riesgoPct: { min: 0.1, max: 10, paso: 0.1 },
+  margenMaxPct: { min: 10, max: 80, paso: 5 },
+  rrMinimo: { min: 0, max: 5, paso: 0.1 },
+};
+
 /** Cerrar una parte de la posición al precio vivo (0016). Las acciones se
  *  cierran por unidades enteras: el servidor redondea hacia abajo. */
 export const cerrarParcial = (ordenId, fraccion) =>
