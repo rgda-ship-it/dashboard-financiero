@@ -1,9 +1,15 @@
+import { Suspense, lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Escaner from "./rutas/Escaner.jsx";
-import Admin from "./rutas/Admin.jsx";
-import Cartera from "./rutas/Cartera.jsx";
-import Simulador from "./rutas/Simulador.jsx";
-import Agentes from "./rutas/Agentes.jsx";
+
+// El escáner es la portada y va en el paquete principal; el resto de
+// módulos se descargan al entrar en ellos. Antes todo iba en un solo
+// fichero de más de 500 kB, y quien solo mira el escáner pagaba el
+// simulador, los agentes y la administración.
+const Admin = lazy(() => import("./rutas/Admin.jsx"));
+const Cartera = lazy(() => import("./rutas/Cartera.jsx"));
+const Simulador = lazy(() => import("./rutas/Simulador.jsx"));
+const Agentes = lazy(() => import("./rutas/Agentes.jsx"));
 import Login from "./rutas/acceso/Login.jsx";
 import Registro from "./rutas/acceso/Registro.jsx";
 import Recuperar from "./rutas/acceso/Recuperar.jsx";
@@ -28,6 +34,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ProveedorSesion>
+      <Suspense fallback={<p className="cargando-modulo">Cargando…</p>}>
       <Routes>
         {/* Acceso: públicas. */}
         <Route path="/login" element={<SoloSinSesion><Login /></SoloSinSesion>} />
@@ -50,6 +57,7 @@ export default function App() {
             Vercel, una URL escrita a mano no debe acabar en blanco. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
       </ProveedorSesion>
     </BrowserRouter>
   );

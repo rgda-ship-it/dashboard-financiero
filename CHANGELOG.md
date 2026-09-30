@@ -4,6 +4,29 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-30 — Cabos sueltos de la Fase 2 (0018)
+
+### Corregido — el respaldo semanal no incluía el experimento
+`respaldo.py` copiaba gobierno y catálogo, pero ni cuentas, ni órdenes, ni
+libro mayor, ni agentes: justo lo que no se regenera desde los proveedores.
+Ahora respalda las 17 tablas del simulador y los agentes, y de `senales`
+solo las que justifican una orden (`v_senales_evidencia`), sin las que las
+órdenes no se podrían restaurar. La restauración quita las columnas
+generadas y reajusta las secuencias al final (`fn_reajustar_secuencias`).
+Un test lee las migraciones y falla si una tabla nueva no tiene destino.
+
+### Añadido
+- `fn_retencion_eventos`: borra los avisos de más de 180 días y conserva
+  cortes semanales, Game Overs y cambios de fase. La invoca el respaldo.
+
+### Cambiado
+- El frontend carga bajo demanda los módulos distintos del escáner: el
+  paquete principal baja de más de 500 kB a 477 kB.
+- Se retira la dependencia `ws` del backend local (el WebSocket se quitó en
+  el Sprint 6).
+- El job de tests deja de llamarse «69 casos»; el README de la Fase 2 pasa
+  de «Propuesta» a «Ejecutada».
+
 ## [Sin publicar] - 2026-09-29 — Mínimo de una acción (0017)
 
 ### Cambiado — si el riesgo no llega para una acción entera, se compra una

@@ -266,3 +266,11 @@
 .prosa--lista li {
   margin-bottom: var(--sp-1);
 }
+
+/* Mientras se descarga un módulo cargado bajo demanda (App.jsx). */
+.cargando-modulo {
+  margin: var(--sp-8) auto;
+  color: var(--tx-3);
+  font-size: var(--fs-sm);
+  text-align: center;
+}

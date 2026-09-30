@@ -2,7 +2,10 @@
 
 > **Autor**: Equipo virtual de Fase 2 (ver `00-equipo-y-alcance.md` §1)
 > **Fecha**: 2026-09-20
-> **Estado**: **Propuesta** — pendiente de aprobación del dueño
+> **Estado**: **Ejecutada** — aprobada por el dueño y entregada en seis
+> sprints (2026-09-20 → 2026-09-29), con las decisiones D1–D17 que se
+> tomaron por el camino. El detalle de cada sprint, en `04-sprint-backlog.md`;
+> la bitácora, en el `CHANGELOG.md` de la raíz.
 > **Alcance**: convertir el dashboard de un instrumento local monousuario
 > en un servicio cloud multiusuario con simulador de trading y tres
 > agentes autónomos, con **coste de infraestructura 0 €**.

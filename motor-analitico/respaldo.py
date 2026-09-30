@@ -16,11 +16,21 @@ Tres trabajos:
    Una lectura basta para detectar que sigue vivo y fallar ruidosamente
    si no lo está.
 2. RESPALDO de lo irreemplazable: gobierno (quién está aprobado) y
-   experimento. Las tablas de precios, indicadores y señales quedan
-   fuera: son las grandes y se regeneran desde los proveedores. Sale un
-   JSON por tabla, que `scripts/restaurar_respaldo.py` vuelve a cargar.
+   experimento (cuentas, órdenes, libro mayor, agentes y todo lo que
+   aprenden). Precios e indicadores quedan fuera: son los grandes y se
+   regeneran desde los proveedores; de `senales` solo se copian las que
+   justifican una orden (`v_senales_evidencia`), sin las que las órdenes no
+   se podrían restaurar. Sale un JSON por tabla, que
+   `scripts/restaurar_respaldo.py` vuelve a cargar.
 3. RETENCIÓN de `senales` (doc 02 §6.1): sin podar, la tabla alcanza
-   ~600 MB en un año y el tier gratuito da 500 MB.
+   ~600 MB en un año y el tier gratuito da 500 MB. Y de los avisos de
+   `eventos_sistema` de más de 180 días (0018).
+
+Hasta el 2026-09-30 el respaldo no incluía NADA del simulador ni de los
+agentes: el experimento, que es lo único que no se regenera. La prueba
+`test_toda_tabla_tiene_destino` lee las migraciones y falla si una tabla
+nueva no está ni respaldada, ni declarada regenerable, ni excluida con su
+motivo, para que no vuelva a pasar.
 """
 
 from __future__ import annotations
@@ -42,6 +52,7 @@ from escritor_supabase import ClienteSupabase, ErrorEscritura  # noqa: E402
 # páginas. (PostgREST no admite ordenar por posición, `order=1`: lo
 # interpreta como una columna llamada "1" y responde 42703.)
 TABLAS = {
+    # Gobierno y catálogo
     "perfiles": "id",
     "carteras": "id",
     "activos": "id",
@@ -50,13 +61,46 @@ TABLAS = {
     "registro_consentimiento": "id",
     "solicitudes_activo": "id",
     "auditoria_admin": "id",
-    "eventos_sistema": "id",
     "catalogo_coingecko": "id",
+    # Experimento: simulador y agentes (desde 0018). `senales` aquí son
+    # solo las que justifican una orden (ver FUENTES).
+    "senales": "id",
+    "agentes": "id",
+    "agente_estrategia_versiones": "agente_id,version",
+    "cuentas_simulacion": "id",
+    "ordenes": "id",
+    "movimientos_saldo": "id",
+    "ordenes_parciales": "id",
+    "agente_dias": "agente_id,fecha",
+    "agente_semanas": "agente_id,semana_iso",
+    "mejores_practicas": "id",
+    "mp_adopciones": "id",
+    "mp_valoraciones": "practica_id,agente_id",
+    "agente_backlog": "id",
+    "agente_backlog_ocurrencias": "backlog_id,agente_id,fecha",
+    "agente_decisiones": "id",
+    "agente_ajustes": "id",
+    # Al final: apunta a agentes y a usuarios.
+    "eventos_sistema": "id",
 }
+
+# De dónde se LEE cada tabla, si no es de ella misma.
+FUENTES = {"senales": "v_senales_evidencia"}
+
+# Columnas generadas: se respaldan (se leen) pero no se pueden escribir, así
+# que la restauración las quita antes del upsert.
+COLUMNAS_GENERADAS = {"ordenes": ["nominal"], "senales": ["ratio_rr"]}
 
 # Regenerables desde los proveedores: no se respaldan (pesan y se
 # reconstruyen). Se listan aquí para que quede escrito POR QUÉ faltan.
-REGENERABLES = ["precios_diarios", "indicadores_diarios", "senales"]
+REGENERABLES = ["precios_diarios", "indicadores_diarios"]
+
+# Fontanería sin valor de negocio: colas y contadores de minutos.
+NO_RESPALDADAS = {
+    "monitor_peticiones": "cola de peticiones de precio del monitor; se purga sola a diario",
+    "control_despachos": "marca del último disparo de cada workflow",
+    "limites_uso": "contadores por minuto del límite de uso",
+}
 
 PAGINA = 1000
 
@@ -96,7 +140,7 @@ def main() -> int:
     fallos: list[str] = []
     for tabla, clave in TABLAS.items():
         try:
-            filas = descargar(cliente, tabla, clave)
+            filas = descargar(cliente, FUENTES.get(tabla, tabla), clave)
         except ErrorEscritura as exc:
             # Un respaldo incompleto que termina en verde es peor que no
             # tenerlo: el job se pone en rojo al final.
@@ -133,6 +177,17 @@ def main() -> int:
     resumen.append("")
     resumen.append("```json")
     resumen.append(json.dumps(podado, ensure_ascii=False))
+    resumen.append("```")
+    try:
+        eventos = cliente.rpc("fn_retencion_eventos")
+    except ErrorEscritura as exc:
+        print(f"::error::La retención de eventos falló: {exc}")
+        return 1
+    resumen.append("")
+    resumen.append("**Retención de `eventos_sistema`**")
+    resumen.append("")
+    resumen.append("```json")
+    resumen.append(json.dumps(eventos, ensure_ascii=False))
     resumen.append("```")
 
     if fallos:
