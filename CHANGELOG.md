@@ -4,6 +4,22 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-09-30 — Cortafuegos de moneda: solo acciones en USD (0019)
+
+### Añadido — el alta rechaza acciones que no coticen en dólares
+Todo el sistema supone USD y Yahoo da el precio en la moneda local: Toyota
+en yenes o Vodafone en peniques se habrían leído como dólares y el tamaño,
+el margen, el equity y el P&L habrían sido falsos. Y el ETL y el monitor
+solo conocen el horario de Nueva York. Dos capas:
+- la BD rechaza al pedirla una acción con sufijo de bolsa extranjera
+  (`7203.T`, `VOD.L`, `SAP.DE`, `600519.SS`); las clases de EE. UU. van
+  con guion (`BRK-B`);
+- `altas.py` comprueba la moneda que declara Yahoo antes de validarla.
+
+Los mercados en otras monedas quedan para el proyecto «multimercado»
+(conversión de divisas, horario por bolsa, lotes mínimos). I63 y tres tests
+de Python (150 → 153).
+
 ## [Sin publicar] - 2026-09-30 — Cabos sueltos de la Fase 2 (0018)
 
 ### Corregido — el respaldo semanal no incluía el experimento

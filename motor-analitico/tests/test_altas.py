@@ -79,3 +79,28 @@ def test_catalogo_normaliza_y_descarta_incompletas():
         {"id": "sin-simbolo", "symbol": "", "name": "Nada"},
     ])
     assert filas == [{"id": "bitcoin", "simbolo": "btc", "nombre": "Bitcoin"}]
+
+
+
+def _sin_red(monkeypatch):
+    monkeypatch.setattr(altas.servicio_interno, "_obtener_ohlcv", lambda s: object())
+
+
+def test_una_accion_en_usd_se_admite(monkeypatch):
+    _sin_red(monkeypatch)
+    assert altas.validar_accion("NVDA", moneda_de=lambda s: "USD") == (True, None)
+
+
+def test_una_accion_en_otra_moneda_se_rechaza_con_su_moneda(monkeypatch):
+    # Toyota en yenes y Vodafone en peniques: leídos como dólares, todos los
+    # números del simulador serían falsos.
+    _sin_red(monkeypatch)
+    for simbolo, moneda in [("7203.T", "JPY"), ("VOD.L", "GBp"), ("SAP.DE", "EUR"), ("600519.SS", "CNY")]:
+        ok, motivo = altas.validar_accion(simbolo, moneda_de=lambda s, m=moneda: m)
+        assert ok is False and moneda in motivo and "USD" in motivo
+
+
+def test_sin_moneda_confirmada_no_se_admite(monkeypatch):
+    _sin_red(monkeypatch)
+    ok, motivo = altas.validar_accion("RARO", moneda_de=lambda s: None)
+    assert ok is False and "USD" in motivo

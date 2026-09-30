@@ -2603,6 +2603,40 @@ end
 $i62$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I63 · Solo acciones en USD (0019).
+-- ═════════════════════════════════════════════════════════════════════
+do $i63$
+declare
+    v_u     uuid := gen_random_uuid();
+    v_json  jsonb;
+    v_texto text := '';
+begin
+    insert into auth.users (id, email, email_confirmed_at) values (v_u, 'usd@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id = v_u;
+    perform pg_temp.como(v_u);
+    -- Tokio, Londres, Xetra y Shanghái: rechazadas al pedirlas.
+    foreach v_json in array array['"7203.T"', '"VOD.L"', '"SAP.DE"', '"600519.SS"']::jsonb[]
+    loop
+        begin
+            perform public.rpc_solicitar_activo('accion', v_json #>> '{}');
+            v_texto := v_texto || (v_json #>> '{}') || ' ';
+        exception when invalid_parameter_value then null;
+        end;
+    end loop;
+    -- Una clase de acción de EE. UU. con guion sigue entrando como solicitud.
+    v_json := public.rpc_solicitar_activo('accion', 'BRK-B');
+    perform pg_temp.como_dueno();
+    if v_texto <> '' then
+        raise exception 'I63 FALLO: se aceptaron acciones de bolsas extranjeras: %', v_texto;
+    end if;
+    if v_json ->> 'estado' <> 'verificando' then
+        raise exception 'I63 FALLO: BRK-B debía quedar como solicitud, dio %', v_json;
+    end if;
+    raise notice 'PASS  I63 las acciones con sufijo de bolsa extranjera se rechazan al pedirlas; las de EE. UU. con guion entran';
+end
+$i63$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
