@@ -40,22 +40,48 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import etl  # noqa: E402
 import servicio_interno  # noqa: E402
+from conectores.yahoo_finance import ConectorAccionesYahoo  # noqa: E402
 from escritor_supabase import ClienteSupabase, ErrorEscritura  # noqa: E402
 
+# CORTAFUEGOS DE MONEDA (2026-09-30). Todo el sistema supone dólares:
+# `activos.moneda` vale siempre 'USD', y el tamaño, el margen, el equity y el
+# libro mayor no convierten nada. Yahoo devuelve el precio en la moneda
+# LOCAL —Toyota en yenes, Londres en peniques—, así que una acción que no
+# cotice en USD se leería como si sus yenes fueran dólares y todos los
+# números del simulador y de los agentes serían falsos. Hasta que exista
+# el proyecto «multimercado» (conversión, horario por bolsa, lotes), solo
+# se admiten acciones en USD. La BD ya rechaza los sufijos de bolsa
+# extranjera al pedirlas (0019); esto es la comprobación definitiva.
+MONEDAS_ADMITIDAS = {"USD"}
 
-def validar_accion(simbolo: str) -> tuple[bool, str | None]:
-    """Descarga las velas de una acción. (True, None) si existe.
+
+def _moneda_yahoo(simbolo: str) -> str | None:
+    return ConectorAccionesYahoo().obtener_moneda(simbolo)
+
+
+def validar_accion(simbolo: str, moneda_de=_moneda_yahoo) -> tuple[bool, str | None]:
+    """Descarga las velas de una acción y comprueba su moneda.
+    (True, None) si existe y cotiza en USD.
 
     La descarga queda en la caché de la pasada (`etl._memoizar_ohlcv`), así
     que el backfill posterior no repite la llamada.
     """
     try:
         servicio_interno._obtener_ohlcv(simbolo)
-        return True, None
     except ValueError as exc:
         if "no reconocido" in str(exc).lower():
             return False, f"Yahoo Finance no reconoce «{simbolo}»."
         return False, f"Yahoo Finance no devolvió datos de «{simbolo}»: {exc}"
+
+    moneda = moneda_de(simbolo)
+    if moneda is None:
+        return False, (f"No se pudo confirmar en qué moneda cotiza «{simbolo}»; por ahora solo se "
+                       "admiten acciones en dólares (USD). Vuelve a pedirla más tarde.")
+    if moneda not in MONEDAS_ADMITIDAS:
+        return False, (f"«{simbolo}» cotiza en {moneda}: por ahora solo se admiten acciones que "
+                       "coticen en dólares (USD). Los mercados en otras monedas llegarán con la "
+                       "conversión de divisas.")
+    return True, None
 
 
 def procesar_solicitudes(cliente: ClienteSupabase, validar=validar_accion) -> list[str]:

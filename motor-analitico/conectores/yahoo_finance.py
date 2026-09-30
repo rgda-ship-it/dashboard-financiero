@@ -85,6 +85,26 @@ class ConectorAccionesYahoo:
             "market_cap": info.get("marketCap"),
         }
 
+    def obtener_moneda(self, ticker: str) -> str | None:
+        """Moneda en la que cotiza el ticker según Yahoo (p. ej. «USD»,
+        «JPY», «GBp» para peniques de Londres). None si no la declara.
+
+        `fast_info` primero porque es una llamada ligera; `info` como
+        respaldo, porque algunos tickers solo la traen ahí.
+        """
+        try:
+            moneda = yf.Ticker(ticker).fast_info.get("currency")
+        except Exception as exc:  # noqa: BLE001 — se intenta la otra vía
+            logger.warning("fast_info sin moneda para %s: %s", ticker, exc)
+            moneda = None
+        if not moneda:
+            try:
+                moneda = yf.Ticker(ticker).info.get("currency")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("info sin moneda para %s: %s", ticker, exc)
+                return None
+        return moneda or None
+
     @staticmethod
     def _validar_esquema(df: pd.DataFrame, ticker: str) -> None:
         columnas_presentes = set(df.columns)

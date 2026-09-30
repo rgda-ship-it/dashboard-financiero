@@ -368,6 +368,12 @@ export const SECCIONES = [
           "Bajo el precio aparece «atrasado · hace N» cuando ese activo debería haberse recalculado ya y no lo ha hecho; se muestra su última lectura válida. Con la bolsa cerrada una acción no se atrasa: el dato del cierre es el último posible. «Suspendido» significa tres fallos seguidos del proveedor: el sistema lo reintenta con espera creciente y, mientras, conserva la última lectura. Los festivos de NYSE no se descuentan aquí y pueden marcar acciones como atrasadas.",
       },
       {
+        termino: "Solo acciones que coticen en dólares",
+        formula: null,
+        lectura:
+          "El sistema aún no convierte divisas: Yahoo da el precio en la moneda local (Toyota en yenes, Londres en peniques), y leído como dólares haría falsos el tamaño, el margen y el P&L. Además el escaneo y el monitor solo siguen el horario de Nueva York. Por eso el alta rechaza las acciones de otras bolsas (7203.T, VOD.L, SAP.DE…) y cualquier acción que Yahoo no cotice en USD. Las clases de acciones de EE. UU. se escriben con guion: BRK-B.",
+      },
+      {
         termino: "El monitor ve un precio por minuto",
         formula: null,
         lectura:
