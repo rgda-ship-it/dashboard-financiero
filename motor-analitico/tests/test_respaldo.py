@@ -48,12 +48,14 @@ def test_main_escribe_un_json_por_tabla_y_poda(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     assert respaldo.main() == 0
 
-    assert cliente.rpcs == ["fn_retencion_senales"]
+    assert cliente.rpcs == ["fn_retencion_senales", "fn_retencion_eventos"]
     perfiles = json.loads((tmp_path / "respaldo" / "perfiles.json").read_text("utf-8"))
     assert perfiles == [{"id": "a", "email": "a@b.c"}]
     manifiesto = json.loads((tmp_path / "respaldo" / "_manifiesto.json").read_text("utf-8"))
     assert manifiesto["no_respaldadas_por_regenerables"] == respaldo.REGENERABLES
-    assert (tmp_path / "respaldo" / "senales.json").exists() is False
+    # De `senales` se respalda solo la evidencia, leída de su vista.
+    assert any(p.get("order") == "id" for p in cliente.consultas)
+    assert (tmp_path / "respaldo" / "precios_diarios.json").exists() is False
 
 
 def test_una_tabla_que_falla_pone_el_respaldo_en_rojo(tmp_path, monkeypatch):
@@ -81,3 +83,30 @@ def test_un_proyecto_pausado_pone_el_job_en_rojo(monkeypatch):
         respaldo.ClienteSupabase, "desde_entorno", classmethod(lambda cls: Caido({}))
     )
     assert respaldo.main() == 1
+
+
+
+def test_toda_tabla_tiene_destino():
+    """Una tabla nueva tiene que estar respaldada, ser regenerable o estar
+    excluida con su motivo. Hasta el 2026-09-30 el experimento entero
+    (cuentas, órdenes, libro mayor, agentes) se quedaba fuera sin que nada
+    avisara."""
+    import re
+
+    migraciones = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
+    creadas = set()
+    for sql in sorted(migraciones.glob("*.sql")):
+        texto = sql.read_text(encoding="utf-8")
+        creadas |= set(re.findall(r"create table (?:if not exists )?public\.([a-z_]+)", texto))
+        for vieja, nueva in re.findall(r"alter table public\.([a-z_]+) rename to ([a-z_]+)", texto):
+            creadas.discard(vieja)
+            creadas.add(nueva)
+
+    conocidas = set(respaldo.TABLAS) | set(respaldo.REGENERABLES) | set(respaldo.NO_RESPALDADAS)
+    assert creadas - conocidas == set(), f"tablas sin destino en respaldo.py: {creadas - conocidas}"
+    assert set(respaldo.TABLAS) - creadas == set(), "respaldo.py nombra tablas que no existen"
+
+
+def test_la_evidencia_de_senales_se_lee_de_su_vista():
+    cliente = ClienteFalso({"v_senales_evidencia": [{"id": 7}], "senales": [{"id": 1}, {"id": 7}]})
+    assert respaldo.descargar(cliente, respaldo.FUENTES["senales"], "id") == [{"id": 7}]

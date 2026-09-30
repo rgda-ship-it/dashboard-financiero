@@ -1,4 +1,4 @@
-# Puerta de merge: los 69 casos de prueba de la Fase 1.
+# Puerta de merge: la suite del motor analítico.
 #
 # Por qué esto va primero en el Sprint 1: esas 69 pruebas son lo que
 # protege las ocho reglas de riesgo del README —el tope duro de
@@ -6,6 +6,11 @@
 # el modo degradado hacia el riesgo mínimo—. En la Fase 1 se corrían a
 # mano. Un proyecto en la nube con agentes operando solos no puede
 # depender de que alguien recuerde ejecutar pytest.
+#
+# Hoy son muchos más que los 69 de la Fase 1 (dimensionado, coherencia de
+# la guía, respaldo…), así que el job ya no lleva la cifra en el nombre:
+# se quedaría vieja en cada sprint. Los 69 originales siguen dentro, sin
+# tocar.
 #
 # Un PR que rompa una regla protegida NO se puede mergear.
 
@@ -24,7 +29,7 @@ concurrency:
 
 jobs:
   motor-analitico:
-    name: Motor analítico (69 casos)
+    name: Motor analítico
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
