@@ -79,6 +79,11 @@ export const cambiarEstadoAgente = (agenteId, estado) =>
 export const reiniciarAgente = (agenteId) =>
   llamar(supabase.rpc("rpc_reiniciar_agente", { p_agente_id: agenteId, p_confirmacion: true }));
 
+/** Única vuelta a Fase 1 (regla protegida nº5): de admin, con confirmación
+ *  y auditada. La cuenta volverá a Fase 2 con el primer criterio que cumpla. */
+export const revertirFase = (cuentaId) =>
+  llamar(supabase.rpc("rpc_revertir_fase_manual", { p_cuenta_id: cuentaId, p_confirmacion: true }));
+
 export const revisarBacklog = (id, estado, resolucion) =>
   llamar(
     supabase.rpc("rpc_revisar_backlog", { p_id: id, p_estado: estado, p_resolucion: resolucion ?? null })

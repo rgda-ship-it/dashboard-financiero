@@ -15,8 +15,10 @@ import {
   SALDO_MAX,
   SALDO_MIN,
   TIPOS_MOVIMIENTO,
+  RANGOS_CUENTA,
   abrirOrden,
   admiteFracciones,
+  configurarCuenta,
   cerrarParcial,
   cerrarOrden,
   crearCuenta,
@@ -322,6 +324,88 @@ function motivoNoConfirmable(r, cuenta) {
   }
 }
 
+// ── Tus límites (0020) ───────────────────────────────────────────────
+// Los cuatro que son decisión del usuario. El apalancamiento no está: es
+// la regla protegida nº1 y lo fija la fase.
+const CAMPOS_LIMITES = [
+  { clave: "maxPosiciones", columna: "max_posiciones_abiertas", etiqueta: "Posiciones abiertas máx.", sufijo: "" },
+  { clave: "riesgoPct", columna: "riesgo_pct_operacion", etiqueta: "Riesgo por operación", sufijo: "% del equity" },
+  { clave: "margenMaxPct", columna: "margen_comprometido_max_pct", etiqueta: "Margen comprometido máx.", sufijo: "% del equity" },
+  { clave: "rrMinimo", columna: "ratio_rr_minimo", etiqueta: "R:R mínimo", sufijo: ": 1" },
+];
+
+function LimitesCuenta({ cuenta, alGuardar, avisar }) {
+  const [valores, setValores] = useState(() =>
+    Object.fromEntries(CAMPOS_LIMITES.map((c) => [c.clave, String(Number(cuenta[c.columna]))]))
+  );
+  const [ocupado, setOcupado] = useState(false);
+
+  const fueraDeRango = CAMPOS_LIMITES.filter((c) => {
+    const v = Number(valores[c.clave]);
+    const r = RANGOS_CUENTA[c.clave];
+    return !Number.isFinite(v) || v < r.min || v > r.max ||
+      (c.clave === "maxPosiciones" && !Number.isInteger(v));
+  });
+  const cupo = Number(valores.margenMaxPct) / Math.max(1, Number(valores.maxPosiciones));
+
+  async function enviar(e) {
+    e.preventDefault();
+    setOcupado(true);
+    try {
+      await configurarCuenta(Object.fromEntries(CAMPOS_LIMITES.map((c) => [c.clave, Number(valores[c.clave])])));
+      avisar("Límites guardados. Las sugerencias se recalculan con ellos.", "ok");
+      alGuardar();
+    } catch (error) {
+      avisar(error.message, "neg");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  return (
+    <form className="sim__limites" onSubmit={enviar}>
+      <div className="sim__confirmar-campos">
+        {CAMPOS_LIMITES.map((c) => {
+          const r = RANGOS_CUENTA[c.clave];
+          return (
+            <label key={c.clave} className="field sim__campo">
+              <span className="label">{c.etiqueta}</span>
+              <input
+                type="number"
+                min={r.min}
+                max={r.max}
+                step={r.paso}
+                value={valores[c.clave]}
+                onChange={(e) => setValores((v) => ({ ...v, [c.clave]: e.target.value }))}
+                inputMode="decimal"
+              />
+              <span className="sim__sub">
+                {r.min}–{r.max} {c.sufijo}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <p className="sim__nota">
+        Con estos límites, la cantidad sugerida reparte el margen en cupos de{" "}
+        <strong>{Number.isFinite(cupo) ? cupo.toFixed(1) : "—"} %</strong> del equity por posición.
+        El tope de apalancamiento no se ajusta: lo fija la fase de la cuenta. El margen máximo se
+        queda por debajo del 80 % para que siempre quede saldo para la operación siguiente.
+      </p>
+      {fueraDeRango.length > 0 && (
+        <p className="sim__error" role="alert">
+          <IconoAlerta size={14} /> Fuera de rango: {fueraDeRango.map((c) => c.etiqueta.toLowerCase()).join(", ")}.
+        </p>
+      )}
+      <div className="sim__confirmar-acciones">
+        <button type="submit" className="btn btn--accent" disabled={ocupado || fueraDeRango.length > 0}>
+          {ocupado ? "Guardando…" : "Guardar límites"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Cifra de la cabecera de cuenta ───────────────────────────────────
 function Cifra({ etiqueta, valor, tono, nota }) {
   return (
@@ -343,6 +427,7 @@ export default function Simulador() {
   const [confirmando, setConfirmando] = useState(null);
   const [cerrando, setCerrando] = useState(null);
   const [seccionGuia, setSeccionGuia] = useState(null);
+  const [ajustando, setAjustando] = useState(false);
 
   const avisar = useCallback((texto, tono = "ok") => setAviso({ texto, tono }), []);
 
@@ -542,6 +627,26 @@ export default function Simulador() {
                     nota={`pico ${formatearPrecio(Number(cuenta.capital_maximo_alcanzado))}`}
                   />
                 </div>
+
+                <button
+                  type="button"
+                  className="enlace sim__ajustar"
+                  onClick={() => setAjustando((v) => !v)}
+                  aria-expanded={ajustando}
+                >
+                  {ajustando ? "Ocultar tus límites" : "Ajustar tus límites"}
+                </button>
+                {ajustando && cuenta.estado !== "game_over" && (
+                  <LimitesCuenta
+                    key={cuenta.actualizado_en}
+                    cuenta={cuenta}
+                    avisar={avisar}
+                    alGuardar={() => {
+                      setAjustando(false);
+                      cargar();
+                    }}
+                  />
+                )}
 
                 {cuenta.estado === "game_over" && (
                   <p className="sim__error" role="status">

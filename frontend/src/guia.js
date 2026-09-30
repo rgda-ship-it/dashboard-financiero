@@ -212,6 +212,12 @@ export const SECCIONES = [
         nota: "Con unidades enteras, el riesgo declarado puede no llegar para una acción: con 500 $ y un 1,5 % de riesgo (7,50 $), una acción de 100 $ con el stop al 10 % arriesga 10 $. Entonces se compra UNA, siempre que su riesgo no pase del 10 % del equity y su margen quepa. No es falta de poder de compra: el apalancamiento cambia el margen, no lo que se pierde si salta el stop.",
       },
       {
+        termino: "Tus límites",
+        formula: "posiciones abiertas  1 – 10\nriesgo por operación 0,1 – 10 % del equity\nmargen máximo        10 – 80 % del equity\nR:R mínimo           0 – 5",
+        lectura:
+          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los cuatro que son decisión tuya. Más posiciones permitidas reparten el margen en cupos más pequeños. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
+      },
+      {
         termino: "Cerrar una parte",
         formula: "cerrar el 25 / 50 / 75 %  →  libera esa parte del margen\n                          y realiza su P&L al precio de ahora",
         lectura:
