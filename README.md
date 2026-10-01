@@ -67,7 +67,8 @@ dashboard-financiero/
 │       ├── 0017_minimo_una_accion.sql # Una acción entera si el riesgo no llega, dentro de G2
 │       ├── 0018_retencion_y_respaldo.sql # Retención de eventos y respaldo del experimento
 │       ├── 0019_solo_acciones_usd.sql # Cortafuegos: solo acciones que coticen en USD
-│       └── 0020_ajustes_de_cuenta.sql # Cada usuario ajusta los límites de su cuenta
+│       ├── 0020_ajustes_de_cuenta.sql # Cada usuario ajusta los límites de su cuenta
+│       └── 0021_g4_agentes_y_respaldos.sql # G4 solo para agentes; prácticas que se respaldan
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

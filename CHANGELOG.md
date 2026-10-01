@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-01 — G4 solo para agentes y prácticas que se respaldan (0021)
+
+### Cambiado — G4 ya no limita la cuenta del usuario
+Con tres posiciones de acciones no se podía abrir una cripto, y el mensaje
+(«tres posiciones en el mismo mercado…») afirmaba algo que no comprobaba:
+contaba todas. Desde la 0016 lo que reparte el capital es el cupo y lo que
+acota la exposición son G2 y G3. En una cuenta de usuario
+`max_posiciones_abiertas` pasa a ser solo el divisor del cupo («repartir el
+margen en N posiciones»); G4 sigue aplicándose a los agentes, donde forma
+parte del perfil y sostiene la rotación.
+
+### Corregido — la misma práctica publicada por dos agentes
+Cada agente destilaba la suya aunque otro ya hubiera publicado la misma firma
+(Cadencia y Audacia). Ahora el segundo la respalda: suma su evidencia, se
+recalcula la confianza con las operaciones de todos, cuenta como valoración
++1 y queda como coautor. Los duplicados existentes se funden en el más
+antiguo y sus adopciones se trasladan. I34 actualizada e I65 nueva.
+
 ## [Sin publicar] - 2026-10-01 — Corrección: precios de céntimos con 2 decimales
 
 ### Corregido — el motor recortaba precio, stop y objetivo a 2 decimales
