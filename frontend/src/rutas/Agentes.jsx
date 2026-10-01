@@ -369,7 +369,10 @@ function TablaPracticas({ filas }) {
               {p.titulo}
               <span className="sim__sub">{p.regla}</span>
             </td>
-            <td>{p.autor}</td>
+            <td>
+              {p.autor}
+              {p.coautores?.length > 0 && <span className="sim__sub">respaldada por {p.coautores.join(", ")}</span>}
+            </td>
             <td className="num">
               {p.resultado_observado?.ops} ops · {Math.round(Number(p.confianza) * 100)} %
             </td>

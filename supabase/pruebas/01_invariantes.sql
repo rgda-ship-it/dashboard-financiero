@@ -1219,8 +1219,10 @@ begin
         raise exception 'I34 FALLO: se abrieron dos órdenes en el mismo activo';
     end if;
 
-    -- G4: con `max_posiciones_abiertas` a 1, la segunda posición —en otro
-    -- activo— también se rechaza.
+    -- G4 (desde la 0021) NO limita la cuenta de un usuario: con
+    -- `max_posiciones_abiertas` a 1, la segunda posición —en otro activo—
+    -- se abre. Ese número solo reparte el cupo; lo que acota la exposición
+    -- son G2 y G3. Para los agentes se prueba en I65.
     perform pg_temp.como_dueno();
     update public.cuentas_simulacion set max_posiciones_abiertas = 1 where id = v_cuenta;
     insert into public.senales
@@ -1237,12 +1239,13 @@ begin
         v_texto := sqlerrm;
     end;
     perform pg_temp.como_dueno();
-    if v_fallo then
-        raise exception 'I34 FALLO: se superó el máximo de posiciones abiertas';
+    if not v_fallo then
+        raise exception 'I34 FALLO: G4 frenó la cuenta de un usuario: %', v_texto;
     end if;
-    if v_texto not like '%posiciones abiertas%' then
-        raise exception 'I34 FALLO: el rechazo de G4 no lo explica: %', v_texto;
-    end if;
+    -- Se cierra al precio de entrada para no alterar lo que viene después.
+    perform public.rpc_cerrar_orden(
+        (select max(id) from public.ordenes where cuenta_id = v_cuenta and estado = 'abierta'
+                                             and activo_id = v_sol), 100, 'manual', 100);
     update public.cuentas_simulacion set max_posiciones_abiertas = 3 where id = v_cuenta;
 
     -- Y la orden de otro usuario sobre MI cuenta, jamás.
@@ -1257,7 +1260,7 @@ begin
     if v_fallo then
         raise exception 'I34 FALLO: otro usuario pudo abrir una orden en una cuenta ajena';
     end if;
-    raise notice 'PASS  I34 G2/G3/G4: riesgo, margen, número de posiciones y propiedad de la cuenta se imponen en el servidor';
+    raise notice 'PASS  I34 G2/G3: riesgo, margen y propiedad de la cuenta se imponen en el servidor; G4 ya no frena a un usuario';
 
     -- ── I35 · Cierre idempotente y P&L recalculado a mano ────────────
     -- Cierre en TP: cantidad 2, entrada 100, salida 130 -> +60 $.
@@ -2686,6 +2689,83 @@ begin
     raise notice 'PASS  I64 cada usuario ajusta los límites de su cuenta dentro de rango; nulo no toca; fuera de rango y sin cuenta se rechazan';
 end
 $i64$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I65 · G4 sigue en los agentes; una práctica repetida se respalda (0021).
+-- ═════════════════════════════════════════════════════════════════════
+do $i65$
+declare
+    v_rota   bigint;
+    v_cad    bigint;
+    v_aud    bigint;
+    v_cuenta bigint;
+    v_senal  bigint;
+    v_fallo  boolean := false;
+    v_texto  text;
+    v_antes  int;
+    v_id     bigint;
+begin
+    -- El agente de rotación del bloque 0016 tiene max 1 y una posición
+    -- abierta: otra orden se rechaza por G4.
+    select id into v_rota from public.agentes where nombre = 'prueba-rota';
+    v_cuenta := public.fn_cuenta_agente(v_rota);
+    select s.id into v_senal from public.senales s join public.activos a on a.id = s.activo_id
+     where a.simbolo = 'zzd3' and s.version_motor = 's7' order by s.id desc limit 1;
+    begin
+        perform public.rpc_abrir_orden(v_cuenta, v_senal, null, null, null, null, 'agente');
+        v_fallo := true;
+    exception when raise_exception then v_texto := sqlerrm;
+    end;
+    if v_fallo or v_texto not like '%posiciones abiertas%' then
+        raise exception 'I65 FALLO: G4 debía seguir frenando a un agente: %', coalesce(v_texto, 'se abrió');
+    end if;
+
+    -- Respaldo: Audacia destila la misma firma que ya publicó Cadencia.
+    select id into v_cad from public.agentes where nombre = 'Cadencia';
+    select id into v_aud from public.agentes where nombre = 'Audacia';
+    insert into public.mejores_practicas
+        (agente_autor_id, firma, titulo, contexto, regla, condiciones, resultado_observado, confianza)
+    values (v_cad, 'cripto|alta|estructura|medio|medio', 't', 'c', 'r',
+            '{"clase": "cripto"}', '{"ops": 3, "tp": 3, "sl": 0}', 1)
+    returning id into v_id;
+    select count(*) into v_antes from public.mejores_practicas;
+    perform public.fn_respaldar_practica(v_id, v_aud, '{"ops": 3, "tp": 2, "sl": 1}');
+    perform public.fn_respaldar_practica(v_id, v_aud, '{"ops": 3, "tp": 2, "sl": 1}');   -- dos veces = una
+    select format('%s/%s/%s', confianza, v_aud = any(coautores) and cardinality(coautores) = 1,
+                  (select valoracion from public.mp_valoraciones where practica_id = v_id and agente_id = v_aud))
+      into v_texto
+      from public.mejores_practicas where id = v_id;
+    if v_texto <> '0.833/t/1' or (select count(*) from public.mejores_practicas) <> v_antes then
+        raise exception 'I65 FALLO: el respaldo debía sumar evidencia (5/6), añadir un coautor y un voto, sin fila nueva: %', v_texto;
+    end if;
+    -- Y la coautora no se la adopta a sí misma.
+    if public.fn_adoptar_practica(v_aud) = v_id then
+        raise exception 'I65 FALLO: un agente adoptó una práctica que ya respalda';
+    end if;
+    -- Duplicado de antes de la 0021: Prudencia publicó la misma firma por
+    -- su cuenta y Cadencia la había adoptado. Al fundir, la de Prudencia
+    -- se archiva, Prudencia pasa a coautora y la adopción de Cadencia... no
+    -- se traslada: Cadencia es la autora del principal, así que se abandona.
+    insert into public.mejores_practicas
+        (agente_autor_id, firma, titulo, contexto, regla, condiciones, resultado_observado, confianza)
+    values ((select id from public.agentes where nombre = 'Prudencia'),
+            'cripto|alta|estructura|medio|medio', 't', 'c', 'r',
+            '{"clase": "cripto"}', '{"ops": 4, "tp": 4, "sl": 0}', 1)
+    returning id into v_senal;
+    insert into public.mp_adopciones (practica_id, agente_id) values (v_senal, v_cad);
+    v_antes := public.fn_fundir_practicas_duplicadas();
+    if v_antes <> 1
+       or (select estado from public.mejores_practicas where id = v_senal) <> 'archivada'
+       or not exists (select 1 from public.mejores_practicas
+                       where id = v_id
+                         and (select id from public.agentes where nombre = 'Prudencia') = any(coautores))
+       or exists (select 1 from public.mp_adopciones where practica_id in (v_senal, v_id)
+                    and agente_id = v_cad and abandonada_en is null) then
+        raise exception 'I65 FALLO: fundir debía archivar el duplicado, sumar a su autor como coautor y no dejar a la autora adoptándose a sí misma';
+    end if;
+    raise notice 'PASS  I65 G4 sigue frenando a los agentes; una práctica repetida se respalda: evidencia sumada, coautor y voto, sin duplicado';
+end
+$i65$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

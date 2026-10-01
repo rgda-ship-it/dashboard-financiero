@@ -328,7 +328,9 @@ function motivoNoConfirmable(r, cuenta) {
 // Los cuatro que son decisión del usuario. El apalancamiento no está: es
 // la regla protegida nº1 y lo fija la fase.
 const CAMPOS_LIMITES = [
-  { clave: "maxPosiciones", columna: "max_posiciones_abiertas", etiqueta: "Posiciones abiertas máx.", sufijo: "" },
+  // Desde la 0021 no limita cuántas posiciones abres: solo divide el margen
+  // para la cantidad sugerida.
+  { clave: "maxPosiciones", columna: "max_posiciones_abiertas", etiqueta: "Repartir el margen en", sufijo: "posiciones" },
   { clave: "riesgoPct", columna: "riesgo_pct_operacion", etiqueta: "Riesgo por operación", sufijo: "% del equity" },
   { clave: "margenMaxPct", columna: "margen_comprometido_max_pct", etiqueta: "Margen comprometido máx.", sufijo: "% del equity" },
   { clave: "rrMinimo", columna: "ratio_rr_minimo", etiqueta: "R:R mínimo", sufijo: ": 1" },
@@ -778,7 +780,7 @@ export default function Simulador() {
               titulo="Posiciones abiertas"
               meta={
                 abiertas.length
-                  ? `${abiertas.length} de ${cuenta.max_posiciones_abiertas}`
+                  ? `${abiertas.length} abiertas`
                   : "ninguna"
               }
               flush={abiertas.length > 0}

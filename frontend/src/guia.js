@@ -199,7 +199,7 @@ export const SECCIONES = [
       {
         termino: "Los cinco límites del servidor",
         formula:
-          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 60 % del equity\n4 · posiciones abiertas ≤ máximo de la cuenta\n5 · solo señales operables y de menos de 90 minutos",
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 60 % del equity\n4 · agentes: posiciones abiertas ≤ las de su perfil\n5 · solo señales operables y de menos de 90 minutos",
         lectura:
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },
@@ -213,9 +213,9 @@ export const SECCIONES = [
       },
       {
         termino: "Tus límites",
-        formula: "posiciones abiertas  1 – 10\nriesgo por operación 0,1 – 10 % del equity\nmargen máximo        10 – 80 % del equity\nR:R mínimo           0 – 5",
+        formula: "repartir el margen en 1 – 10 posiciones\nriesgo por operación   0,1 – 10 % del equity\nmargen máximo          10 – 80 % del equity\nR:R mínimo             0 – 5",
         lectura:
-          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los cuatro que son decisión tuya. Más posiciones permitidas reparten el margen en cupos más pequeños. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
+          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los cuatro que son decisión tuya. El número de posiciones no limita cuántas abres: divide tu margen máximo para calcular la cantidad sugerida de cada una. Lo que acota tu exposición es el margen máximo y el riesgo por operación. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
       },
       {
         termino: "Cerrar una parte",
@@ -299,7 +299,7 @@ export const SECCIONES = [
         formula:
           "se publica si:  ≥ 3 operaciones con la misma firma\n                ≥ 66 % cerradas en objetivo\n                P&L medio > 0\n\nse refuta si:   2 agentes la adoptan y les empeora",
         lectura:
-          "Una práctica no es un consejo en prosa: es un filtro ejecutable sobre las señales —clase, fuerza, origen de niveles, tramo de ATR y de R:R— que otro agente aplica al elegir. Adoptarla cambia de verdad sus candidatos. Dos semanas después se compara su rendimiento medio antes y después; si empeora, la abandona y le pone un voto negativo, y con dos fracasos la práctica deja de ofrecerse a nadie.",
+          "Una práctica no es un consejo en prosa: es un filtro ejecutable sobre las señales —clase, fuerza, origen de niveles, tramo de ATR y de R:R— que otro agente aplica al elegir. Si dos agentes llegan por su cuenta a la misma, el segundo la respalda: se suma su evidencia y queda como coautor, en vez de publicarla dos veces. Adoptarla cambia de verdad sus candidatos. Dos semanas después se compara su rendimiento medio antes y después; si empeora, la abandona y le pone un voto negativo, y con dos fracasos la práctica deja de ofrecerse a nadie.",
       },
       {
         termino: "Lo que piden los agentes",
