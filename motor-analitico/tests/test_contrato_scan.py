@@ -164,3 +164,11 @@ if __name__ == "__main__":
             print(f"PASS  {t.__name__}")
         except AssertionError as e:
             print(f"FAIL  {t.__name__}: {e}")
+
+
+
+def test_los_precios_de_centimos_conservan_sus_decimales():
+    """Una cripto de céntimos: con 2 decimales, stop y objetivo se movían
+    lo bastante para cambiar el R:R y el tamaño (Cardano, 2026-10-01)."""
+    assert servicio_interno._precio(0.3349123456) == 0.33491235
+    assert servicio_interno._precio(108412.37) == 108412.37

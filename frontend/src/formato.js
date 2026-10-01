@@ -50,12 +50,38 @@ const numeroCompacto = new Intl.NumberFormat(LOCALE_NUMEROS, {
   useGrouping: "always",
 });
 
+/** Decimales para leer un precio: 2 a partir de 1 $, y por debajo los que
+ *  hacen falta para ver 4 cifras significativas (0,3349 · 0,1023 ·
+ *  0,00001234). Con 2 fijos, un stop de Cardano en 0,3349 se mostraba como
+ *  0,33 y su movimiento diario era invisible. */
+export function decimalesDePrecio(valor) {
+  const abs = Math.abs(valor);
+  if (!Number.isFinite(abs) || abs >= 1 || abs === 0) return 2;
+  return Math.min(8, Math.max(4, Math.ceil(-Math.log10(abs)) + 3));
+}
+
+const formateadores = new Map();
+function formateadorDe(decimales) {
+  if (!formateadores.has(decimales)) {
+    formateadores.set(
+      decimales,
+      new Intl.NumberFormat(LOCALE_NUMEROS, {
+        minimumFractionDigits: decimales,
+        maximumFractionDigits: decimales,
+      })
+    );
+  }
+  return formateadores.get(decimales);
+}
+
 /** Precio en USD. Por encima de 1,000 se sueltan los decimales: en una
- *  columna densa, "108,412" se compara mejor que "108,412.37". */
+ *  columna densa, "108,412" se compara mejor que "108,412.37". Por debajo
+ *  de 1 $, los decimales que el precio necesita (ver `decimalesDePrecio`). */
 export function formatearPrecio(valor) {
   if (!Number.isFinite(valor)) return "—";
   const abs = Math.abs(valor);
   if (abs >= 1000) return `$${numeroCompacto.format(valor)}`;
+  if (abs < 1) return `$${formateadorDe(decimalesDePrecio(valor)).format(valor)}`;
   return `$${numero.format(valor)}`;
 }
 
