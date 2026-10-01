@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-01 — Repositorio público y ETL de cripto sobre todo el universo
+
+### Cambiado
+- **D5 revisada: el repositorio pasa a público.** Antes se auditó el
+  historial entero: ningún secreto real (claves de servicio, tokens,
+  contraseñas de producción). Lo visible y no secreto: el identificador del
+  proyecto de Supabase, que el frontend ya publica, y el correo del autor.
+- **`etl-cripto` con `--max 20`**, que es el tope global de criptos
+  seguidas (D7): cada pasada refresca todas. Con 13 criptos seguidas y tope
+  8, cinco llegaban cada hora con 2 horas de antigüedad y los agentes las
+  descartaban (271 descartes por antigüedad en un día). Sin límite de
+  minutos, el único techo es CoinGecko: 40 peticiones espaciadas 6 s.
+
 ## [Sin publicar] - 2026-09-30 — Corrección: las criptos dejaban de ser operables cada madrugada
 
 ### Corregido — ATR nulo entre las 00:00 y las 04:00 UTC
