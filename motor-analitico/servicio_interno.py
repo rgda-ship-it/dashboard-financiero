@@ -91,6 +91,19 @@ def _obtener_fundamentales(ticker: str) -> dict:
     return conector_acciones.obtener_fundamentales(ticker)
 
 
+# Decimales con los que se emiten precio y niveles: los de la base de datos
+# (`numeric(20, 8)` en `senales` y `ordenes`). Hasta el 2026-10-01 se
+# redondeaba a 2, y en una cripto de céntimos eso movía el stop y el
+# objetivo: Cardano a 0,35 $ con el stop en 0,3349 quedaba en 0,33, y el
+# R:R, el tamaño y la liquidación se calculaban sobre niveles que no eran
+# los del motor. En acciones de dólares, 8 decimales no cambian nada.
+DECIMALES_PRECIO = 8
+
+
+def _precio(valor):
+    return round(valor, DECIMALES_PRECIO)
+
+
 def atr_vigente(serie_atr):
     """El ATR con el que se decide hoy.
 
@@ -225,7 +238,7 @@ def _escanear_ticker(ticker: str) -> dict:
     # sin modelo de coste de préstamo ni funding, engañoso.
     return {
         "ticker": ticker,
-        "precio_actual": _num(round(precio_actual, 2)) if precio_actual is not None else None,
+        "precio_actual": _num(_precio(precio_actual)) if precio_actual is not None else None,
         "resumen_confluencia": confluencia.resumen,
         "fuerza": confluencia.fuerza,
         "indicadores_alcistas": confluencia.indicadores_alcistas,
@@ -284,7 +297,7 @@ def _niveles_tecnicos(
         and (atr is None or resistencia - soporte >= atr)
     )
     if hay_estructura:
-        return round(soporte, 2), round(resistencia, 2), "estructura"
+        return _precio(soporte), _precio(resistencia), "estructura"
 
     # Sin ATR utilizable no hay forma de construir el fallback: se devuelven
     # nulos antes que un rango inventado. El origen sigue siendo "atr"
@@ -293,7 +306,7 @@ def _niveles_tecnicos(
         return None, None, "atr"
 
     inferior, superior = calcular_tp_sl_por_atr(precio_actual, atr, 2.0)
-    return round(inferior, 2), round(superior, 2), "atr"
+    return _precio(inferior), _precio(superior), "atr"
 
 
 @app.post("/internal/scan")
@@ -358,7 +371,7 @@ def analizar_posicion(
             )
 
         return {
-            "precio_actual": round(precio_actual, 2),
+            "precio_actual": _precio(precio_actual),
             "nivel_salud": diagnostico.nivel_salud.value,
             "mensaje": diagnostico.mensaje,
             "sugerencia_rotacion": sugerencia_rotacion,

@@ -4,6 +4,21 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-01 — Corrección: precios de céntimos con 2 decimales
+
+### Corregido — el motor recortaba precio, stop y objetivo a 2 decimales
+`servicio_interno.py` redondeaba a 2 decimales el precio y los niveles
+antes de escribir la señal, aunque la base de datos guarda 8. En una cripto
+de céntimos eso movía los niveles: Cardano a 0,35 $ con el stop en 0,3349
+quedaba en 0,33, y el R:R, el tamaño de la posición y el precio de
+liquidación se calculaban sobre niveles que no eran los del motor. Ahora se
+emiten con 8 decimales (`DECIMALES_PRECIO`).
+
+### Corregido — la interfaz mostraba 2 decimales en cualquier precio
+`formatearPrecio` muestra por debajo de 1 $ los decimales necesarios para 4
+cifras significativas (0,3349 · 0,1023 · 0,00001235). Los importes (P&L,
+margen) siguen en céntimos de dólar.
+
 ## [Sin publicar] - 2026-10-01 — Repositorio público y ETL de cripto sobre todo el universo
 
 ### Cambiado
