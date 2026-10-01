@@ -5,19 +5,20 @@
 # precio vivo y volumen; /ohlc a 4 h para máximos y mínimos). El conector
 # espacia sus llamadas 6 s y respeta `Retry-After` ante un 429.
 #
-# Con 20 criptos en el catálogo, recorrerlas todas en cada pasada serían
-# ~4 minutos de reloj y 2.880 min/mes: POR ENCIMA de los 2.000 del tier
-# gratuito. De ahí el `--max 8` y la priorización de `seleccionar_activos`:
+# TOPE 20 = TODO EL UNIVERSO POSIBLE (2026-10-01). La base de datos no deja
+# seguir más de 20 criptos en total (D7, por esta misma cuota), así que con
+# `--max 20` cada pasada refresca todas las que pueda haber y ninguna se
+# queda atrás por la rotación. Con el repositorio privado el tope era 8 por
+# los 2.000 min/mes de Actions; con 13 criptos seguidas, 5 llegaban cada
+# pasada con 2 horas y los agentes las descartaban por antigüedad. Desde que
+# el repositorio es público, los minutos no tienen límite y el único techo
+# es CoinGecko: 20 monedas = 40 peticiones espaciadas 6 s = 10 por minuto
+# (~4 min de reloj), dentro de lo que tolera sin clave.
+#
+# La priorización de `seleccionar_activos` se mantiene por si algún día el
+# techo vuelve a apretar:
 #   1. criptos con una posición abierta -> en TODAS las pasadas
 #   2. el resto -> rotación por antigüedad de `ultimo_etl_en`
-#
-# Tope 8 y no 6 (2026-09-29): con 8 criptos seguidas y 6 por pasada, cada
-# una se refrescaba cada 1-2 horas, y a las 2 horas su señal pasa de los
-# 90 minutos que exigen los agentes. 8 monedas = 16 peticiones espaciadas
-# 6 s = 10 por minuto, dentro de lo que tolera CoinGecko sin clave.
-#
-# Estimado: 720 pasadas/mes × ~90 s = ~1.080 min/mes, más ~240 min de la
-# red de seguridad cada 3 h (casi todas terminan al ver los activos frescos).
 
 name: etl-cripto
 
@@ -72,4 +73,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LEVERAGE_HARD_CAP_FASE1: '5'
           VERSION_MOTOR: ${{ github.sha }}
-        run: python etl.py --clase cripto --max 8
+        run: python etl.py --clase cripto --max 20

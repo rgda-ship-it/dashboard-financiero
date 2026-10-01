@@ -77,7 +77,7 @@ El detalle y el razonamiento de cada una está en `00-equipo-y-alcance.md` §4.
 | D2 | El motor Python se mantiene | **Sí** — contenedorizado como job programado |
 | D3 ✅ | Cifrado de importes | **No se cifra nada.** Ningún importe del sistema es dinero real; cifrarlo no protege nada y rompe toda agregación SQL |
 | D4 | Cerebro de los agentes | Determinista; capa LLM opcional y aislada para redactar racionales |
-| D5 | Repo público o privado | Privado + presupuesto de 993 min/mes (público elimina el límite) |
+| D5 | Repo público o privado | Privado + presupuesto de 993 min/mes (público elimina el límite). **Revisada el 2026-10-01: público**, tras auditar el historial (sin secretos); los minutos de Actions dejan de limitar el ETL |
 | D6 | Sesgo corto para los agentes | **No en Fase 2** — la regla protegida nº2 se mantiene; los agentes lo pedirán vía backlog |
 | D7 | Universo de activos por usuario | Techo de 25 activos por usuario y 150 globales, por cuota de proveedor |
 
