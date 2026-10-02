@@ -26,7 +26,9 @@ import {
   leerMovimientos,
   leerOrdenes,
   leerRecomendaciones,
+  repartirSaldo,
 } from "../datos/simulador.js";
+import { consumoDelSaldo, pctDelSaldo, saldoLibre } from "../datos/saldoOperar.js";
 import {
   claseSigno,
   formatearImporte,
@@ -116,11 +118,12 @@ function AltaDeCuenta({ alCrear, avisar }) {
 // ── Confirmación de orden ────────────────────────────────────────────
 // Dos campos y solo dos. El resto de la ficha es de lectura: son los
 // números que el servidor ya ha decidido y que el usuario acepta o no.
-function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
+function Confirmacion({ fila, reparto, cuenta, alConfirmar, alCancelar, avisar }) {
   const [precio, setPrecio] = useState(String(Number(fila.precio_actual)));
-  // La sugerida es la del cupo (margen máx ÷ nº de posiciones); el usuario
-  // manda. Las acciones van en unidades enteras.
-  const [cantidad, setCantidad] = useState(fila.cantidad != null ? String(Number(fila.cantidad)) : "");
+  // La sugerida es la de su parte del reparto (0022); el usuario manda.
+  // Las acciones van en unidades enteras.
+  const sugerida = reparto?.cantidad ?? fila.cantidad;
+  const [cantidad, setCantidad] = useState(sugerida != null ? String(Number(sugerida)) : "");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 16));
   const [ocupado, setOcupado] = useState(false);
 
@@ -136,6 +139,9 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
   // Estimación para leer, no para decidir: el servidor recalcula el margen.
   const apal = Number(fila.apalancamiento);
   const margenEstimado = cantidadValida && apal > 0 ? (cantidadNum * precioNum) / apal : null;
+  const tope = Number(cuenta?.leverage_tope);
+  const consumoEstimado = consumoDelSaldo(margenEstimado, tope);
+  const pctEstimado = pctDelSaldo(consumoEstimado, cuenta?.saldo_operar);
   const riesgoEstimado = cantidadValida && encuadra ? cantidadNum * (precioNum - sl) : null;
 
   async function enviar(e) {
@@ -227,15 +233,24 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
           <dd className="num">{rr ? `${rr.toFixed(2)} : 1` : "—"}</dd>
         </div>
         <div>
-          <dt>Tamaño sugerido</dt>
+          <dt>Su parte del reparto</dt>
           <dd className="num">
-            {fila.cantidad ?? "—"}
-            {fila.cupo_pct != null && <span className="sim__sub">cupo {Number(fila.cupo_pct)} % del equity</span>}
+            {reparto?.parte != null ? formatearPrecio(Number(reparto.parte)) : "—"}
+            <span className="sim__sub">
+              {reparto ? `${sugerida ?? "—"} unidades sugeridas` : "márcala para incluirla en el reparto"}
+            </span>
           </dd>
         </div>
         <div>
-          <dt>Margen con tu cantidad</dt>
-          <dd className="num">{margenEstimado != null ? formatearPrecio(margenEstimado) : "—"}</dd>
+          <dt>Consume del saldo</dt>
+          <dd className="num">
+            {consumoEstimado != null ? formatearPrecio(consumoEstimado) : "—"}
+            {pctEstimado != null && (
+              <span className="sim__sub">
+                {pctEstimado.toFixed(1)} % de {formatearPrecio(Number(cuenta.saldo_operar))}
+              </span>
+            )}
+          </dd>
         </div>
         <div>
           <dt>Riesgo hasta el stop</dt>
@@ -249,14 +264,13 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
           </dd>
         </div>
         <div>
-          <dt>Apalancamiento</dt>
+          <dt>Margen con tu cantidad</dt>
           <dd className="num">
-            {fila.apalancamiento ? `${formatearMultiplicador(Number(fila.apalancamiento))}x` : "—"}
+            {margenEstimado != null ? formatearPrecio(margenEstimado) : "—"}
+            {fila.apalancamiento && (
+              <span className="sim__sub">a {formatearMultiplicador(Number(fila.apalancamiento))}x</span>
+            )}
           </dd>
-        </div>
-        <div>
-          <dt>Margen</dt>
-          <dd className="num">{fila.margen ? formatearPrecio(Number(fila.margen)) : "—"}</dd>
         </div>
         <div>
           <dt>Liquidación</dt>
@@ -267,10 +281,11 @@ function Confirmacion({ fila, alConfirmar, alCancelar, avisar }) {
       </dl>
 
       <p className="sim__nota">
-        La cantidad sugerida reparte tu margen máximo entre tus posiciones posibles, para que una
-        sola no se lo lleve todo; puedes cambiarla. El servidor recalcula el margen e impone los
-        límites: riesgo hasta el stop ≤ 10 % del equity y margen total ≤ tu tope. El stop y el
-        objetivo no se tocan: los fija el motor.
+        La cantidad sugerida es la parte de tu saldo para operar que le toca entre las que has
+        marcado (más a 5× que a 4×, más a 4× que a 3×), salvo que tu riesgo por operación pida
+        menos; puedes cambiarla. El servidor recalcula el margen e impone los límites: riesgo
+        hasta el stop ≤ 10 % del equity y uso total ≤ tu máximo. El stop y el objetivo no se
+        tocan: los fija el motor.
       </p>
 
       {cantidad !== "" && !cantidadValida && (
@@ -324,15 +339,13 @@ function motivoNoConfirmable(r, cuenta) {
   }
 }
 
-// ── Tus límites (0020) ───────────────────────────────────────────────
-// Los cuatro que son decisión del usuario. El apalancamiento no está: es
-// la regla protegida nº1 y lo fija la fase.
+// ── Tus límites (0020, 0022) ─────────────────────────────────────────
+// Los tres que son decisión del usuario. El apalancamiento no está: es la
+// regla protegida nº1 y lo fija la fase. Y desde la 0022 tampoco el número
+// de posiciones: cuántas abres lo decides al marcar sugerencias.
 const CAMPOS_LIMITES = [
-  // Desde la 0021 no limita cuántas posiciones abres: solo divide el margen
-  // para la cantidad sugerida.
-  { clave: "maxPosiciones", columna: "max_posiciones_abiertas", etiqueta: "Repartir el margen en", sufijo: "posiciones" },
   { clave: "riesgoPct", columna: "riesgo_pct_operacion", etiqueta: "Riesgo por operación", sufijo: "% del equity" },
-  { clave: "margenMaxPct", columna: "margen_comprometido_max_pct", etiqueta: "Margen comprometido máx.", sufijo: "% del equity" },
+  { clave: "margenMaxPct", columna: "margen_comprometido_max_pct", etiqueta: "Uso máx. del saldo para operar", sufijo: "%" },
   { clave: "rrMinimo", columna: "ratio_rr_minimo", etiqueta: "R:R mínimo", sufijo: ": 1" },
 ];
 
@@ -345,10 +358,9 @@ function LimitesCuenta({ cuenta, alGuardar, avisar }) {
   const fueraDeRango = CAMPOS_LIMITES.filter((c) => {
     const v = Number(valores[c.clave]);
     const r = RANGOS_CUENTA[c.clave];
-    return !Number.isFinite(v) || v < r.min || v > r.max ||
-      (c.clave === "maxPosiciones" && !Number.isInteger(v));
+    return !Number.isFinite(v) || v < r.min || v > r.max;
   });
-  const cupo = Number(valores.margenMaxPct) / Math.max(1, Number(valores.maxPosiciones));
+  const usable = (Number(cuenta.saldo_operar) * Number(valores.margenMaxPct)) / 100;
 
   async function enviar(e) {
     e.preventDefault();
@@ -389,10 +401,12 @@ function LimitesCuenta({ cuenta, alGuardar, avisar }) {
         })}
       </div>
       <p className="sim__nota">
-        Con estos límites, la cantidad sugerida reparte el margen en cupos de{" "}
-        <strong>{Number.isFinite(cupo) ? cupo.toFixed(1) : "—"} %</strong> del equity por posición.
-        El tope de apalancamiento no se ajusta: lo fija la fase de la cuenta. El margen máximo se
-        queda por debajo del 80 % para que siempre quede saldo para la operación siguiente.
+        Con estos límites puedes usar{" "}
+        <strong>{Number.isFinite(usable) ? formatearPrecio(usable) : "—"}</strong> de tu saldo para
+        operar de {formatearPrecio(Number(cuenta.saldo_operar))}, repartidos entre las sugerencias
+        que marques. El tope de apalancamiento no se ajusta: lo fija la fase de la cuenta. Si
+        quieres dejar colchón, baja el uso máximo; lo que limita la pérdida es el riesgo por
+        operación.
       </p>
       {fueraDeRango.length > 0 && (
         <p className="sim__error" role="alert">
@@ -430,6 +444,12 @@ export default function Simulador() {
   const [cerrando, setCerrando] = useState(null);
   const [seccionGuia, setSeccionGuia] = useState(null);
   const [ajustando, setAjustando] = useState(false);
+  // Reparto (0022). Se guardan las DESMARCADAS y no las marcadas: así una
+  // sugerencia nueva entra marcada en el reparto, y la que se abre
+  // desaparece sola de la lista.
+  const [desmarcadas, setDesmarcadas] = useState(() => new Set());
+  const [reparto, setReparto] = useState({});
+  const [abriendoLote, setAbriendoLote] = useState(false);
 
   const avisar = useCallback((texto, tono = "ok") => setAviso({ texto, tono }), []);
 
@@ -471,6 +491,68 @@ export default function Simulador() {
     const id = setInterval(cargar, RELECTURA_MS);
     return () => clearInterval(id);
   }, [hayAbiertas, cargar]);
+
+  const marcadas = useMemo(
+    () => recomendaciones.filter((r) => r.confirmable && !desmarcadas.has(r.senal_id)),
+    [recomendaciones, desmarcadas]
+  );
+  const claveMarcadas = marcadas.map((r) => r.senal_id).join(",");
+
+  // El reparto lo calcula el servidor cada vez que cambian las marcadas o
+  // la cuenta (una apertura, un cierre, el sondeo).
+  useEffect(() => {
+    if (!cuenta || cuenta.estado !== "activa") return undefined;
+    let vigente = true;
+    const ids = claveMarcadas ? claveMarcadas.split(",").map(Number) : [];
+    repartirSaldo(ids)
+      .then((filas) => {
+        if (vigente) setReparto(Object.fromEntries((filas ?? []).map((f) => [f.senal_id, f])));
+      })
+      .catch((error) => vigente && avisar(error.message, "neg"));
+    return () => {
+      vigente = false;
+    };
+  }, [claveMarcadas, cuenta, avisar]);
+
+  function alternarMarca(senalId) {
+    setDesmarcadas((d) => {
+      const n = new Set(d);
+      if (n.has(senalId)) n.delete(senalId);
+      else n.add(senalId);
+      return n;
+    });
+  }
+
+  const lote = marcadas.filter((r) => reparto[r.senal_id]?.cantidad && !reparto[r.senal_id]?.motivo);
+
+  // Abre de una vez las marcadas, cada una con su parte. Una a una: el
+  // reparto da la misma parte a cada una en cualquier orden de apertura, y
+  // si una falla (un precio que se movió, una señal que caducó) las demás
+  // siguen.
+  async function abrirLote() {
+    setAbriendoLote(true);
+    const bien = [];
+    const mal = [];
+    for (const r of lote) {
+      try {
+        await abrirOrden({
+          cuentaId: r.cuenta_id,
+          senalId: r.senal_id,
+          cantidad: Number(reparto[r.senal_id].cantidad),
+        });
+        bien.push(r.simbolo);
+      } catch (error) {
+        mal.push(`${r.simbolo}: ${error.message}`);
+      }
+    }
+    avisar(
+      (bien.length ? `Abiertas ${bien.length}: ${bien.join(", ")}.` : "No se abrió ninguna.") +
+        (mal.length ? ` Rechazadas: ${mal.join(" · ")}` : ""),
+      mal.length ? (bien.length ? "warn" : "neg") : "ok"
+    );
+    setAbriendoLote(false);
+    await cargar();
+  }
 
   const abiertas = useMemo(() => ordenes.filter((o) => o.estado === "abierta"), [ordenes]);
   const cerradas = useMemo(() => ordenes.filter((o) => o.estado === "cerrada"), [ordenes]);
@@ -589,6 +671,20 @@ export default function Simulador() {
                     valor={formatearPrecio(Number(cuenta.equity))}
                     nota="disponible + bloqueado + P&L flotante"
                   />
+                  {/* 0022: la cifra con la que se piensa una operación. Lo
+                      que consume cada posición se mide contra ella. */}
+                  <Cifra
+                    etiqueta="Saldo para operar"
+                    valor={formatearPrecio(Number(cuenta.saldo_operar ?? 0))}
+                    nota={
+                      `equity × ${formatearTope(Number(cuenta.leverage_tope))} · en uso ` +
+                      `${formatearPrecio(Number(cuenta.saldo_operar_en_uso ?? 0))} · libre ` +
+                      `${formatearPrecio(saldoLibre(cuenta) ?? 0)}` +
+                      (Number(cuenta.margen_comprometido_max_pct) < 100
+                        ? ` (usas hasta el ${Number(cuenta.margen_comprometido_max_pct)} %)`
+                        : "")
+                    }
+                  />
                   <Cifra
                     etiqueta="Disponible"
                     valor={formatearPrecio(Number(cuenta.saldo_disponible))}
@@ -673,7 +769,7 @@ export default function Simulador() {
               titulo="Entradas sugeridas"
               meta={
                 recomendaciones.length
-                  ? `${recomendaciones.length} de tu cartera`
+                  ? `${recomendaciones.length} de tu cartera · ${marcadas.length} en el reparto`
                   : "ninguna ahora mismo"
               }
               alPedirAyuda={() => setSeccionGuia("simulador")}
@@ -681,7 +777,10 @@ export default function Simulador() {
             >
               {confirmando && (
                 <Confirmacion
+                  key={confirmando.senal_id}
                   fila={confirmando}
+                  reparto={reparto[confirmando.senal_id]}
+                  cuenta={cuenta}
                   avisar={avisar}
                   alCancelar={() => setConfirmando(null)}
                   alConfirmar={() => {
@@ -699,22 +798,58 @@ export default function Simulador() {
                   universo, y no operar es una decisión válida.
                 </p>
               ) : (
+                <>
+                <div className="sim__reparto">
+                  <p className="sim__nota">
+                    Marca las que quieres abrir: tu saldo libre,{" "}
+                    <strong>{formatearPrecio(saldoLibre(cuenta) ?? 0)}</strong>, se reparte entre{" "}
+                    {marcadas.length === 1 ? "esa" : `esas ${marcadas.length}`} según su
+                    apalancamiento (una 5× recibe más que una 3×).
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn--accent"
+                    disabled={abriendoLote || lote.length === 0}
+                    onClick={abrirLote}
+                  >
+                    {abriendoLote
+                      ? "Abriendo…"
+                      : lote.length === 1
+                        ? "Abrir la marcada"
+                        : `Abrir las ${lote.length} marcadas`}
+                  </button>
+                </div>
                 <table className="sim__tabla sim__tabla--sugeridas">
                   <thead>
                     <tr>
+                      <th>
+                        <span className="sr-only">Incluir en el reparto</span>
+                      </th>
                       <th>Activo</th>
                       <th>Confluencia</th>
                       <th>Niveles</th>
-                      <th>Apal.</th>
+                      <th>Peso</th>
                       <th className="num">R:R</th>
+                      <th className="num">Del saldo</th>
                       <th className="num">Tamaño</th>
-                      <th className="num">Margen</th>
                       <th />
                     </tr>
                   </thead>
                   <tbody>
-                    {recomendaciones.map((r) => (
-                      <tr key={r.senal_id}>
+                    {recomendaciones.map((r) => {
+                      const p = reparto[r.senal_id];
+                      const marcada = r.confirmable && !desmarcadas.has(r.senal_id);
+                      return (
+                      <tr key={r.senal_id} className={marcada ? undefined : "sim__fila--fuera"}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={marcada}
+                            disabled={!r.confirmable}
+                            onChange={() => alternarMarca(r.senal_id)}
+                            aria-label={`Incluir ${r.simbolo} en el reparto`}
+                          />
+                        </td>
                         <td>
                           <span className="sim__ticker">{r.simbolo}</span>
                           <span className="sim__sub">
@@ -748,10 +883,29 @@ export default function Simulador() {
                         <td className="num">
                           {r.ratio_rr != null ? Number(r.ratio_rr).toFixed(2) : "—"}
                         </td>
-                        <td className="num">{r.cantidad ?? "—"}</td>
                         <td className="num">
-                          {r.margen != null ? formatearPrecio(Number(r.margen)) : "—"}
+                          {marcada && p ? (
+                            <>
+                              {formatearPrecio(Number(p.consumo ?? 0))}
+                              <span className="sim__sub">
+                                {(pctDelSaldo(p.consumo, cuenta.saldo_operar) ?? 0).toFixed(1)} % · parte{" "}
+                                {formatearPrecio(Number(p.parte))}
+                              </span>
+                              {p.motivo ? (
+                                <span className="sim__sub sim__sub--motivo">
+                                  {motivoNoConfirmable(p, cuenta)}
+                                </span>
+                              ) : (
+                                p.limitado_por_riesgo && (
+                                  <span className="sim__sub">menos: lo limita tu riesgo</span>
+                                )
+                              )}
+                            </>
+                          ) : (
+                            <span className="sim__sub">{r.confirmable ? "sin marcar" : "—"}</span>
+                          )}
                         </td>
+                        <td className="num">{marcada && p?.cantidad != null ? Number(p.cantidad) : "—"}</td>
                         <td>
                           {r.confirmable ? (
                             <button
@@ -768,9 +922,11 @@ export default function Simulador() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
+                </>
               )}
             </Panel>
           )}
@@ -800,7 +956,7 @@ export default function Simulador() {
                       <th>Activo</th>
                       <th className="num">Entrada</th>
                       <th className="num">Cantidad</th>
-                      <th className="num">Apal.</th>
+                      <th className="num">Del saldo</th>
                       <th className="num">Margen</th>
                       <th className="num">Stop / Objetivo</th>
                       <th className="num">Liquidación</th>
@@ -818,7 +974,18 @@ export default function Simulador() {
                         </td>
                         <td className="num">{formatearPrecio(Number(o.precio_entrada))}</td>
                         <td className="num">{Number(o.cantidad)}</td>
-                        <td className="num">{formatearMultiplicador(Number(o.apalancamiento))}x</td>
+                        <td className="num">
+                          {formatearPrecio(consumoDelSaldo(o.margen_comprometido, cuenta.leverage_tope) ?? 0)}
+                          <span className="sim__sub">
+                            {(
+                              pctDelSaldo(
+                                consumoDelSaldo(o.margen_comprometido, cuenta.leverage_tope),
+                                cuenta.saldo_operar
+                              ) ?? 0
+                            ).toFixed(1)}{" "}
+                            % · a {formatearMultiplicador(Number(o.apalancamiento))}x
+                          </span>
+                        </td>
                         <td className="num">{formatearPrecio(Number(o.margen_comprometido))}</td>
                         <td className="num">
                           <span className="neg">{formatearPrecio(Number(o.sl))}</span>

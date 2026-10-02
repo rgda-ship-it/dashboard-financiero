@@ -156,6 +156,22 @@
 .sim__tabla tbody tr:last-child td { border-bottom: 0; }
 .sim__tabla th.num, .sim__tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .sim__tabla--sugeridas td { vertical-align: top; }
+
+/* Reparto del saldo para operar (0022): la barra sobre la tabla y las
+   sugerencias que quedan fuera del reparto, atenuadas. */
+.sim__reparto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.sim__reparto .sim__nota { flex: 1 1 24rem; }
+
+.sim__fila--fuera td:not(:first-child) { opacity: 0.55; }
 .sim__celda-riel { min-width: 12rem; }
 .sim__tabla--libro td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
 

@@ -32,6 +32,10 @@ from riesgo.maquina_fases import ParametrosRiesgo  # noqa: E402
 GUIA = (RAIZ / "frontend" / "src" / "guia.js").read_text(encoding="utf-8")
 SQL_SIMULADOR = (RAIZ / "supabase" / "migrations" / "0011_simulador.sql").read_text(encoding="utf-8")
 SQL_AGENTES = (RAIZ / "supabase" / "migrations" / "0013_agentes.sql").read_text(encoding="utf-8")
+# Todas las migraciones en orden: para los valores que una migración
+# posterior cambia.
+SQL_TODAS = "\n".join(f.read_text(encoding="utf-8")
+                      for f in sorted((RAIZ / "supabase" / "migrations").glob("*.sql")))
 
 
 def _uno(patron: str, texto: str = GUIA) -> str:
@@ -112,7 +116,13 @@ def test_limites_del_servidor_de_la_guia_son_los_de_rpc_abrir_orden():
     minutos = _uno(r"solo señales operables y de menos de (\d+) minutos")
 
     assert f"v_riesgo_pct > {riesgo} then" in SQL_SIMULADOR
-    assert re.search(rf"margen_comprometido_max_pct numeric\(5, 2\) not null default {margen}\b", SQL_SIMULADOR)
+    # El valor por defecto de G3 lo fija la 0011 y lo cambia la 0022 (todo
+    # el saldo para operar): manda el último `set default` que exista.
+    cambios = re.findall(r"alter column margen_comprometido_max_pct set default (\d+)", SQL_TODAS)
+    if cambios:
+        assert cambios[-1] == margen
+    else:
+        assert re.search(rf"margen_comprometido_max_pct numeric\(5, 2\) not null default {margen}\b", SQL_SIMULADOR)
     assert re.search(rf"antiguedad_senal_max_min\s+int not null default {minutos}\b", SQL_SIMULADOR)
 
 

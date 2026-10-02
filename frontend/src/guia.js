@@ -186,8 +186,16 @@ export const SECCIONES = [
         formula:
           "poder de trading (lo que el bróker permite, escalas QuantFury):\n  equity <  1.000 $  →  20 × equity\n  equity ≥  1.000 $  →     20.000 $\n  equity ≥  2.000 $  →     40.000 $\n  equity ≥  5.000 $  →    100.000 $\n  equity ≥ 10.000 $  →    200.000 $\n  equity ≥ 15.000 $  →    300.000 $\n  equity ≥ 20.000 $  →    400.000 $\n  equity ≥ 25.000 $  →    500.000 $\n  equity ≥ 50.000 $  →  1.000.000 $\n\ntope de apalancamiento (lo recomendable): 5× en Fase 1, 3× en Fase 2",
         lectura:
-          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× y el límite de margen comprometido, nunca pasa de 3 veces tu equity, muy lejos del poder de trading.",
+          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden: de él sale tu saldo para operar. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× nunca pasa de 5 veces tu equity, muy lejos del poder de trading.",
         nota: "Por encima de 50.000 $ de equity la escala no tiene más tramos: el poder de trading se queda en 1.000.000 $.",
+      },
+      {
+        termino: "Saldo para operar",
+        formula:
+          "saldo para operar = equity × tope de la fase\n                    (500 $ × 5 = 2.500 $ en Fase 1; × 3 en Fase 2)\n\nconsumo de una posición = margen × tope de la fase",
+        lectura:
+          "Es la pregunta que importa al abrir una posición: qué parte de tu saldo para operar se lleva. Cada posición muestra su consumo en dólares y en % del saldo, en lugar del apalancamiento con el que entró. A 5× una posición consume exactamente su nominal; a 3× consume más: 300 $ nominales a 3× bloquean 100 $ de margen, lo mismo que 500 $ a 5×. Por eso lo volátil cuesta más saldo.",
+        nota: "El apalancamiento de cada posición no desaparece: lo baja el motor con la volatilidad y lo baja el dimensionado para que la liquidación quede por debajo del stop. Sigue siendo la protección; ya no es la cifra que tienes que leer.",
       },
       {
         termino: "Precio de liquidación",
@@ -199,23 +207,23 @@ export const SECCIONES = [
       {
         termino: "Los cinco límites del servidor",
         formula:
-          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 60 % del equity\n4 · agentes: posiciones abiertas ≤ las de su perfil\n5 · solo señales operables y de menos de 90 minutos",
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes: posiciones abiertas ≤ las de su perfil\n5 · solo señales operables y de menos de 90 minutos",
         lectura:
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },
       {
-        termino: "Cuánto comprar: el cupo y tu cantidad",
+        termino: "Cuánto comprar: el reparto y tu cantidad",
         formula:
-          "cupo por posición = margen máx ÷ nº máx de posiciones\n                   (60 % ÷ 3 = 20 % del equity por defecto)\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
+          "parte de cada sugerencia marcada = saldo libre × apal ÷ suma de apal\n\n3 acciones a 5×, 1 cripto a 4× y 1 a 3× sobre 2.500 $ (suma 22):\n  568 $ · 568 $ · 568 $ · 455 $ · 341 $\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
         lectura:
-          "La cantidad sugerida no deja que una sola posición se lleve todo el margen: si el stop está muy cerca, el cálculo por riesgo pediría un nominal enorme, y sin cupo esa primera orden agotaría el margen de la cuenta. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu tope) y el apalancamiento de la fase.",
+          "Marca en «Entradas sugeridas» las que quieres abrir y el saldo libre se reparte entre ellas: una 5× recibe más que una 4×, y una 4× más que una 3×. La parte es un techo: el tamaño sigue saliendo de tu riesgo por operación, y si con él basta una posición más pequeña, consume menos y lo indica. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu uso máximo) y el apalancamiento de la fase.",
         nota: "Con unidades enteras, el riesgo declarado puede no llegar para una acción: con 500 $ y un 1,5 % de riesgo (7,50 $), una acción de 100 $ con el stop al 10 % arriesga 10 $. Entonces se compra UNA, siempre que su riesgo no pase del 10 % del equity y su margen quepa. No es falta de poder de compra: el apalancamiento cambia el margen, no lo que se pierde si salta el stop.",
       },
       {
         termino: "Tus límites",
-        formula: "repartir el margen en 1 – 10 posiciones\nriesgo por operación   0,1 – 10 % del equity\nmargen máximo          10 – 80 % del equity\nR:R mínimo             0 – 5",
+        formula: "riesgo por operación             0,1 – 10 % del equity\nuso máximo del saldo para operar  10 – 100 %\nR:R mínimo                       0 – 5",
         lectura:
-          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los cuatro que son decisión tuya. El número de posiciones no limita cuántas abres: divide tu margen máximo para calcular la cantidad sugerida de cada una. Lo que acota tu exposición es el margen máximo y el riesgo por operación. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
+          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los tres que son decisión tuya. No hay un número máximo de posiciones: cuántas abres lo decides al marcar sugerencias, y lo que acota tu exposición es el uso máximo del saldo y el riesgo por operación. Por defecto usas el saldo entero; si quieres dejar colchón, bájalo. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
       },
       {
         termino: "Cerrar una parte",

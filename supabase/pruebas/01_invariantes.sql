@@ -2351,8 +2351,10 @@ begin
     select cupo_pct into v_num from public.v_recomendaciones_usuario where senal_id = v_s_acc;
     select cantidad into v_num2 from public.v_recomendaciones_usuario where senal_id = v_s_acc;
     perform pg_temp.como_dueno();
-    if v_num <> 20 or v_num2 <> trunc(v_num2) then
-        raise exception 'I56 FALLO: la recomendación debía llevar cupo 20 %% y acciones enteras, dio % y %', v_num, v_num2;
+    -- Desde la 0022 la recomendación de un USUARIO no lleva el cupo de
+    -- max_posiciones: el reparto lo hace `rpc_repartir_saldo` (I66).
+    if v_num is not null or v_num2 <> trunc(v_num2) then
+        raise exception 'I56 FALLO: la recomendación de un usuario no debía llevar cupo y sí acciones enteras, dio % y %', v_num, v_num2;
     end if;
 
     v_fallo := false;
@@ -2385,7 +2387,7 @@ begin
     if v_fallo then
         raise exception 'I56 FALLO: una cantidad a mano con un 40 %% de riesgo se aceptó (G2)';
     end if;
-    raise notice 'PASS  I56 cupo por posición en el dimensionado y la recomendación; acciones en unidades enteras; la cantidad a mano manda pero G2 sigue imponiéndose';
+    raise notice 'PASS  I56 cupo por posición en el dimensionado; acciones en unidades enteras; la cantidad a mano manda pero G2 sigue imponiéndose';
 
     -- ── I57 · Cierre parcial ─────────────────────────────────────────
     perform pg_temp.como(v_u);
@@ -2666,12 +2668,15 @@ begin
         perform pg_temp.como_dueno();
         raise exception 'I64 FALLO: un parámetro nulo debía dejar el valor como estaba';
     end if;
-    -- Fuera de rango: ni 11 posiciones, ni 12 % de riesgo, ni 90 % de margen.
+    -- Fuera de rango: ni 11 posiciones, ni 12 % de riesgo, ni 110 % de
+    -- margen (desde la 0022 el margen llega al 100 %, no al 80 %).
     begin perform public.rpc_configurar_cuenta(11); v_malos := v_malos + 1;
     exception when invalid_parameter_value then null; end;
     begin perform public.rpc_configurar_cuenta(null, 12); v_malos := v_malos + 1;
     exception when invalid_parameter_value then null; end;
-    begin perform public.rpc_configurar_cuenta(null, null, 90); v_malos := v_malos + 1;
+    begin perform public.rpc_configurar_cuenta(null, null, 110); v_malos := v_malos + 1;
+    exception when invalid_parameter_value then null; end;
+    begin perform public.rpc_configurar_cuenta(null, null, 5); v_malos := v_malos + 1;
     exception when invalid_parameter_value then null; end;
     -- Sin cuenta propia no hay nada que configurar (y no toca la de otro).
     perform pg_temp.como(v_sin);
@@ -2766,6 +2771,144 @@ begin
     raise notice 'PASS  I65 G4 sigue frenando a los agentes; una práctica repetida se respalda: evidencia sumada, coautor y voto, sin duplicado';
 end
 $i65$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I66 · Saldo para operar y reparto ponderado por apalancamiento (0022).
+--
+-- El caso del dueño, con números redondos: 1.000 $ en Fase 1 son 5.000 $
+-- de saldo para operar. Tres sugerencias a 5×, 4× y 3× se reparten ese
+-- saldo en proporción 5 : 4 : 3 (2.083 · 1.667 · 1.250 $), se pueden abrir
+-- las tres —la regla de las tres posiciones no reaparece por el cupo— y
+-- entre las tres consumen casi todo el saldo sin pasarse.
+-- ═════════════════════════════════════════════════════════════════════
+do $i66$
+declare
+    v_u      uuid := gen_random_uuid();
+    v_otro   uuid := gen_random_uuid();
+    v_cuenta bigint;
+    v_a      bigint[];
+    v_s      bigint[] := '{}';
+    v_texto  text;
+    v_num    numeric;
+    v_n      int;
+    v_r      record;
+    v_btc    bigint;
+    v_sbtc   bigint;
+    i        int;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('ZZRA', 'accion', 'yahoo', 'ZZRA', 'activo', 10, now()),
+        ('ZZRB', 'accion', 'yahoo', 'ZZRB', 'activo', 10, now()),
+        ('ZZRC', 'accion', 'yahoo', 'ZZRC', 'activo', 10, now());
+    select array_agg(id order by simbolo) into v_a from public.activos where simbolo in ('ZZRA', 'ZZRB', 'ZZRC');
+
+    -- Stop al 1 %: el riesgo por operación (10 %) pediría 10.000 $ de
+    -- nominal, así que lo que fija el tamaño es la parte del reparto.
+    for i in 1..3 loop
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_a[i], true, 5, 3, 's8', 10, 9.9, 10.3, 6 - i, 'alcista', 'largo', 'alta',
+                'estructura', 2, 3, 0, now());
+        v_s := v_s || currval(pg_get_serial_sequence('public.senales', 'id'));
+    end loop;
+
+    insert into auth.users (id, email, email_confirmed_at) values
+        (v_u, 'saldo-operar@ejemplo.com', now()), (v_otro, 'saldo-operar2@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id in (v_u, v_otro);
+
+    perform pg_temp.como(v_u);
+    for i in 1..3 loop perform public.rpc_seguir_activo(v_a[i]); end loop;
+    v_cuenta := (public.rpc_crear_cuenta_simulacion(1000) ->> 'cuenta_id')::bigint;
+    perform public.rpc_configurar_cuenta(null, 10);
+
+    -- 1. Cuenta nueva: G3 al 100 % y 5.000 $ de saldo para operar.
+    select format('%s/%s/%s/%s', margen_comprometido_max_pct, saldo_operar, saldo_operar_max, saldo_operar_en_uso)
+      into v_texto from public.v_cuentas_equity where id = v_cuenta;
+    if v_texto <> '100.00/5000.00/5000.00/0.00' then
+        perform pg_temp.como_dueno();
+        raise exception 'I66 FALLO: la cuenta nueva debía tener margen 100 %% y 5.000 $ de saldo para operar, dio %', v_texto;
+    end if;
+
+    -- 2. Reparto de las tres: partes 5 : 4 : 3 del saldo, acciones enteras.
+    select string_agg(format('%s:%s:%s:%s', peso::numeric(4,1), parte, cantidad, limitado_por_riesgo),
+                      ' ' order by peso desc), sum(parte)
+      into v_texto, v_num
+      from public.rpc_repartir_saldo(v_s);
+    if v_texto <> '5.0:2083.33:208:f 4.0:1666.67:133:f 3.0:1250.00:75:f'
+       or abs(v_num - 5000) > 0.02 then
+        perform pg_temp.como_dueno();
+        raise exception 'I66 FALLO: el reparto ponderado no es 5 : 4 : 3 del saldo: % (suma %)', v_texto, v_num;
+    end if;
+
+    -- 3. Solo las marcadas: con dos (5× y 3×) el saldo se reparte 5 : 3.
+    select string_agg(parte::text, ' ' order by peso desc) into v_texto
+      from public.rpc_repartir_saldo(array[v_s[1], v_s[3]]);
+    if v_texto <> '3125.00 1875.00' then
+        perform pg_temp.como_dueno();
+        raise exception 'I66 FALLO: el reparto debía hacerse solo entre las marcadas, dio %', v_texto;
+    end if;
+
+    -- 4. Se abren las tres con su cantidad; ninguna regla de tres
+    --    posiciones ni cupo de max_posiciones lo impide.
+    for v_r in select * from public.rpc_repartir_saldo(v_s) loop
+        perform public.rpc_abrir_orden(v_cuenta, v_r.senal_id, null, null, null, null,
+                                       'recomendacion', null, v_r.cantidad);
+    end loop;
+    select format('%s/%s', posiciones_abiertas, saldo_operar_en_uso) into v_texto
+      from public.v_cuentas_equity where id = v_cuenta;
+    select count(*) into v_n from public.rpc_repartir_saldo(v_s);
+    perform pg_temp.como_dueno();
+    -- 416 + 332,50 + 250 = 998,50 $ de margen × 5 = 4.992,50 $ del saldo.
+    if v_texto <> '3/4992.50' or v_n <> 0 then
+        raise exception 'I66 FALLO: las tres debían abrirse y consumir 4.992,50 $ del saldo; dio % (y % sugerencias aún repartibles)', v_texto, v_n;
+    end if;
+
+    -- 5. Otro usuario no ve el reparto de nadie, y anon no puede llamarlo.
+    perform pg_temp.como(v_otro);
+    select count(*) into v_n from public.rpc_repartir_saldo(v_s);
+    perform pg_temp.como_dueno();
+    if v_n <> 0 then
+        raise exception 'I66 FALLO: otro usuario obtuvo % filas del reparto ajeno', v_n;
+    end if;
+    if has_function_privilege('anon', 'public.rpc_repartir_saldo(bigint[])', 'EXECUTE') then
+        raise exception 'I66 FALLO: anon puede ejecutar rpc_repartir_saldo';
+    end if;
+
+    -- 6. Con una cripto a un precio sin decimales redondos, el lote entero
+    --    también entra: la cantidad se trunca y el margen que deduce
+    --    `rpc_abrir_orden` no se pasa de lo libre ni por un céntimo.
+    select id into v_btc from public.activos where simbolo = 'bitcoin';
+    update public.activos set estado = 'activo', ultimo_precio = 33.333, ultimo_precio_en = now() where id = v_btc;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_btc, true, 5, 3, 's8', 33.333, 33, 34.5, 4.7, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0,
+            greatest(now(), (select max(calculado_en) + interval '1 second'
+                               from public.senales where activo_id = v_btc)))
+    returning id into v_sbtc;
+    perform pg_temp.como(v_otro);
+    perform public.rpc_seguir_activo(v_a[1]);
+    perform public.rpc_seguir_activo(v_btc);
+    v_cuenta := (public.rpc_crear_cuenta_simulacion(777.77) ->> 'cuenta_id')::bigint;
+    perform public.rpc_configurar_cuenta(null, 10);
+    for v_r in select * from public.rpc_repartir_saldo(array[v_s[1], v_sbtc]) loop
+        perform public.rpc_abrir_orden(v_cuenta, v_r.senal_id, null, null, null, null,
+                                       'recomendacion', null, v_r.cantidad);
+    end loop;
+    select format('%s/%s', posiciones_abiertas, saldo_operar_en_uso <= saldo_operar_max)
+      into v_texto from public.v_cuentas_equity where id = v_cuenta;
+    perform pg_temp.como_dueno();
+    if v_texto <> '2/t' then
+        raise exception 'I66 FALLO: el lote con una cripto debía abrirse entero dentro del saldo, dio %', v_texto;
+    end if;
+
+    update public.activos set estado = 'suspendido' where id = any(v_a);
+    raise notice 'PASS  I66 saldo para operar = equity × tope; el reparto entre las marcadas pondera por apalancamiento y se abren todas, también con cripto';
+end
+$i66$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

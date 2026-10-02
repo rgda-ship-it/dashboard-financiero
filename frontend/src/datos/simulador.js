@@ -67,6 +67,16 @@ export const leerRecomendaciones = () =>
       .order("ratio_rr", { ascending: false })
   );
 
+/** Reparto del saldo para operar entre las sugerencias MARCADAS (0022).
+ *  A cada una le toca saldo libre × su apalancamiento ÷ la suma de los
+ *  apalancamientos: una 5× recibe más que una 4×, y una 4× más que una 3×.
+ *  La parte es un techo; el tamaño sigue saliendo del riesgo por
+ *  operación. No escribe nada: abrir sigue siendo `abrirOrden`. */
+export const repartirSaldo = (senalIds) =>
+  senalIds.length
+    ? llamar(supabase.rpc("rpc_repartir_saldo", { p_senal_ids: senalIds }))
+    : Promise.resolve([]);
+
 export const leerOrdenes = () =>
   llamar(supabase.from("v_mis_ordenes").select("*").order("id", { ascending: false }));
 
@@ -91,7 +101,9 @@ export const abrirOrden = ({ cuentaId, senalId, precioEntrada, fechaEntrada, can
   );
 
 /** Los límites de TU cuenta (0020). Nulo = no cambiar. El servidor valida
- *  los rangos; estos solo sirven para avisar antes de la llamada. */
+ *  los rangos; estos solo sirven para avisar antes de la llamada. Desde la
+ *  0022 el número de posiciones no interviene en una cuenta de usuario y la
+ *  pantalla no lo ofrece; el parámetro sigue aquí por compatibilidad. */
 export const configurarCuenta = ({ maxPosiciones, riesgoPct, margenMaxPct, rrMinimo }) =>
   llamar(
     supabase.rpc("rpc_configurar_cuenta", {
@@ -103,9 +115,10 @@ export const configurarCuenta = ({ maxPosiciones, riesgoPct, margenMaxPct, rrMin
   );
 
 export const RANGOS_CUENTA = {
-  maxPosiciones: { min: 1, max: 10, paso: 1 },
   riesgoPct: { min: 0.1, max: 10, paso: 0.1 },
-  margenMaxPct: { min: 10, max: 80, paso: 5 },
+  // % del saldo para operar que se puede usar a la vez (G3). 100 por
+  // defecto desde la 0022.
+  margenMaxPct: { min: 10, max: 100, paso: 5 },
   rrMinimo: { min: 0, max: 5, paso: 0.1 },
 };
 

@@ -4,6 +4,40 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-02 — Saldo para operar y reparto ponderado (0022, D17)
+
+### Cambiado — lo que importa de una posición es cuánto saldo consume
+El simulador mostraba el apalancamiento de cada posición (3×, 4×, 5×), que
+no contesta la pregunta del dueño: qué parte de su saldo para operar se lleva
+cada operación. Ahora la cuenta muestra el **saldo para operar = equity ×
+tope de la fase** (500 $ × 5 = 2.500 $ en Fase 1), con lo que está en uso y
+lo que queda libre, y cada posición abierta o sugerida muestra su
+**consumo = margen × tope**, en dólares y en % del saldo. A 5× el consumo es
+el nominal; a 3× es más que el nominal, así que lo volátil cuesta más saldo.
+El apalancamiento por posición sigue existiendo —es lo que evita liquidar
+antes del stop— y queda como dato secundario.
+
+### Cambiado — la regla de las 3 posiciones seguía viva en el cupo
+La 0021 quitó G4 de las cuentas de usuario, pero el cupo seguía siendo
+margen máx ÷ `max_posiciones` (60 % ÷ 3): tras tres posiciones G3 no dejaba
+margen y la cuarta y la quinta salían «sin margen libre». Y con G3 al 60 %
+el saldo nunca pasaba de 1.500 $. Ahora:
+- **G3 al 100 % por defecto** en cuentas de usuario: es «qué parte del saldo
+  para operar quieres usar», ajustable del 10 al 100 % en «Tus límites». Las
+  cuentas que conservaban el 60 % de fábrica pasan al 100 % con su evento;
+  si el usuario había movido su margen, se respeta.
+- **Reparto entre las sugerencias marcadas, ponderado por apalancamiento**
+  (`rpc_repartir_saldo`): parte = saldo libre × apal ÷ Σ apal. Tres acciones
+  a 5×, una cripto a 4× y otra a 3× sobre 2.500 $ → 568 · 568 · 568 · 455 ·
+  341 $. La parte es un techo: el tamaño sigue saliendo del riesgo por
+  operación, y si pide menos, la sugerencia lo indica. Botón «Abrir las N
+  marcadas» para abrirlas de una vez.
+- «Tus límites» deja de ofrecer el número de posiciones.
+
+Los agentes no cambian: conservan su cupo, su G4 y su margen de perfil.
+
+I56 e I64 actualizadas, I66 nueva (66 invariantes). Frontend 19 → 22 tests.
+
 ## [Sin publicar] - 2026-10-01 — G4 solo para agentes y prácticas que se respaldan (0021)
 
 ### Cambiado — G4 ya no limita la cuenta del usuario
