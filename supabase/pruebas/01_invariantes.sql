@@ -1588,10 +1588,12 @@ begin
         raise exception 'I41 FALLO: % de 3 cuentas de agente nacen con 500 $ por el libro mayor', v_conteo;
     end if;
     -- Los guardarraíles leen la CUENTA: tiene que reflejar la estrategia.
+    -- Desde la 0023 el margen de todo agente es el 100 % del saldo para
+    -- operar, diga lo que diga su estrategia.
     select format('%s/%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas,
                   margen_comprometido_max_pct, ratio_rr_minimo) into v_texto
       from public.cuentas_simulacion where id = v_c_pru;
-    if v_texto <> '1.50/3/40.00/2.00' then
+    if v_texto <> '1.50/3/100.00/2.00' then
         raise exception 'I41 FALLO: la cuenta de Prudencia no refleja su estrategia: %', v_texto;
     end if;
     if not exists (select 1 from public.agente_estrategia_versiones where agente_id = v_pru and version = 1) then
@@ -1717,13 +1719,18 @@ begin
 
     perform public.fn_ciclo_agentes();
 
-    select string_agg(g.nombre || '=' || a.simbolo, ',' order by g.id) into v_texto
+    select string_agg(g.nombre || '=' || a.simbolo, ',' order by g.id, a.simbolo collate "C") into v_texto
       from public.ordenes o
       join public.cuentas_simulacion c on c.id = o.cuenta_id
       join public.agentes g on g.id = c.agente_id
       join public.activos a on a.id = o.activo_id
      where g.id in (v_pru, v_cad, v_auda) and o.estado = 'abierta';
-    if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=zzag2,Audacia=zzag1' then
+    -- Desde la 0023 cada agente abre a la vez todas las que marca. A todos
+    -- les falta la meta entera del día y, con su riesgo por operación,
+    -- cualquiera de sus candidatas la cubre si llega al objetivo: reparten
+    -- entre todas las que admite su perfil. Prudencia solo admite la
+    -- acción; Audacia descarta zzag2 por ATR bajo.
+    if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=ZZAGA,Cadencia=zzag1,Cadencia=zzag2,Audacia=ZZAGA,Audacia=zzag1' then
         raise exception 'I43 FALLO: los perfiles no diferencian: %', v_texto;
     end if;
     -- El racional explica la decisión: qué faltaba, qué se evaluó y qué se descartó.
@@ -1731,11 +1738,11 @@ begin
      where cuenta_id in (v_c_pru, v_c_cad, v_c_auda) and origen = 'agente'
        and racional ? 'candidatos_evaluados' and racional ? 'descartados_top3'
        and racional ? 'deficit_pendiente' and racional ? 'version_estrategia'
-       and racional ? 'elegido';
-    if v_conteo <> 3 then
-        raise exception 'I43 FALLO: % de 3 órdenes llevan el racional completo', v_conteo;
+       and racional ? 'elegido' and racional ? 'marcadas' and racional ? 'reparto';
+    if v_conteo <> 6 then
+        raise exception 'I43 FALLO: % de 6 órdenes llevan el racional completo', v_conteo;
     end if;
-    raise notice 'PASS  I43 misma decisión con el mismo estado; sobre las mismas señales los tres agentes eligen tres activos distintos, con su racional';
+    raise notice 'PASS  I43 misma decisión con el mismo estado; sobre las mismas señales cada agente marca lo que admite su perfil y lo abre de una vez, con su racional';
 
     -- ── I44 · Ningún agente supera sus guardarraíles ─────────────────
     -- La consulta que pide H-27. G2 se compara contra el PICO de capital,
@@ -1758,8 +1765,12 @@ begin
         select c.id
           from public.cuentas_simulacion c
          where c.agente_id in (v_pru, v_cad, v_auda)
+           -- G4 ya no existe para los agentes (0023); solo la cuarentena
+           -- limita a una posición abierta.
            and ((select count(*) from public.ordenes o
-                  where o.cuenta_id = c.id and o.estado = 'abierta') > c.max_posiciones_abiertas     -- G4
+                  where o.cuenta_id = c.id and o.estado = 'abierta')
+                 > case when (select estado from public.agentes where id = c.agente_id) = 'cuarentena'
+                        then 1 else 1000 end
                 or c.saldo_bloqueado > public.fn_equity(c.id) * c.margen_comprometido_max_pct / 100 + 0.01) -- G3
     ) violaciones;
     if v_conteo <> 0 then
@@ -1823,6 +1834,13 @@ begin
     if v_fallo then
         raise exception 'I48 FALLO: la base de datos aceptó una práctica con 2 operaciones (N11)';
     end if;
+
+    -- Desde la 0023 Cadencia abrió sus tres candidatas de una vez. Para
+    -- comparar su conjunto de candidatos se cierran ZZAGA y zzag1 a su
+    -- precio de entrada (P&L cero): queda como antes, solo con zzag2.
+    perform public.rpc_cerrar_orden(o.id, o.precio_entrada, 'manual', o.precio_entrada)
+       from public.ordenes o
+      where o.cuenta_id = v_c_cad and o.estado = 'abierta' and o.activo_id <> v_z2;
 
     -- Adoptarla CAMBIA el conjunto de candidatos de Cadencia: zzag1 es de
     -- fuerza media y ZZAGA es una acción; la práctica exige cripto alta.
@@ -1892,13 +1910,17 @@ begin
     raise notice 'PASS  I48 prácticas: se destila con ≥3 ops y ≥66 %%, adoptar cambia los candidatos y sube la versión, dos fracasos la refutan para todos';
 
     -- ── I45 · N9: meta cumplida ⇒ no se abre nada más hoy ────────────
-    select id into v_orden from public.ordenes where cuenta_id = v_c_auda and estado = 'abierta';
-    perform public.rpc_cerrar_orden(v_orden, 125, 'tp', 125);   -- +62,50 $ sobre una meta de 35 $
+    -- Desde la 0023 Audacia abrió ZZAGA y zzag1 a la vez. Se cierra zzag1
+    -- en su objetivo; ZZAGA sigue abierta y no debe aparecer ninguna más.
+    select id into v_orden from public.ordenes
+     where cuenta_id = v_c_auda and estado = 'abierta' and activo_id = v_z1;
+    perform public.rpc_cerrar_orden(v_orden, 125, 'tp', 125);   -- muy por encima de una meta de 35 $
     if public.fn_decidir_agente(v_auda) ->> 'accion' <> 'meta_cumplida' then
         raise exception 'I45 FALLO: con la meta cumplida Audacia no entra en modo conservación';
     end if;
+    select count(*) into v_conteo from public.ordenes where cuenta_id = v_c_auda;
     perform public.fn_ciclo_agentes();
-    if exists (select 1 from public.ordenes where cuenta_id = v_c_auda and estado = 'abierta') then
+    if (select count(*) from public.ordenes where cuenta_id = v_c_auda) <> v_conteo then
         raise exception 'I45 FALLO: Audacia abrió otra posición con la meta del día cumplida (N9)';
     end if;
     if not (select cumplido from public.agente_dias where agente_id = v_auda and fecha = v_hoy) then
@@ -2271,6 +2293,8 @@ declare
     v_c1     bigint;
     v_c2     bigint;
     v_c3     bigint;
+    v_c9     bigint;
+    v_s9     bigint;
     v_s_acc  bigint;
     v_s1     bigint;
     v_s3     bigint;
@@ -2463,6 +2487,27 @@ begin
     if v_orden is null then
         raise exception 'I58 FALLO: el agente de rotación no abrió su primera posición: %', v_json;
     end if;
+    -- Desde la 0023 no hay G4: se rota cuando el SALDO está lleno. El
+    -- servidor llena la cuenta con una posición de relleno (stop al 0,5 %,
+    -- recién abierta: la rotación no la toca) hasta dejar menos de 10 $ de
+    -- margen libre.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzd9', 'cripto', 'coingecko', 'zzd9', 'activo', 100, now())
+    returning id into v_c9;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_c9, true, 5, 3, 's7', 100, 99.5, 100.6, 5, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0, now())
+    returning id into v_s9;
+    perform public.rpc_abrir_orden(v_c_rota, v_s9, null, null, 5, 2, 'agente', '{}'::jsonb,
+                                   trunc((saldo_disponible - 5) * 5 / 100, 8))
+       from public.cuentas_simulacion where id = v_c_rota;
+    if public.fn_decidir_agente(v_rota) ->> 'accion' not in ('rotar', 'saldo_lleno') then
+        raise exception 'I58 FALLO: con menos de 10 $ libres el saldo debía estar lleno: %',
+              public.fn_decidir_agente(v_rota) ->> 'accion';
+    end if;
+
     -- La posición madura y se acerca al objetivo: le queda poco que ganar
     -- (R:R restante 2/28) y aparece una señal de R:R 3.
     update public.ordenes set fecha_entrada = now() - interval '1 hour' where id = v_orden;
@@ -2480,7 +2525,7 @@ begin
                          and orden_nueva_id is not null) then
         raise exception 'I58 FALLO: debía cerrar la débil por rotación, abrir la nueva y registrar la decisión: %', v_json;
     end if;
-    raise notice 'PASS  I58 rotación: cierra la posición con menos R:R restante, abre la mejor señal y deja la decisión para juzgarla';
+    raise notice 'PASS  I58 rotación con el saldo lleno: cierra la posición con menos R:R restante, abre la mejor señal y deja la decisión para juzgarla';
 
     -- ── I59 · Toma parcial automática y su contrafactual ─────────────
     update public.activos set ultimo_precio = 100, ultimo_precio_en = now() where id = v_c3;
@@ -2510,6 +2555,8 @@ begin
     -- ── I60 · Ajuste de parámetros con evidencia ─────────────────────
     -- Diez rotaciones resueltas que salieron mal, y el reparto por cupo
     -- rindiendo más que el concentrado en diez operaciones de cada modo.
+    -- Desde la 0023 el reparto ya no es un parámetro aprendido (lo decide
+    -- la exigencia del día): esa evidencia ya no lo mueve.
     insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
     select v_rota, 'rotacion', '{"umbral": 1.5}', -3, now() from generate_series(1, 10);
     insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
@@ -2518,20 +2565,22 @@ begin
     select v_rota, 'reparto', '{"reparto": "concentrado"}', -50, now() from generate_series(1, 10);
     select version_estrategia into v_num from public.agentes where id = v_rota;
 
-    if public.fn_ajustar_parametros(v_rota) <> 2 then
-        raise exception 'I60 FALLO: con esa evidencia debía ajustar dos parámetros';
+    if public.fn_ajustar_parametros(v_rota) <> 1 then
+        raise exception 'I60 FALLO: con esa evidencia debía ajustar solo el umbral de rotación';
     end if;
-    select format('%s/%s', estrategia -> 'rotacion_umbral', estrategia ->> 'reparto') into v_texto
-      from public.agentes where id = v_rota;
-    if v_texto <> '1.7/cupo' or (select version_estrategia from public.agentes where id = v_rota) <= v_num
-       or (select count(*) from public.agente_ajustes where agente_id = v_rota) <> 2 then
-        raise exception 'I60 FALLO: rotaciones que pierden suben el umbral un paso y el reparto cambia al que rinde más: %', v_texto;
+    -- El reparto se lee del parámetro EFECTIVO: la estrategia guardada de
+    -- este agente de pruebas dice «concentrado», y la 0023 lo ignora.
+    select format('%s/%s', estrategia -> 'rotacion_umbral', public.fn_parametros_agente(a) ->> 'reparto')
+      into v_texto from public.agentes a where id = v_rota;
+    if v_texto <> '1.7/exigencia' or (select version_estrategia from public.agentes where id = v_rota) <= v_num
+       or (select count(*) from public.agente_ajustes where agente_id = v_rota) <> 1 then
+        raise exception 'I60 FALLO: rotaciones que pierden suben el umbral un paso y el reparto sigue por exigencia: %', v_texto;
     end if;
     -- Sin evidencia nueva no se vuelve a mover.
     if public.fn_ajustar_parametros(v_rota) <> 0 then
         raise exception 'I60 FALLO: un parámetro se movió dos veces con la misma evidencia';
     end if;
-    raise notice 'PASS  I60 los parámetros se mueven un paso con 10 decisiones resueltas, quedan registrados y no se mueven dos veces por lo mismo';
+    raise notice 'PASS  I60 los parámetros se mueven un paso con 10 decisiones resueltas, quedan registrados y no se mueven dos veces por lo mismo; el reparto ya no se aprende';
 
     -- ── I61 · Aprender de los errores: prácticas «a evitar» ──────────
     insert into public.senales
@@ -2696,7 +2745,8 @@ end
 $i64$;
 
 -- ═════════════════════════════════════════════════════════════════════
--- I65 · G4 sigue en los agentes; una práctica repetida se respalda (0021).
+-- I65 · Una práctica repetida se respalda (0021); G4 ya no frena a los
+--       agentes (0023).
 -- ═════════════════════════════════════════════════════════════════════
 do $i65$
 declare
@@ -2710,8 +2760,10 @@ declare
     v_antes  int;
     v_id     bigint;
 begin
-    -- El agente de rotación del bloque 0016 tiene max 1 y una posición
-    -- abierta: otra orden se rechaza por G4.
+    -- El agente de rotación del bloque 0016 tiene max 1 en su estrategia y
+    -- posiciones abiertas. Hasta la 0023 otra orden se rechazaba por G4;
+    -- desde la 0023 G4 no existe tampoco para los agentes: si se rechaza,
+    -- que sea por otra cosa (aquí, su saldo para operar está casi lleno).
     select id into v_rota from public.agentes where nombre = 'prueba-rota';
     v_cuenta := public.fn_cuenta_agente(v_rota);
     select s.id into v_senal from public.senales s join public.activos a on a.id = s.activo_id
@@ -2721,8 +2773,8 @@ begin
         v_fallo := true;
     exception when raise_exception then v_texto := sqlerrm;
     end;
-    if v_fallo or v_texto not like '%posiciones abiertas%' then
-        raise exception 'I65 FALLO: G4 debía seguir frenando a un agente: %', coalesce(v_texto, 'se abrió');
+    if v_texto like '%posiciones abiertas%' then
+        raise exception 'I65 FALLO: G4 sigue frenando a un agente: %', v_texto;
     end if;
 
     -- Respaldo: Audacia destila la misma firma que ya publicó Cadencia.
@@ -2768,7 +2820,7 @@ begin
                     and agente_id = v_cad and abandonada_en is null) then
         raise exception 'I65 FALLO: fundir debía archivar el duplicado, sumar a su autor como coautor y no dejar a la autora adoptándose a sí misma';
     end if;
-    raise notice 'PASS  I65 G4 sigue frenando a los agentes; una práctica repetida se respalda: evidencia sumada, coautor y voto, sin duplicado';
+    raise notice 'PASS  I65 G4 ya no frena a los agentes; una práctica repetida se respalda: evidencia sumada, coautor y voto, sin duplicado';
 end
 $i65$;
 
@@ -2909,6 +2961,110 @@ begin
     raise notice 'PASS  I66 saldo para operar = equity × tope; el reparto entre las marcadas pondera por apalancamiento y se abren todas, también con cripto';
 end
 $i66$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I67 · Los agentes reparten su saldo según la exigencia del día (0023).
+--
+-- Un agente de pruebas con 500 $ (2.500 $ de saldo para operar) y dos
+-- criptos: A a 5× con un 3 % hasta el objetivo y B a 3× con un 2 %. Con un
+-- riesgo del 10 % y el stop al 1 %, lo que fija el tamaño es la parte del
+-- reparto. Concentrar en A gana 71,25 $ en objetivo; repartir 5 : 3, 58,13 $.
+--   · le faltan 20 $   → las dos cubren la meta: reparte entre las dos;
+--   · le faltan 65 $   → solo concentrar la cubre: marca A;
+--   · le faltan 100 $  → nada la cubre: la de más ganancia, que es A sola;
+--   · en cuarentena    → como mucho una.
+-- Y en el ciclo abre todas sus marcadas a la vez, con margen 100 % aunque
+-- su estrategia diga 40.
+-- ═════════════════════════════════════════════════════════════════════
+do $i67$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_a      bigint;
+    v_b      bigint;
+    v_json   jsonb;
+    v_texto  text;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('zzexa', 'cripto', 'coingecko', 'zzexa', 'activo', 100, now()),
+        ('zzexb', 'cripto', 'coingecko', 'zzexb', 'activo', 100, now());
+    select id into v_a from public.activos where simbolo = 'zzexa';
+    select id into v_b from public.activos where simbolo = 'zzexb';
+    -- ATR del 8 % y niveles de estructura: ninguna otra señal del fichero
+    -- entra en el universo de este agente.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, true, 5, 3, 's9', 100, 99, 103, 5, 'alcista', 'largo', 'alta', 'estructura', 8, 3, 0, now()),
+           (v_b, true, 5, 3, 's9', 100, 99, 102, 3, 'alcista', 'largo', 'alta', 'estructura', 8, 3, 0, now());
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-exigencia', 4, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "atr_pct_min": 7.5, "rr_minimo": 1.5, "max_posiciones_abiertas": 1,
+           "margen_comprometido_max_pct": 40, "riesgo_pct_operacion": 10}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+
+    -- 1. Le falta poco (4 % = 20 $): reparte 5 : 3 entre las dos.
+    v_json := public.fn_decidir_agente(v_ag);
+    select format('%s/%s/%s', v_json #>> '{reparto,modo}',
+                  (select string_agg((x ->> 'simbolo') || ':' || (x ->> 'margen')::numeric(10,2), ' ')
+                     from jsonb_array_elements(v_json -> 'marcadas') x),
+                  v_json #>> '{reparto,ganancia_objetivo}')
+      into v_texto;
+    if v_texto <> 'cubre_meta/zzexa:312.50 zzexb:187.50/58.13' then
+        raise exception 'I67 FALLO: con poca exigencia debía repartir 5 : 3 entre las dos: % (%)', v_texto, v_json -> 'reparto';
+    end if;
+
+    -- 2. Le faltan 65 $ (13 %): solo concentrar en la 5× la cubre.
+    update public.agentes set objetivo_diario_pct = 13 where id = v_ag;
+    v_json := public.fn_decidir_agente(v_ag);
+    select format('%s/%s', v_json #>> '{reparto,modo}',
+                  (select string_agg(x ->> 'simbolo', ' ') from jsonb_array_elements(v_json -> 'marcadas') x))
+      into v_texto;
+    if v_texto <> 'cubre_meta/zzexa' then
+        raise exception 'I67 FALLO: con 65 $ por cubrir debía concentrar en la 5×: %', v_texto;
+    end if;
+
+    -- 3. Le faltan 100 $ (20 %): nada la cubre; la de más ganancia es A sola.
+    update public.agentes set objetivo_diario_pct = 20 where id = v_ag;
+    v_json := public.fn_decidir_agente(v_ag);
+    select format('%s/%s/%s', v_json #>> '{reparto,modo}',
+                  (select string_agg(x ->> 'simbolo', ' ') from jsonb_array_elements(v_json -> 'marcadas') x),
+                  v_json #>> '{reparto,ganancia_objetivo}')
+      into v_texto;
+    if v_texto <> 'maxima_ganancia/zzexa/71.25' then
+        raise exception 'I67 FALLO: con una meta inalcanzable debía concentrar en lo que más gana: %', v_texto;
+    end if;
+
+    -- 4. En cuarentena, como mucho una, aunque repartir cubriera la meta.
+    update public.agentes set objetivo_diario_pct = 4, estado = 'cuarentena' where id = v_ag;
+    v_json := public.fn_decidir_agente(v_ag);
+    if jsonb_array_length(v_json -> 'marcadas') <> 1 then
+        raise exception 'I67 FALLO: en cuarentena marcó % posiciones', jsonb_array_length(v_json -> 'marcadas');
+    end if;
+
+    -- 5. El ciclo abre las dos a la vez, con el saldo entero (margen 100 %
+    --    aunque su estrategia diga 40) y una decisión de reparto por orden.
+    update public.agentes set estado = 'activo' where id = v_ag;
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true
+     where agente_id = v_ag and fecha = (now() at time zone 'UTC')::date;
+    perform public.fn_ciclo_agente(v_ag);
+    select format('%s/%s/%s', posiciones_abiertas, margen_comprometido_max_pct, saldo_operar_en_uso)
+      into v_texto from public.v_cuentas_equity where id = v_cuenta;
+    if v_texto <> '2/100.00/2500.00'
+       or (select count(*) from public.agente_decisiones
+            where agente_id = v_ag and tipo = 'reparto' and parametro ->> 'modo' = 'cubre_meta') <> 2 then
+        raise exception 'I67 FALLO: el ciclo debía abrir las dos y consumir los 2.500 $ del saldo: %', v_texto;
+    end if;
+
+    update public.activos set estado = 'suspendido' where id in (v_a, v_b);
+    raise notice 'PASS  I67 los agentes marcan según la exigencia: reparten si les falta poco, concentran en la 5× si les falta mucho, una en cuarentena, y abren todas a la vez con el 100 %% del saldo';
+end
+$i67$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

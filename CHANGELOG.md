@@ -4,6 +4,38 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-02 — Los agentes operan con el saldo para operar (0023, D17)
+
+### Cambiado — los tres usan el 100 % de su saldo para operar
+Lo que diferencia a Prudencia, Cadencia y Audacia ya no es cuánto saldo
+tocan (40 / 55 / 60 %), sino su meta (2 / 5 / 7 %) y su riesgo por
+operación. `fn_parametros_agente` impone el 100 % después de mezclar la
+estrategia, y las estrategias guardadas lo dicen (sube su versión).
+
+### Cambiado — cuántas abre lo decide su exigencia, y las abre a la vez
+Sin G4 también para los agentes. Cada ciclo, el agente ordena sus
+candidatas por rendimiento sobre el saldo (apalancamiento × recorrido al
+objetivo) y prueba a marcar 1, 2, 3…, repartiendo el saldo libre entre las
+marcadas en proporción a su apalancamiento (el riesgo por operación sigue
+siendo el techo de cada una). Se queda con el **mayor número cuya ganancia
+en objetivo cubre lo que le falta de la meta** —le falta poco: reparte y
+arriesga menos en cada una— o, si ninguno la cubre, con **el de más
+ganancia** —le falta mucho: concentra, típicamente en la 5×—. Abre todas
+sus marcadas en el mismo ciclo. En cuarentena, una como mucho.
+
+- La rotación salta con el saldo lleno (menos de 10 $ de margen libre), no
+  por falta de «hueco».
+- Se retira el parámetro aprendido `reparto` (cupo | concentrado). Las
+  decisiones de reparto se siguen registrando con su modo
+  (`cubre_meta` | `maxima_ganancia`) y su resultado, como evidencia.
+- Pantalla de Agentes: columna «Del saldo» en las operaciones y un
+  racional que explica qué marcó y por qué.
+
+Invariantes I41, I43, I44, I45, I48, I58, I60 e I65 adaptadas al
+comportamiento nuevo; I67 nueva fija la regla con números controlados
+(reparte con 20 $ por cubrir, concentra con 65 $ y con 100 $, una en
+cuarentena, y abre las dos a la vez con el saldo entero).
+
 ## [Sin publicar] - 2026-10-02 — Saldo para operar y reparto ponderado (0022, D17)
 
 ### Cambiado — lo que importa de una posición es cuánto saldo consume
@@ -34,7 +66,7 @@ el saldo nunca pasaba de 1.500 $. Ahora:
   marcadas» para abrirlas de una vez.
 - «Tus límites» deja de ofrecer el número de posiciones.
 
-Los agentes no cambian: conservan su cupo, su G4 y su margen de perfil.
+Los agentes cambian en la 0023 (entrada de arriba).
 
 I56 e I64 actualizadas, I66 nueva (66 invariantes). Frontend 19 → 22 tests.
 

@@ -147,14 +147,14 @@ def test_umbral_de_publicacion_de_practicas_de_la_guia_es_el_de_la_migracion():
     assert f"confianza >= {acierto:.2f}" in SQL_AGENTES
 
 
-@pytest.mark.parametrize("nombre, meta, riesgo, posiciones, rr, margen", [
-    ("Prudencia", "2", "1,5", "3", "2,0", "40"),
-    ("Cadencia", "5", "3,0", "2", "1,5", "55"),
-    ("Audacia", "7", "5,0", "2", "1,2", "60"),
+@pytest.mark.parametrize("nombre, meta, riesgo, rr", [
+    ("Prudencia", "2", "1,5", "2,0"),
+    ("Cadencia", "5", "3,0", "1,5"),
+    ("Audacia", "7", "5,0", "1,2"),
 ])
-def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, posiciones, rr, margen):
-    fila = _uno(rf"{nombre}\s+(\d+) %\s+(\d,\d) %\s+(\d+)\s+(\d,\d)\s+[a-z ]+?\s+(\d+) %")
-    assert fila == (meta, riesgo, posiciones, rr, margen)
+def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, rr):
+    fila = _uno(rf"{nombre}\s+(\d+) %\s+(\d,\d) %\s+(\d,\d)\s+[a-z ]+?\\n")
+    assert fila == (meta, riesgo, rr)
 
     semilla = re.search(rf"\('{nombre}', (\d+)\.00, '(\{{.*?\}})'\)", SQL_AGENTES, re.S)
     assert semilla, f"no se encontró la semilla de {nombre}"
@@ -165,9 +165,16 @@ def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, posici
 
     assert semilla.group(1) == meta
     assert float(campo("riesgo_pct_operacion")) == _num(riesgo)
-    assert int(campo("max_posiciones_abiertas")) == int(posiciones)
     assert float(campo("rr_minimo")) == _num(rr)
-    assert float(campo("margen_comprometido_max_pct")) == float(margen)
+
+
+def test_los_agentes_usan_todo_su_saldo_para_operar():
+    # La guía dice «hasta el 100 % de su saldo para operar» para los tres;
+    # la 0023 lo impone en fn_parametros_agente, después de mezclar la
+    # estrategia, para que ninguna lo cambie.
+    pct = _uno(r"los tres: hasta el (\d+) % de su saldo para operar")
+    sql = (RAIZ / "supabase" / "migrations" / "0023_agentes_saldo_para_operar.sql").read_text(encoding="utf-8")
+    assert f"v := v || jsonb_build_object('margen_comprometido_max_pct', {pct}.0," in sql
 
 
 # ── Poder de trading (0014, D15) ────────────────────────────────────

@@ -207,7 +207,7 @@ export const SECCIONES = [
       {
         termino: "Los cinco límites del servidor",
         formula:
-          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes: posiciones abiertas ≤ las de su perfil\n5 · solo señales operables y de menos de 90 minutos",
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes en cuarentena: una posición abierta como mucho\n5 · solo señales operables y de menos de 90 minutos",
         lectura:
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },
@@ -275,16 +275,16 @@ export const SECCIONES = [
       {
         termino: "Tres perfiles, no tres números",
         formula:
-          "            meta   riesgo/op   posiciones   R:R mín   fuerza         margen máx\nPrudencia    2 %     1,5 %          3          2,0     alta             40 %\nCadencia     5 %     3,0 %          2          1,5     media o alta     55 %\nAudacia      7 %     5,0 %          2          1,2     media o alta     60 %",
+          "            meta   riesgo/op   R:R mín   fuerza\nPrudencia    2 %     1,5 %      2,0     alta\nCadencia     5 %     3,0 %      1,5     media o alta\nAudacia      7 %     5,0 %      1,2     media o alta\n\nlos tres: hasta el 100 % de su saldo para operar",
         lectura:
-          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
+          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Lo que no los diferencia es el saldo: los tres pueden usar su saldo para operar entero; lo que los limita es la meta que persiguen y el riesgo que aceptan en cada operación. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
       },
       {
-        termino: "Cómo elige un agente",
+        termino: "Cómo elige y reparte un agente",
         formula:
-          "candidatos = señales frescas de todo el catálogo activo\n             con MÁS indicadores alcistas que bajistas\n             operables, de su fuerza, origen y R:R\n             sin posición abierta en ese activo\n             que cumplan las prácticas que ha adoptado\n\nelegido, por orden:\n  1. mayor R:R   2. mayor fuerza\n  3. mayor dominancia neta   4. símbolo alfabético",
+          "candidatos = señales frescas de todo el catálogo activo\n             con MÁS indicadores alcistas que bajistas\n             operables, de su fuerza, origen y R:R\n             sin posición abierta en ese activo\n             que cumplan las prácticas que ha adoptado\n\nmarca, por rendimiento sobre el saldo (apal × recorrido al objetivo):\n  · el MAYOR nº de candidatas cuya ganancia en objetivo\n    cubre lo que le falta de la meta  → reparte\n  · si ninguno la cubre, el de MÁS ganancia  → concentra\n\nparte de cada marcada = saldo libre × apal ÷ suma de apal",
         lectura:
-          "Cada cinco minutos. «Sin candidatos» es una salida válida: no se relaja ningún criterio para forzar una operación. Cada orden guarda su racional —cuánto faltaba para la meta, qué se evaluó y los tres mejores descartes con su motivo— y se lee desplegando la fila en la tabla de operaciones.",
+          "Cada cinco minutos, y abre todas sus marcadas a la vez. La exigencia decide cuánto reparte: si le falta poco para la meta, reparte entre muchas y arriesga menos en cada una; si le falta mucho, concentra en lo que más rinde, típicamente la 5×. El riesgo por operación sigue siendo el techo de cada posición. En cuarentena marca una como mucho. «Sin candidatos» es una salida válida: no se relaja ningún criterio para forzar una operación. Cada orden guarda su racional —cuánto faltaba para la meta, qué marcó, cuánto ganaría en objetivo y los tres mejores descartes— y se lee desplegando la fila en la tabla de operaciones.",
         nota: "El agente propone y la base de datos dispone: sus órdenes pasan por los mismos cinco límites del servidor que las tuyas.",
       },
       {
@@ -318,16 +318,16 @@ export const SECCIONES = [
       {
         termino: "Repartir, rotar y asegurar",
         formula:
-          "              reparto       rota si la nueva tiene…       toma parcial\nPrudencia     cupo          R:R ≥ 2,0 × el restante       mitad al 50 %, stop a la entrada\nCadencia      cupo          R:R ≥ 1,5 × el restante       mitad al 50 %\nAudacia       concentrado   R:R ≥ 1,2 × el restante       ninguna",
+          "              rota si la nueva tiene…       toma parcial\nPrudencia     R:R ≥ 2,0 × el restante       mitad al 50 %, stop a la entrada\nCadencia      R:R ≥ 1,5 × el restante       mitad al 50 %\nAudacia       R:R ≥ 1,2 × el restante       ninguna",
         lectura:
-          "Es el punto de partida de cada uno, no una regla fija. «Restante» es lo que le queda a una posición abierta por ganar hasta el objetivo frente a lo que le queda por perder hasta el stop, al precio de ahora: una posición a punto de llegar al objetivo tiene poco recorrido, y si aparece una señal mucho mejor el agente la cierra para entrar en la otra. La toma parcial cierra la mitad a mitad de camino; con «stop a la entrada», lo que queda ya no puede perder.",
+          "Es el punto de partida de cada uno, no una regla fija. Se rota cuando el saldo para operar está lleno (menos de 10 $ de margen libre): mientras quede saldo, una señal nueva se abre sin cerrar nada. «Restante» es lo que le queda a una posición abierta por ganar hasta el objetivo frente a lo que le queda por perder hasta el stop, al precio de ahora: una posición a punto de llegar al objetivo tiene poco recorrido, y si aparece una señal mucho mejor el agente la cierra para entrar en la otra. La toma parcial cierra la mitad a mitad de camino; con «stop a la entrada», lo que queda ya no puede perder.",
       },
       {
         termino: "Aprender de cada decisión",
         formula:
-          "rotación : lo que dio la nueva − lo que habría dado la cerrada\nparcial  : lo que se aseguró − lo que habría dado esa parte al final\nreparto  : retorno sobre el margen, concentrando frente a repartiendo\n\ncada 10 decisiones resueltas de un tipo → un paso del parámetro",
+          "rotación : lo que dio la nueva − lo que habría dado la cerrada\nparcial  : lo que se aseguró − lo que habría dado esa parte al final\nreparto  : retorno sobre el margen (se registra; aún no mueve nada)\n\ncada 10 decisiones resueltas de un tipo → un paso del parámetro",
         lectura:
-          "Cada decisión se juzga contra lo que habría pasado sin ella, no contra la nota de la semana: una semana mala puede tener una decisión excelente. Si sus rotaciones pierden, el agente sube su umbral; si las tomas parciales le cuestan dinero, las deja; si concentrar rinde menos que repartir, cambia de modo. Cada cambio queda registrado con su evidencia en la pestaña «Decisiones».",
+          "Cada decisión se juzga contra lo que habría pasado sin ella, no contra la nota de la semana: una semana mala puede tener una decisión excelente. Si sus rotaciones pierden, el agente sube su umbral; si las tomas parciales le cuestan dinero, las deja. Cuánto reparte ya no es un parámetro que aprenda: lo decide cada día su exigencia, y el resultado de cada reparto se guarda como evidencia. Cada cambio queda registrado con su evidencia en la pestaña «Decisiones».",
         nota: "El contrafactual de una rotación se observa con el precio que el ciclo ve cada 5 minutos: si el precio tocó el objetivo y volvió entre dos lecturas, no se ve.",
       },
       {

@@ -69,7 +69,8 @@ dashboard-financiero/
 │       ├── 0019_solo_acciones_usd.sql # Cortafuegos: solo acciones que coticen en USD
 │       ├── 0020_ajustes_de_cuenta.sql # Cada usuario ajusta los límites de su cuenta
 │       ├── 0021_g4_agentes_y_respaldos.sql # G4 solo para agentes; prácticas que se respaldan
-│       └── 0022_saldo_para_operar.sql # Saldo para operar (equity × tope) y reparto ponderado (D17)
+│       ├── 0022_saldo_para_operar.sql # Saldo para operar (equity × tope) y reparto ponderado (D17)
+│       └── 0023_agentes_saldo_para_operar.sql # Los agentes: 100 % del saldo y reparto por exigencia (D17)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
