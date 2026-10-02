@@ -4,6 +4,25 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-02 — Salida por deterioro de la señal (0024)
+
+### Añadido — un agente cierra la posición cuya señal empeora
+Con la 0023 un agente solo rotaba con el saldo lleno, así que una posición
+cuya señal había cambiado seguía abierta mientras quedara saldo. Ahora, en
+cada ciclo y antes de decidir, cierra al precio vivo la posición (abierta
+hace más de 30 min, con precio fresco y entre stop y objetivo) cuya señal
+vigente, posterior a la entrada, ya no es alcista, ha dejado de ser
+operable (con ATR conocido) o ha perdido fuerza. El saldo liberado entra en
+el reparto de ese mismo ciclo. Motivo de cierre nuevo, `deterioro`, que no
+cuenta en la destilación de prácticas.
+
+Cada salida es una decisión juzgada contra lo que habría pasado sin ella
+(mismo contrafactual que la rotación). Parámetro `salida_deterioro`,
+encendido de partida: el agente lo apaga con 10 salidas resueltas en contra
+y lo vuelve a encender si a los demás les funciona.
+
+I68 nueva (68 invariantes).
+
 ## [Sin publicar] - 2026-10-02 — Los agentes operan con el saldo para operar (0023, D17)
 
 ### Cambiado — los tres usan el 100 % de su saldo para operar

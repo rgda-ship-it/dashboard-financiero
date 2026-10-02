@@ -61,6 +61,14 @@ export const TIPOS_DECISION = {
   rotacion: "rotación",
   parcial: "toma parcial",
   reparto: "reparto",
+  deterioro: "salida por deterioro",
+};
+
+/** Por qué una salida por deterioro (0024): qué cambió en la señal. */
+export const MOTIVOS_DETERIORO = {
+  direccion: "dejó de ser alcista",
+  no_operable: "dejó de ser operable",
+  fuerza: "perdió fuerza",
 };
 
 export const leerSemanas = () =>

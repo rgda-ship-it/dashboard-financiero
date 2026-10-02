@@ -16,6 +16,7 @@ import {
   VEREDICTOS,
   colorDe,
   TIPOS_DECISION,
+  MOTIVOS_DETERIORO,
   leerAjustes,
   leerBacklog,
   leerCurvas,
@@ -70,7 +71,9 @@ function progresoLog(equity, inicial, objetivo) {
 // reparto no es un parámetro: lo decide cada día su exigencia.
 function parametrosLegibles(e) {
   if (!e) return "";
-  const reparto = "reparte según su exigencia";
+  const reparto =
+    "reparte según su exigencia" +
+    (e.salida_deterioro === false ? " · no cierra por deterioro" : " · cierra si la señal se deteriora");
   const rota = e.rotacion_umbral != null ? `rota si ≥ ${Number(e.rotacion_umbral)}×` : "no rota";
   const tp = e.tp_parcial
     ? `parcial ${e.tp_parcial.fraccion * 100} % al ${e.tp_parcial.recorrido * 100} %` +
@@ -489,6 +492,14 @@ function TablaDecisiones({ decisiones, ajustes }) {
                       {d.parametro?.modo
                         ? `${d.parametro.modo === "cubre_meta" ? "cubre la meta" : "máxima ganancia"} · ${d.parametro.marcadas} marcadas`
                         : d.parametro?.reparto}
+                    </span>
+                  )}
+                  {d.tipo === "deterioro" && d.datos?.motivo && (
+                    <span className="sim__sub">
+                      {MOTIVOS_DETERIORO[d.datos.motivo] ?? d.datos.motivo}
+                      {d.datos.fuerza_entrada && d.datos.fuerza_nueva && d.datos.motivo === "fuerza"
+                        ? ` (${d.datos.fuerza_entrada} → ${d.datos.fuerza_nueva})`
+                        : ""}
                     </span>
                   )}
                   {d.tipo === "rotacion" && d.datos?.candidato && (

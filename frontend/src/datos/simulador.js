@@ -160,6 +160,8 @@ export const MOTIVOS_CIERRE = {
   manual: "a mano",
   caducidad: "caducidad",
   rotacion: "rotación",
+  // 0024: un agente cerró porque la señal de ese activo empeoró.
+  deterioro: "señal deteriorada",
 };
 
 /** Las acciones no se compran por fracciones; las criptos sí. */

@@ -3067,6 +3067,108 @@ end
 $i67$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I68 · Salida por deterioro de la señal (0024).
+--
+-- Un agente abre A y B. Una hora después, la nueva lectura de A ya no es
+-- alcista y la de B sigue igual: en el ciclo siguiente cierra A al precio
+-- vivo (motivo «deterioro»), deja B, y el saldo liberado vuelve al reparto
+-- (C, una señal nueva, entra en ese mismo ciclo). Después A cae al stop:
+-- cerrar evitó la pérdida y la decisión se resuelve con efecto positivo.
+-- Con diez salidas que salieron mal, el agente la apaga.
+-- ═════════════════════════════════════════════════════════════════════
+do $i68$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_a      bigint;
+    v_b      bigint;
+    v_c      bigint;
+    v_oa     bigint;
+    v_texto  text;
+    v_num    numeric;
+    v_hoy    date := (now() at time zone 'UTC')::date;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('zzdea', 'cripto', 'coingecko', 'zzdea', 'activo', 100, now()),
+        ('zzdeb', 'cripto', 'coingecko', 'zzdeb', 'activo', 100, now()),
+        ('zzdec', 'cripto', 'coingecko', 'zzdec', 'activo', 100, now());
+    select id into v_a from public.activos where simbolo = 'zzdea';
+    select id into v_b from public.activos where simbolo = 'zzdeb';
+    select id into v_c from public.activos where simbolo = 'zzdec';
+    -- ATR del 9 %: ninguna otra señal del fichero entra en su universo.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, true, 5, 3, 's10', 100, 95, 110, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now() - interval '2 hours'),
+           (v_b, true, 5, 3, 's10', 100, 95, 110, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now() - interval '2 hours');
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-deterioro', 2, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "atr_pct_min": 8.5, "rr_minimo": 1.5, "riesgo_pct_operacion": 2, "antiguedad_senal_max_min": 600}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true where agente_id = v_ag and fecha = v_hoy;
+    perform public.fn_ciclo_agente(v_ag);
+    if (select count(*) from public.ordenes where cuenta_id = v_cuenta and estado = 'abierta') <> 2 then
+        raise exception 'I68 FALLO: el agente debía abrir A y B';
+    end if;
+    select id into v_oa from public.ordenes where cuenta_id = v_cuenta and activo_id = v_a;
+
+    -- Una hora después: A deja de ser alcista, B sigue igual, aparece C.
+    update public.ordenes set fecha_entrada = now() - interval '1 hour' where cuenta_id = v_cuenta;
+    update public.activos set ultimo_precio = 102, ultimo_precio_en = now() where id in (v_a, v_b, v_c);
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, false, 5, 3, 's10', 102, null, null, null, 'bajista', 'sin_sesgo', 'alta', null, 9, 0, 3, now()),
+           (v_b, true, 5, 3, 's10', 102, 97, 112, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now()),
+           (v_c, true, 5, 3, 's10', 102, 97, 112, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now());
+    perform public.fn_ciclo_agente(v_ag);
+
+    select format('%s/%s/%s', o.motivo_cierre, o.precio_salida::numeric(10,2),
+                  (select string_agg(a.simbolo, ',' order by a.simbolo)
+                     from public.ordenes x join public.activos a on a.id = x.activo_id
+                    where x.cuenta_id = v_cuenta and x.estado = 'abierta'))
+      into v_texto from public.ordenes o where o.id = v_oa;
+    if v_texto <> 'deterioro/102.00/zzdeb,zzdec' then
+        raise exception 'I68 FALLO: debía cerrar A por deterioro a 102, dejar B y entrar en C: %', v_texto;
+    end if;
+    if not exists (select 1 from public.agente_decisiones
+                    where agente_id = v_ag and tipo = 'deterioro' and orden_id = v_oa
+                      and datos ->> 'motivo' = 'direccion') then
+        raise exception 'I68 FALLO: la salida no dejó su decisión con el motivo';
+    end if;
+
+    -- A cae al stop: cerrar a 102 evitó perder (102 − 95) × cantidad.
+    update public.activos set ultimo_precio = 94, ultimo_precio_en = now() + interval '1 second' where id = v_a;
+    perform public.fn_resolver_decisiones();
+    select efecto into v_num from public.agente_decisiones where agente_id = v_ag and tipo = 'deterioro';
+    if v_num is null or v_num <= 0 then
+        raise exception 'I68 FALLO: una salida que evitó el stop debía resolverse en positivo, dio %', v_num;
+    end if;
+
+    -- Diez salidas que salieron mal: la apaga, y apagada no cierra nada.
+    insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
+    select v_ag, 'deterioro', '{"salida_deterioro": true}', -5, now() + interval '1 second'
+      from generate_series(1, 12);
+    perform public.fn_ajustar_parametros(v_ag);
+    if (select public.fn_parametros_agente(a) ->> 'salida_deterioro' from public.agentes a where id = v_ag) <> 'false' then
+        raise exception 'I68 FALLO: con diez salidas en contra debía apagar salida_deterioro';
+    end if;
+    if public.fn_agente_salidas_deterioro(v_ag) <> 0 then
+        raise exception 'I68 FALLO: con la salida apagada cerró posiciones';
+    end if;
+
+    update public.activos set estado = 'suspendido' where id in (v_a, v_b, v_c);
+    raise notice 'PASS  I68 salida por deterioro: cierra la que dejó de ser alcista, deja la que sigue igual, el saldo liberado entra en otra, se juzga contra su contrafactual y se apaga si cuesta dinero';
+end
+$i68$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
