@@ -773,6 +773,7 @@ primer corte semanal. Requisitos 7, 8, 9 y 10.
 > | Entrega | — | **D14 — un solo PR** |
 > | Poder de trading | No existía | **D15 — escalas QuantFury hasta 20×** como cifra aparte; el tope de 5×/3× sigue siendo la regla (0014) |
 > | Reparto y aprendizaje | Cierre parcial fuera de la Fase 2 | **D16 — cupo por posición como recomendación, cantidad a mano, cierre parcial, rotación y ajuste de parámetros por decisión juzgada contra su contrafactual** (0016) |
+> | Saldo para operar (2026-10-02) | El usuario veía el apalancamiento de cada posición y un cupo de margen ÷ 3 | **D17 — saldo para operar = equity × tope de la fase; cada posición muestra lo que consume (margen × tope); G3 al 100 % por defecto en cuentas de usuario; el saldo libre se reparte entre las sugerencias marcadas, ponderado por apalancamiento** (0022). Los agentes, igual (0023): 100 % del saldo, sin G4, y marcan según su exigencia —el mayor número de candidatas que aún cubre la meta en objetivo; si ninguno la cubre, el de más ganancia— y las abren todas a la vez. Y cierran la posición cuya señal empeora sin esperar a tener el saldo lleno (0024) |
 >
 > Diferencias con la spec, con motivo (el detalle, en la cabecera de la
 > migración):

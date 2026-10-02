@@ -16,6 +16,7 @@ import {
   VEREDICTOS,
   colorDe,
   TIPOS_DECISION,
+  MOTIVOS_DETERIORO,
   leerAjustes,
   leerBacklog,
   leerCurvas,
@@ -65,11 +66,14 @@ function progresoLog(equity, inicial, objetivo) {
   return Math.max(0, Math.min(1, Math.log(e / i) / Math.log(o / i)));
 }
 
-// Los tres parámetros de la 0016, tal como están HOY: los mueve el propio
-// agente con lo que aprende (pestaña «Decisiones»).
+// Los parámetros de la 0016, tal como están HOY: los mueve el propio
+// agente con lo que aprende (pestaña «Decisiones»). Desde la 0023 el
+// reparto no es un parámetro: lo decide cada día su exigencia.
 function parametrosLegibles(e) {
   if (!e) return "";
-  const reparto = e.reparto === "concentrado" ? "concentra" : "reparte por cupo";
+  const reparto =
+    "reparte según su exigencia" +
+    (e.salida_deterioro === false ? " · no cierra por deterioro" : " · cierra si la señal se deteriora");
   const rota = e.rotacion_umbral != null ? `rota si ≥ ${Number(e.rotacion_umbral)}×` : "no rota";
   const tp = e.tp_parcial
     ? `parcial ${e.tp_parcial.fraccion * 100} % al ${e.tp_parcial.recorrido * 100} %` +
@@ -183,22 +187,54 @@ function Racional({ r, o }) {
     <div className="detail__box">
       <div className="detail__col">
         <p className="label">Por qué esta</p>
-        <p className="detail__motivo">
-          Faltaban <strong>{formatearPrecio(Number(r.deficit_pendiente))}</strong> para la meta de{" "}
-          {formatearPrecio(Number(r.objetivo_importe))} con un equity de{" "}
-          {formatearPrecio(Number(r.equity))}. De <strong>{r.candidatos_evaluados}</strong>{" "}
-          candidatos
-          {r.candidatos_antes_practicas !== r.candidatos_evaluados &&
-            ` (${r.candidatos_antes_practicas} antes de aplicar sus prácticas)`}
-          , fue la primera por R:R ({Number(elegido.ratio_rr).toFixed(2)}), fuerza {elegido.fuerza} y
-          dominancia neta {elegido.dominancia_neta}.
-        </p>
-        <p className="detail__motivo">
-          Pidió {formatearMultiplicador(Number(elegido.apalancamiento_pedido))}x y el dimensionado dio{" "}
-          {formatearMultiplicador(Number(elegido.apalancamiento))}x con{" "}
-          {formatearPrecio(Number(elegido.margen))} de margen. Estrategia v{r.version_estrategia}
-          {r.practicas_aplicadas?.length > 0 && `, con las prácticas ${r.practicas_aplicadas.map((p) => `#${p}`).join(", ")}`}.
-        </p>
+        {r.reparto && typeof r.reparto === "object" ? (
+          // 0023: el agente marca según su exigencia y abre todas a la vez.
+          <>
+            <p className="detail__motivo">
+              Faltaban <strong>{formatearPrecio(Number(r.deficit_pendiente))}</strong> para la meta de{" "}
+              {formatearPrecio(Number(r.objetivo_importe))}. De <strong>{r.candidatos_evaluados}</strong>{" "}
+              candidatos
+              {r.candidatos_antes_practicas !== r.candidatos_evaluados &&
+                ` (${r.candidatos_antes_practicas} antes de aplicar sus prácticas)`}{" "}
+              marcó <strong>{r.reparto.marcadas}</strong>
+              {r.marcadas?.length > 0 && ` (${r.marcadas.map((m) => m.simbolo).join(", ")})`}:{" "}
+              {r.reparto.modo === "cubre_meta"
+                ? `las que más reparten sin dejar de cubrir la meta si llegan al objetivo (${formatearPrecio(
+                    Number(r.reparto.ganancia_objetivo)
+                  )}).`
+                : `ninguna combinación cubría la meta, así que concentró en la de más ganancia (${formatearPrecio(
+                    Number(r.reparto.ganancia_objetivo)
+                  )} en objetivo).`}
+            </p>
+            <p className="detail__motivo">
+              A esta le tocó una parte de {formatearPrecio(Number(elegido.parte))} de{" "}
+              {formatearPrecio(Number(r.saldo_libre))} libres (peso{" "}
+              {formatearMultiplicador(Number(elegido.apalancamiento))}x) y consume{" "}
+              {formatearPrecio(Number(elegido.consumo))} del saldo para operar. Estrategia v
+              {r.version_estrategia}
+              {r.practicas_aplicadas?.length > 0 && `, con las prácticas ${r.practicas_aplicadas.map((p) => `#${p}`).join(", ")}`}.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="detail__motivo">
+              Faltaban <strong>{formatearPrecio(Number(r.deficit_pendiente))}</strong> para la meta de{" "}
+              {formatearPrecio(Number(r.objetivo_importe))} con un equity de{" "}
+              {formatearPrecio(Number(r.equity))}. De <strong>{r.candidatos_evaluados}</strong>{" "}
+              candidatos
+              {r.candidatos_antes_practicas !== r.candidatos_evaluados &&
+                ` (${r.candidatos_antes_practicas} antes de aplicar sus prácticas)`}
+              , fue la primera por R:R ({Number(elegido.ratio_rr).toFixed(2)}), fuerza {elegido.fuerza} y
+              dominancia neta {elegido.dominancia_neta}.
+            </p>
+            <p className="detail__motivo">
+              Pidió {formatearMultiplicador(Number(elegido.apalancamiento_pedido))}x y el dimensionado dio{" "}
+              {formatearMultiplicador(Number(elegido.apalancamiento))}x con{" "}
+              {formatearPrecio(Number(elegido.margen))} de margen. Estrategia v{r.version_estrategia}
+              {r.practicas_aplicadas?.length > 0 && `, con las prácticas ${r.practicas_aplicadas.map((p) => `#${p}`).join(", ")}`}.
+            </p>
+          </>
+        )}
         {riesgoPct != null && Number.isFinite(riesgoPct) && (
           <p className="detail__motivo">
             Riesgo hasta el stop al abrir: {formatearPrecio(riesgo)} ({riesgoPct.toFixed(1)} % del equity;
@@ -256,7 +292,15 @@ function FilaOperacion({ o, abierta, alAbrir }) {
           <span className="sim__sub">{tiempoRelativo(o.fecha_entrada)}</span>
         </td>
         <td className="num">{formatearPrecio(Number(o.precio_entrada))}</td>
-        <td className="num">{formatearMultiplicador(Number(o.apalancamiento))}x</td>
+        <td className="num">
+          {o.consumo_saldo != null ? formatearPrecio(Number(o.consumo_saldo)) : "—"}
+          <span className="sim__sub">
+            {o.estado === "abierta" && Number(o.saldo_operar) > 0
+              ? `${((Number(o.consumo_saldo) / Number(o.saldo_operar)) * 100).toFixed(1)} % · `
+              : ""}
+            a {formatearMultiplicador(Number(o.apalancamiento))}x
+          </span>
+        </td>
         <td className="num">
           <span className="neg">{formatearPrecio(Number(o.sl))}</span>
           {" / "}
@@ -443,7 +487,21 @@ function TablaDecisiones({ decisiones, ajustes }) {
               <tr key={d.id}>
                 <td>
                   {TIPOS_DECISION[d.tipo] ?? d.tipo}
-                  {d.tipo === "reparto" && <span className="sim__sub">{d.parametro?.reparto}</span>}
+                  {d.tipo === "reparto" && (
+                    <span className="sim__sub">
+                      {d.parametro?.modo
+                        ? `${d.parametro.modo === "cubre_meta" ? "cubre la meta" : "máxima ganancia"} · ${d.parametro.marcadas} marcadas`
+                        : d.parametro?.reparto}
+                    </span>
+                  )}
+                  {d.tipo === "deterioro" && d.datos?.motivo && (
+                    <span className="sim__sub">
+                      {MOTIVOS_DETERIORO[d.datos.motivo] ?? d.datos.motivo}
+                      {d.datos.fuerza_entrada && d.datos.fuerza_nueva && d.datos.motivo === "fuerza"
+                        ? ` (${d.datos.fuerza_entrada} → ${d.datos.fuerza_nueva})`
+                        : ""}
+                    </span>
+                  )}
                   {d.tipo === "rotacion" && d.datos?.candidato && (
                     <span className="sim__sub">
                       por {d.datos.candidato.simbolo} (R:R {Number(d.datos.candidato.ratio_rr).toFixed(2)} frente a{" "}
@@ -694,7 +752,7 @@ export default function Agentes() {
                     <th>Agente</th>
                     <th>Activo</th>
                     <th className="num">Entrada</th>
-                    <th className="num">Apal.</th>
+                    <th className="num">Del saldo</th>
                     <th className="num">Stop / Objetivo</th>
                     <th>Cierre</th>
                     <th className="num">P&amp;L</th>

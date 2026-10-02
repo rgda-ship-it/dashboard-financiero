@@ -207,8 +207,8 @@ valor absurdo o una llamada manual no pueden saltárselos.
 |---|-------------|-------|---------|
 | G1 | Apalancamiento ≤ tope de la fase de la cuenta | 5× (Fase 1) / 3× (Fase 2) | Regla protegida nº1 de la Fase 1, ahora también `CHECK` en la BD |
 | G2 | Riesgo por operación ≤ 10 % del equity | 10 % | Sin esto, Audacia apuesta el saldo entero el primer día (§1.3) |
-| G3 | Margen total comprometido ≤ `margen_comprometido_max_pct` | 40–60 % según agente | Garantiza que siempre quede saldo libre para el siguiente día. Un agente con el 100 % comprometido no puede operar aunque aparezca el mejor setup del mes |
-| G4 | Posiciones abiertas simultáneas ≤ `max_posiciones_abiertas` | 2–3 | Limita la correlación: tres posiciones en cripto en un mercado que cae son una sola apuesta con tres nombres |
+| G3 | Margen total comprometido ≤ `margen_comprometido_max_pct` | 100 % en los agentes (0023) y por defecto en una cuenta de usuario (0022); antes, 40–60 % según agente | Garantiza que siempre quede saldo libre para el siguiente día. Un agente con el 100 % comprometido no puede operar aunque aparezca el mejor setup del mes. En una cuenta de usuario es «qué parte del saldo para operar quieres usar» (D17) |
+| G4 | Posiciones abiertas simultáneas ≤ `max_posiciones_abiertas` | 2–3 | Limita la correlación: tres posiciones en cripto en un mercado que cae son una sola apuesta con tres nombres. Solo agentes desde la 0021; **retirado en la 0023**: cuántas abre un agente lo decide su reparto por exigencia, y solo la cuarentena lo limita a una |
 | G5 | Solo señales con `operable = true` y antigüedad ≤ `antiguedad_senal_max_min` | 90 min | Regla protegida nº4: sin volatilidad conocida no se opera. Y una señal de ayer no describe el mercado de hoy |
 
 > **G2 y G3 son la diferencia entre un experimento y un sorteo.** Merece la

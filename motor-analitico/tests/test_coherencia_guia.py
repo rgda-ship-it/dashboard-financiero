@@ -32,6 +32,10 @@ from riesgo.maquina_fases import ParametrosRiesgo  # noqa: E402
 GUIA = (RAIZ / "frontend" / "src" / "guia.js").read_text(encoding="utf-8")
 SQL_SIMULADOR = (RAIZ / "supabase" / "migrations" / "0011_simulador.sql").read_text(encoding="utf-8")
 SQL_AGENTES = (RAIZ / "supabase" / "migrations" / "0013_agentes.sql").read_text(encoding="utf-8")
+# Todas las migraciones en orden: para los valores que una migración
+# posterior cambia.
+SQL_TODAS = "\n".join(f.read_text(encoding="utf-8")
+                      for f in sorted((RAIZ / "supabase" / "migrations").glob("*.sql")))
 
 
 def _uno(patron: str, texto: str = GUIA) -> str:
@@ -112,7 +116,13 @@ def test_limites_del_servidor_de_la_guia_son_los_de_rpc_abrir_orden():
     minutos = _uno(r"solo señales operables y de menos de (\d+) minutos")
 
     assert f"v_riesgo_pct > {riesgo} then" in SQL_SIMULADOR
-    assert re.search(rf"margen_comprometido_max_pct numeric\(5, 2\) not null default {margen}\b", SQL_SIMULADOR)
+    # El valor por defecto de G3 lo fija la 0011 y lo cambia la 0022 (todo
+    # el saldo para operar): manda el último `set default` que exista.
+    cambios = re.findall(r"alter column margen_comprometido_max_pct set default (\d+)", SQL_TODAS)
+    if cambios:
+        assert cambios[-1] == margen
+    else:
+        assert re.search(rf"margen_comprometido_max_pct numeric\(5, 2\) not null default {margen}\b", SQL_SIMULADOR)
     assert re.search(rf"antiguedad_senal_max_min\s+int not null default {minutos}\b", SQL_SIMULADOR)
 
 
@@ -137,14 +147,14 @@ def test_umbral_de_publicacion_de_practicas_de_la_guia_es_el_de_la_migracion():
     assert f"confianza >= {acierto:.2f}" in SQL_AGENTES
 
 
-@pytest.mark.parametrize("nombre, meta, riesgo, posiciones, rr, margen", [
-    ("Prudencia", "2", "1,5", "3", "2,0", "40"),
-    ("Cadencia", "5", "3,0", "2", "1,5", "55"),
-    ("Audacia", "7", "5,0", "2", "1,2", "60"),
+@pytest.mark.parametrize("nombre, meta, riesgo, rr", [
+    ("Prudencia", "2", "1,5", "2,0"),
+    ("Cadencia", "5", "3,0", "1,5"),
+    ("Audacia", "7", "5,0", "1,2"),
 ])
-def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, posiciones, rr, margen):
-    fila = _uno(rf"{nombre}\s+(\d+) %\s+(\d,\d) %\s+(\d+)\s+(\d,\d)\s+[a-z ]+?\s+(\d+) %")
-    assert fila == (meta, riesgo, posiciones, rr, margen)
+def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, rr):
+    fila = _uno(rf"{nombre}\s+(\d+) %\s+(\d,\d) %\s+(\d,\d)\s+[a-z ]+?\\n")
+    assert fila == (meta, riesgo, rr)
 
     semilla = re.search(rf"\('{nombre}', (\d+)\.00, '(\{{.*?\}})'\)", SQL_AGENTES, re.S)
     assert semilla, f"no se encontró la semilla de {nombre}"
@@ -155,9 +165,16 @@ def test_tabla_de_perfiles_de_la_guia_es_la_semilla(nombre, meta, riesgo, posici
 
     assert semilla.group(1) == meta
     assert float(campo("riesgo_pct_operacion")) == _num(riesgo)
-    assert int(campo("max_posiciones_abiertas")) == int(posiciones)
     assert float(campo("rr_minimo")) == _num(rr)
-    assert float(campo("margen_comprometido_max_pct")) == float(margen)
+
+
+def test_los_agentes_usan_todo_su_saldo_para_operar():
+    # La guía dice «hasta el 100 % de su saldo para operar» para los tres;
+    # la 0023 lo impone en fn_parametros_agente, después de mezclar la
+    # estrategia, para que ninguna lo cambie.
+    pct = _uno(r"los tres: hasta el (\d+) % de su saldo para operar")
+    sql = (RAIZ / "supabase" / "migrations" / "0023_agentes_saldo_para_operar.sql").read_text(encoding="utf-8")
+    assert f"v := v || jsonb_build_object('margen_comprometido_max_pct', {pct}.0," in sql
 
 
 # ── Poder de trading (0014, D15) ────────────────────────────────────

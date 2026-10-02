@@ -186,8 +186,16 @@ export const SECCIONES = [
         formula:
           "poder de trading (lo que el bróker permite, escalas QuantFury):\n  equity <  1.000 $  →  20 × equity\n  equity ≥  1.000 $  →     20.000 $\n  equity ≥  2.000 $  →     40.000 $\n  equity ≥  5.000 $  →    100.000 $\n  equity ≥ 10.000 $  →    200.000 $\n  equity ≥ 15.000 $  →    300.000 $\n  equity ≥ 20.000 $  →    400.000 $\n  equity ≥ 25.000 $  →    500.000 $\n  equity ≥ 50.000 $  →  1.000.000 $\n\ntope de apalancamiento (lo recomendable): 5× en Fase 1, 3× en Fase 2",
         lectura:
-          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× y el límite de margen comprometido, nunca pasa de 3 veces tu equity, muy lejos del poder de trading.",
+          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden: de él sale tu saldo para operar. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× nunca pasa de 5 veces tu equity, muy lejos del poder de trading.",
         nota: "Por encima de 50.000 $ de equity la escala no tiene más tramos: el poder de trading se queda en 1.000.000 $.",
+      },
+      {
+        termino: "Saldo para operar",
+        formula:
+          "saldo para operar = equity × tope de la fase\n                    (500 $ × 5 = 2.500 $ en Fase 1; × 3 en Fase 2)\n\nconsumo de una posición = margen × tope de la fase",
+        lectura:
+          "Es la pregunta que importa al abrir una posición: qué parte de tu saldo para operar se lleva. Cada posición muestra su consumo en dólares y en % del saldo, en lugar del apalancamiento con el que entró. A 5× una posición consume exactamente su nominal; a 3× consume más: 300 $ nominales a 3× bloquean 100 $ de margen, lo mismo que 500 $ a 5×. Por eso lo volátil cuesta más saldo.",
+        nota: "El apalancamiento de cada posición no desaparece: lo baja el motor con la volatilidad y lo baja el dimensionado para que la liquidación quede por debajo del stop. Sigue siendo la protección; ya no es la cifra que tienes que leer.",
       },
       {
         termino: "Precio de liquidación",
@@ -199,23 +207,23 @@ export const SECCIONES = [
       {
         termino: "Los cinco límites del servidor",
         formula:
-          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 60 % del equity\n4 · agentes: posiciones abiertas ≤ las de su perfil\n5 · solo señales operables y de menos de 90 minutos",
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes en cuarentena: una posición abierta como mucho\n5 · solo señales operables y de menos de 90 minutos",
         lectura:
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },
       {
-        termino: "Cuánto comprar: el cupo y tu cantidad",
+        termino: "Cuánto comprar: el reparto y tu cantidad",
         formula:
-          "cupo por posición = margen máx ÷ nº máx de posiciones\n                   (60 % ÷ 3 = 20 % del equity por defecto)\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
+          "parte de cada sugerencia marcada = saldo libre × apal ÷ suma de apal\n\n3 acciones a 5×, 1 cripto a 4× y 1 a 3× sobre 2.500 $ (suma 22):\n  568 $ · 568 $ · 568 $ · 455 $ · 341 $\n\nacciones  → unidades enteras (hacia abajo)\ncripto    → admite fracciones",
         lectura:
-          "La cantidad sugerida no deja que una sola posición se lleve todo el margen: si el stop está muy cerca, el cálculo por riesgo pediría un nominal enorme, y sin cupo esa primera orden agotaría el margen de la cuenta. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu tope) y el apalancamiento de la fase.",
+          "Marca en «Entradas sugeridas» las que quieres abrir y el saldo libre se reparte entre ellas: una 5× recibe más que una 4×, y una 4× más que una 3×. La parte es un techo: el tamaño sigue saliendo de tu riesgo por operación, y si con él basta una posición más pequeña, consume menos y lo indica. La sugerencia es solo eso: puedes escribir la cantidad que quieras. Lo que el servidor impone siempre es el riesgo hasta el stop (≤ 10 % del equity), el margen total (≤ tu uso máximo) y el apalancamiento de la fase.",
         nota: "Con unidades enteras, el riesgo declarado puede no llegar para una acción: con 500 $ y un 1,5 % de riesgo (7,50 $), una acción de 100 $ con el stop al 10 % arriesga 10 $. Entonces se compra UNA, siempre que su riesgo no pase del 10 % del equity y su margen quepa. No es falta de poder de compra: el apalancamiento cambia el margen, no lo que se pierde si salta el stop.",
       },
       {
         termino: "Tus límites",
-        formula: "repartir el margen en 1 – 10 posiciones\nriesgo por operación   0,1 – 10 % del equity\nmargen máximo          10 – 80 % del equity\nR:R mínimo             0 – 5",
+        formula: "riesgo por operación             0,1 – 10 % del equity\nuso máximo del saldo para operar  10 – 100 %\nR:R mínimo                       0 – 5",
         lectura:
-          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los cuatro que son decisión tuya. El número de posiciones no limita cuántas abres: divide tu margen máximo para calcular la cantidad sugerida de cada una. Lo que acota tu exposición es el margen máximo y el riesgo por operación. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
+          "«Ajustar tus límites», bajo las cifras de la cuenta, cambia los tres que son decisión tuya. No hay un número máximo de posiciones: cuántas abres lo decides al marcar sugerencias, y lo que acota tu exposición es el uso máximo del saldo y el riesgo por operación. Por defecto usas el saldo entero; si quieres dejar colchón, bájalo. El tope de apalancamiento no se ajusta: es la regla protegida del sistema y lo fija la fase de la cuenta.",
       },
       {
         termino: "Cerrar una parte",
@@ -267,16 +275,16 @@ export const SECCIONES = [
       {
         termino: "Tres perfiles, no tres números",
         formula:
-          "            meta   riesgo/op   posiciones   R:R mín   fuerza         margen máx\nPrudencia    2 %     1,5 %          3          2,0     alta             40 %\nCadencia     5 %     3,0 %          2          1,5     media o alta     55 %\nAudacia      7 %     5,0 %          2          1,2     media o alta     60 %",
+          "            meta   riesgo/op   R:R mín   fuerza\nPrudencia    2 %     1,5 %      2,0     alta\nCadencia     5 %     3,0 %      1,5     media o alta\nAudacia      7 %     5,0 %      1,2     media o alta\n\nlos tres: hasta el 100 % de su saldo para operar",
         lectura:
-          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
+          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Lo que no los diferencia es el saldo: los tres pueden usar su saldo para operar entero; lo que los limita es la meta que persiguen y el riesgo que aceptan en cada operación. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
       },
       {
-        termino: "Cómo elige un agente",
+        termino: "Cómo elige y reparte un agente",
         formula:
-          "candidatos = señales frescas de todo el catálogo activo\n             con MÁS indicadores alcistas que bajistas\n             operables, de su fuerza, origen y R:R\n             sin posición abierta en ese activo\n             que cumplan las prácticas que ha adoptado\n\nelegido, por orden:\n  1. mayor R:R   2. mayor fuerza\n  3. mayor dominancia neta   4. símbolo alfabético",
+          "candidatos = señales frescas de todo el catálogo activo\n             con MÁS indicadores alcistas que bajistas\n             operables, de su fuerza, origen y R:R\n             sin posición abierta en ese activo\n             que cumplan las prácticas que ha adoptado\n\nmarca, por rendimiento sobre el saldo (apal × recorrido al objetivo):\n  · el MAYOR nº de candidatas cuya ganancia en objetivo\n    cubre lo que le falta de la meta  → reparte\n  · si ninguno la cubre, el de MÁS ganancia  → concentra\n\nparte de cada marcada = saldo libre × apal ÷ suma de apal",
         lectura:
-          "Cada cinco minutos. «Sin candidatos» es una salida válida: no se relaja ningún criterio para forzar una operación. Cada orden guarda su racional —cuánto faltaba para la meta, qué se evaluó y los tres mejores descartes con su motivo— y se lee desplegando la fila en la tabla de operaciones.",
+          "Cada cinco minutos, y abre todas sus marcadas a la vez. La exigencia decide cuánto reparte: si le falta poco para la meta, reparte entre muchas y arriesga menos en cada una; si le falta mucho, concentra en lo que más rinde, típicamente la 5×. El riesgo por operación sigue siendo el techo de cada posición. En cuarentena marca una como mucho. «Sin candidatos» es una salida válida: no se relaja ningún criterio para forzar una operación. Cada orden guarda su racional —cuánto faltaba para la meta, qué marcó, cuánto ganaría en objetivo y los tres mejores descartes— y se lee desplegando la fila en la tabla de operaciones.",
         nota: "El agente propone y la base de datos dispone: sus órdenes pasan por los mismos cinco límites del servidor que las tuyas.",
       },
       {
@@ -310,16 +318,16 @@ export const SECCIONES = [
       {
         termino: "Repartir, rotar y asegurar",
         formula:
-          "              reparto       rota si la nueva tiene…       toma parcial\nPrudencia     cupo          R:R ≥ 2,0 × el restante       mitad al 50 %, stop a la entrada\nCadencia      cupo          R:R ≥ 1,5 × el restante       mitad al 50 %\nAudacia       concentrado   R:R ≥ 1,2 × el restante       ninguna",
+          "              rota si la nueva tiene…       toma parcial\nPrudencia     R:R ≥ 2,0 × el restante       mitad al 50 %, stop a la entrada\nCadencia      R:R ≥ 1,5 × el restante       mitad al 50 %\nAudacia       R:R ≥ 1,2 × el restante       ninguna",
         lectura:
-          "Es el punto de partida de cada uno, no una regla fija. «Restante» es lo que le queda a una posición abierta por ganar hasta el objetivo frente a lo que le queda por perder hasta el stop, al precio de ahora: una posición a punto de llegar al objetivo tiene poco recorrido, y si aparece una señal mucho mejor el agente la cierra para entrar en la otra. La toma parcial cierra la mitad a mitad de camino; con «stop a la entrada», lo que queda ya no puede perder.",
+          "Es el punto de partida de cada uno, no una regla fija. Se rota cuando el saldo para operar está lleno (menos de 10 $ de margen libre): mientras quede saldo, una señal nueva se abre sin cerrar nada. Pero una posición cuya señal empeora no espera a eso: si la lectura nueva de su activo ya no es alcista, deja de ser operable o pierde fuerza, el agente la cierra al precio de ese momento —asegura lo ganado o pierde menos— y ese saldo entra en el reparto del mismo ciclo. «Restante» es lo que le queda a una posición abierta por ganar hasta el objetivo frente a lo que le queda por perder hasta el stop, al precio de ahora: una posición a punto de llegar al objetivo tiene poco recorrido, y si aparece una señal mucho mejor el agente la cierra para entrar en la otra. La toma parcial cierra la mitad a mitad de camino; con «stop a la entrada», lo que queda ya no puede perder.",
       },
       {
         termino: "Aprender de cada decisión",
         formula:
-          "rotación : lo que dio la nueva − lo que habría dado la cerrada\nparcial  : lo que se aseguró − lo que habría dado esa parte al final\nreparto  : retorno sobre el margen, concentrando frente a repartiendo\n\ncada 10 decisiones resueltas de un tipo → un paso del parámetro",
+          "rotación : lo que dio la nueva − lo que habría dado la cerrada\nparcial  : lo que se aseguró − lo que habría dado esa parte al final\ndeterioro: lo que se dejó de perder (o de ganar) por cerrar antes\nreparto  : retorno sobre el margen (se registra; aún no mueve nada)\n\ncada 10 decisiones resueltas de un tipo → un paso del parámetro",
         lectura:
-          "Cada decisión se juzga contra lo que habría pasado sin ella, no contra la nota de la semana: una semana mala puede tener una decisión excelente. Si sus rotaciones pierden, el agente sube su umbral; si las tomas parciales le cuestan dinero, las deja; si concentrar rinde menos que repartir, cambia de modo. Cada cambio queda registrado con su evidencia en la pestaña «Decisiones».",
+          "Cada decisión se juzga contra lo que habría pasado sin ella, no contra la nota de la semana: una semana mala puede tener una decisión excelente. Si sus rotaciones pierden, el agente sube su umbral; si las tomas parciales o las salidas por deterioro le cuestan dinero, las deja (y las retoma si a los demás les funcionan). Cuánto reparte ya no es un parámetro que aprenda: lo decide cada día su exigencia, y el resultado de cada reparto se guarda como evidencia. Cada cambio queda registrado con su evidencia en la pestaña «Decisiones».",
         nota: "El contrafactual de una rotación se observa con el precio que el ciclo ve cada 5 minutos: si el precio tocó el objetivo y volvió entre dos lecturas, no se ve.",
       },
       {

@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/datos/frescura.test.js src/datos/csvCartera.test.js src/datos/curvas.test.js src/formato.test.js"
+    "test": "node --test src/datos/frescura.test.js src/datos/csvCartera.test.js src/datos/curvas.test.js src/formato.test.js src/datos/saldoOperar.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

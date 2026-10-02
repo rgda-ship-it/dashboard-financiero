@@ -61,6 +61,14 @@ export const TIPOS_DECISION = {
   rotacion: "rotación",
   parcial: "toma parcial",
   reparto: "reparto",
+  deterioro: "salida por deterioro",
+};
+
+/** Por qué una salida por deterioro (0024): qué cambió en la señal. */
+export const MOTIVOS_DETERIORO = {
+  direccion: "dejó de ser alcista",
+  no_operable: "dejó de ser operable",
+  fuerza: "perdió fuerza",
 };
 
 export const leerSemanas = () =>
@@ -135,8 +143,10 @@ export const MOTIVOS_DESCARTE = {
 export const ACCIONES_CICLO = {
   abrir: "abrió posición",
   meta_cumplida: "meta cumplida · conserva",
-  sin_hueco: "sin hueco para otra posición",
+  sin_hueco: "en cuarentena: ya tiene su posición",
   margen_lleno: "margen al tope",
+  // 0023: sin G4, lo que impide abrir más es el saldo para operar.
+  saldo_lleno: "saldo para operar lleno",
   sin_candidatos: "sin candidatos",
 };
 

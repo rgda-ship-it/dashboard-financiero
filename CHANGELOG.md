@@ -4,6 +4,91 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-02 — Salida por deterioro de la señal (0024)
+
+### Añadido — un agente cierra la posición cuya señal empeora
+Con la 0023 un agente solo rotaba con el saldo lleno, así que una posición
+cuya señal había cambiado seguía abierta mientras quedara saldo. Ahora, en
+cada ciclo y antes de decidir, cierra al precio vivo la posición (abierta
+hace más de 30 min, con precio fresco y entre stop y objetivo) cuya señal
+vigente, posterior a la entrada, ya no es alcista, ha dejado de ser
+operable (con ATR conocido) o ha perdido fuerza. El saldo liberado entra en
+el reparto de ese mismo ciclo. Motivo de cierre nuevo, `deterioro`, que no
+cuenta en la destilación de prácticas.
+
+Cada salida es una decisión juzgada contra lo que habría pasado sin ella
+(mismo contrafactual que la rotación). Parámetro `salida_deterioro`,
+encendido de partida: el agente lo apaga con 10 salidas resueltas en contra
+y lo vuelve a encender si a los demás les funciona.
+
+I68 nueva (68 invariantes).
+
+## [Sin publicar] - 2026-10-02 — Los agentes operan con el saldo para operar (0023, D17)
+
+### Cambiado — los tres usan el 100 % de su saldo para operar
+Lo que diferencia a Prudencia, Cadencia y Audacia ya no es cuánto saldo
+tocan (40 / 55 / 60 %), sino su meta (2 / 5 / 7 %) y su riesgo por
+operación. `fn_parametros_agente` impone el 100 % después de mezclar la
+estrategia, y las estrategias guardadas lo dicen (sube su versión).
+
+### Cambiado — cuántas abre lo decide su exigencia, y las abre a la vez
+Sin G4 también para los agentes. Cada ciclo, el agente ordena sus
+candidatas por rendimiento sobre el saldo (apalancamiento × recorrido al
+objetivo) y prueba a marcar 1, 2, 3…, repartiendo el saldo libre entre las
+marcadas en proporción a su apalancamiento (el riesgo por operación sigue
+siendo el techo de cada una). Se queda con el **mayor número cuya ganancia
+en objetivo cubre lo que le falta de la meta** —le falta poco: reparte y
+arriesga menos en cada una— o, si ninguno la cubre, con **el de más
+ganancia** —le falta mucho: concentra, típicamente en la 5×—. Abre todas
+sus marcadas en el mismo ciclo. En cuarentena, una como mucho.
+
+- La rotación salta con el saldo lleno (menos de 10 $ de margen libre), no
+  por falta de «hueco».
+- Se retira el parámetro aprendido `reparto` (cupo | concentrado). Las
+  decisiones de reparto se siguen registrando con su modo
+  (`cubre_meta` | `maxima_ganancia`) y su resultado, como evidencia.
+- Pantalla de Agentes: columna «Del saldo» en las operaciones y un
+  racional que explica qué marcó y por qué.
+
+Invariantes I41, I43, I44, I45, I48, I58, I60 e I65 adaptadas al
+comportamiento nuevo; I67 nueva fija la regla con números controlados
+(reparte con 20 $ por cubrir, concentra con 65 $ y con 100 $, una en
+cuarentena, y abre las dos a la vez con el saldo entero).
+
+## [Sin publicar] - 2026-10-02 — Saldo para operar y reparto ponderado (0022, D17)
+
+### Cambiado — lo que importa de una posición es cuánto saldo consume
+El simulador mostraba el apalancamiento de cada posición (3×, 4×, 5×), que
+no contesta la pregunta del dueño: qué parte de su saldo para operar se lleva
+cada operación. Ahora la cuenta muestra el **saldo para operar = equity ×
+tope de la fase** (500 $ × 5 = 2.500 $ en Fase 1), con lo que está en uso y
+lo que queda libre, y cada posición abierta o sugerida muestra su
+**consumo = margen × tope**, en dólares y en % del saldo. A 5× el consumo es
+el nominal; a 3× es más que el nominal, así que lo volátil cuesta más saldo.
+El apalancamiento por posición sigue existiendo —es lo que evita liquidar
+antes del stop— y queda como dato secundario.
+
+### Cambiado — la regla de las 3 posiciones seguía viva en el cupo
+La 0021 quitó G4 de las cuentas de usuario, pero el cupo seguía siendo
+margen máx ÷ `max_posiciones` (60 % ÷ 3): tras tres posiciones G3 no dejaba
+margen y la cuarta y la quinta salían «sin margen libre». Y con G3 al 60 %
+el saldo nunca pasaba de 1.500 $. Ahora:
+- **G3 al 100 % por defecto** en cuentas de usuario: es «qué parte del saldo
+  para operar quieres usar», ajustable del 10 al 100 % en «Tus límites». Las
+  cuentas que conservaban el 60 % de fábrica pasan al 100 % con su evento;
+  si el usuario había movido su margen, se respeta.
+- **Reparto entre las sugerencias marcadas, ponderado por apalancamiento**
+  (`rpc_repartir_saldo`): parte = saldo libre × apal ÷ Σ apal. Tres acciones
+  a 5×, una cripto a 4× y otra a 3× sobre 2.500 $ → 568 · 568 · 568 · 455 ·
+  341 $. La parte es un techo: el tamaño sigue saliendo del riesgo por
+  operación, y si pide menos, la sugerencia lo indica. Botón «Abrir las N
+  marcadas» para abrirlas de una vez.
+- «Tus límites» deja de ofrecer el número de posiciones.
+
+Los agentes cambian en la 0023 (entrada de arriba).
+
+I56 e I64 actualizadas, I66 nueva (66 invariantes). Frontend 19 → 22 tests.
+
 ## [Sin publicar] - 2026-10-01 — G4 solo para agentes y prácticas que se respaldan (0021)
 
 ### Cambiado — G4 ya no limita la cuenta del usuario

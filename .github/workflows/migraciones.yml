@@ -11,7 +11,7 @@
 #
 # Esto es lo que ocupa el lugar del staging: levanta un PostgreSQL 15
 # limpio, aplica las migraciones DESDE CERO junto con la semilla, y
-# ejecuta las cincuenta y tres invariantes del esquema —las del Sprint 6
+# ejecuta las invariantes del esquema (I1–I68) —las del Sprint 6
 # corren el ciclo de agentes y el corte semanal de verdad—, la prueba de
 # concurrencia del cierre de órdenes y el cuadre del libro mayor tras
 # cincuenta operaciones. Si algo falla, la migración no llega a master.
