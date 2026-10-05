@@ -275,7 +275,7 @@ export const SECCIONES = [
       {
         termino: "Tres perfiles, no tres números",
         formula:
-          "            meta   riesgo/op   R:R mín   fuerza\nPrudencia    2 %     1,5 %      2,0     alta\nCadencia     5 %     3,0 %      1,5     media o alta\nAudacia      7 %     5,0 %      1,2     media o alta\n\nlos tres: hasta el 100 % de su saldo para operar",
+          "            meta   riesgo/op   R:R mín   fuerza\nPrudencia    2 %     1,5 %      2,0     media o alta\nCadencia     5 %     3,0 %      1,5     media o alta\nAudacia      7 %     5,0 %      1,2     media o alta\n\nlos tres: hasta el 100 % de su saldo para operar",
         lectura:
           "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Audacia exige un ATR de al menos 1,5 % porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Lo que no los diferencia es el saldo: los tres pueden usar su saldo para operar entero; lo que los limita es la meta que persiguen y el riesgo que aceptan en cada operación. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
       },

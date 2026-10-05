@@ -3230,6 +3230,57 @@ $i69$;
 drop function public.zz_romper_ciclo();
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I70 · Prudencia admite la fuerza media (0026, D18).
+--
+-- Dos acciones que pasan todo lo demás de su perfil (estructura, R:R 2,5,
+-- ATR 2 %): una de fuerza media, que ahora es candidata, y otra de fuerza
+-- baja, que sigue fuera. El cambio queda versionado.
+-- ═════════════════════════════════════════════════════════════════════
+do $i70$
+declare
+    v_ag    public.agentes;
+    v_media bigint;
+    v_baja  bigint;
+    v_texto text;
+begin
+    select * into v_ag from public.agentes where nombre = 'Prudencia';
+    if not (v_ag.estrategia -> 'fuerzas_admitidas' @> '["media", "alta"]'::jsonb) then
+        raise exception 'I70 FALLO: la estrategia de Prudencia no admite media y alta: %',
+            v_ag.estrategia -> 'fuerzas_admitidas';
+    end if;
+    if not exists (select 1 from public.agente_estrategia_versiones
+                    where agente_id = v_ag.id and version < v_ag.version_estrategia
+                      and estrategia -> 'fuerzas_admitidas' = '["alta"]'::jsonb) then
+        raise exception 'I70 FALLO: la versión anterior (solo alta) no quedó en el histórico';
+    end if;
+
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('ZZPMED', 'accion', 'yahoo', 'ZZPMED', 'activo', 10, now()),
+        ('ZZPBAJ', 'accion', 'yahoo', 'ZZPBAJ', 'activo', 10, now());
+    select id into v_media from public.activos where simbolo = 'ZZPMED';
+    select id into v_baja  from public.activos where simbolo = 'ZZPBAJ';
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values
+        (v_media, true, 5, 3, 'i70', 10, 9.6, 11, 4, 'alcista', 'largo', 'media', 'estructura', 2, 2, 0, now()),
+        (v_baja,  true, 5, 3, 'i70', 10, 9.6, 11, 3, 'alcista', 'largo', 'baja',  'estructura', 2, 1, 0, now());
+
+    select string_agg(simbolo || '=' || coalesce(motivo, 'candidata'), ',' order by simbolo) into v_texto
+      from public.fn_universo_agente(public.fn_parametros_agente(v_ag),
+                                     public.fn_cuenta_agente(v_ag.id), '[]'::jsonb)
+     where simbolo in ('ZZPMED', 'ZZPBAJ');
+    if v_texto is distinct from 'ZZPBAJ=fuerza,ZZPMED=candidata' then
+        raise exception 'I70 FALLO: Prudencia debería admitir la media y descartar la baja: %', v_texto;
+    end if;
+
+    delete from public.activos where id in (v_media, v_baja);
+    raise notice 'PASS  I70 Prudencia admite fuerza media y sigue descartando la baja; la versión anterior queda en el histórico';
+end
+$i70$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
