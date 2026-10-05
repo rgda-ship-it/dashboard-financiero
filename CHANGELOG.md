@@ -4,6 +4,27 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-05 — Cadencia y Audacia se separan por volatilidad (0027, D19)
+
+### Cambiado — cada una opera su parte del mercado
+Cadencia y Audacia abrían las mismas órdenes en el mismo minuto (O, NLY,
+AGNC, KMB, BAC, FLO, QFIN…) y solo cambiaba el tamaño: en 14 días, todas
+las candidatas de Cadencia eran también de Audacia. El ATR ≥ 1,5 % de
+Audacia no separaba nada, porque casi toda acción tiene un ATR entre el 2
+y el 2,5 %. Ahora un corte común reparte el universo, como pedía el doc 03
+(«Audacia necesita recorrido»):
+
+- **Cadencia:** ATR hasta el 2,3 %, lo tranquilo.
+- **Audacia:** ATR desde el 2,3 %, lo que se mueve.
+
+El corte se eligió probando 2,0 · 2,2 · 2,3 · 2,4 · 2,5 · 3,0 sobre 10 días
+de bolsa: entre 2,2 y 2,4 las dos tienen al menos 2 símbolos candidatos
+cada día (con 3,0, Audacia se quedaba corta 6 de los 10). Con 2,3: 5,1 y
+4,1 de media. Las posiciones abiertas no cambian.
+
+I43 e I48 adaptadas (Cadencia y Audacia ya no comparten candidatas en el
+universo de prueba); I71 nueva (71 invariantes).
+
 ## [Sin publicar] - 2026-10-05 — Prudencia admite la fuerza media (0026, D18)
 
 ### Cambiado — Prudencia deja de exigir fuerza alta
