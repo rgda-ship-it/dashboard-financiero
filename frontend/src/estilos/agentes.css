@@ -292,3 +292,19 @@
 
 /* Práctica «a evitar» (0016): aviso, no mercado. */
 .ag__etiqueta--evitar { border-color: var(--warn-line); color: var(--warn-500); }
+
+/* Paginación de la tabla de operaciones, a la derecha del pie. */
+.ag__paginas {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.ag__paginas-tramo { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .panel__foot:has(.ag__paginas) { flex-wrap: wrap; }
+  .ag__paginas { margin-left: 0; }
+}

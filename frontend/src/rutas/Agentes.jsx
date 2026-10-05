@@ -17,6 +17,7 @@ import {
   colorDe,
   TIPOS_DECISION,
   MOTIVOS_DETERIORO,
+  LIMITE_OPERACIONES,
   leerAjustes,
   leerBacklog,
   leerCurvas,
@@ -27,6 +28,7 @@ import {
 } from "../datos/agentes.js";
 import { construirSeries, diasHastaObjetivo } from "../datos/curvas.js";
 import { FASES, MOTIVOS_CIERRE } from "../datos/simulador.js";
+import { paginar } from "../datos/paginacion.js";
 import {
   claseSigno,
   formatearImporte,
@@ -50,6 +52,9 @@ import {
  * sondeo: si no pasa nada, no se lee nada.
  */
 const RELECTURA_TRAS_EVENTO_MS = 1200;
+
+// Filas por página en la tabla de operaciones.
+const OPERACIONES_POR_PAGINA = 20;
 
 function Tono({ tono, children }) {
   return <span className={`ag__tono ag__tono--${tono}`}>{children}</span>;
@@ -548,6 +553,7 @@ export default function Agentes() {
   const [filtroEstado, setFiltroEstado] = useState("todas");
   const [filtroMotivo, setFiltroMotivo] = useState("todos");
   const [abierta, setAbierta] = useState(null);
+  const [pagina, setPagina] = useState(1);
   const [pestana, setPestana] = useState("backlog");
   const [seccionGuia, setSeccionGuia] = useState(null);
   const temporizador = useRef(null);
@@ -621,6 +627,9 @@ export default function Agentes() {
       ),
     [operaciones, filtroAgente, filtroEstado, filtroMotivo]
   );
+  // Un filtro nuevo empieza por la primera página.
+  useEffect(() => setPagina(1), [filtroAgente, filtroEstado, filtroMotivo]);
+  const pag = paginar(visibles, pagina, OPERACIONES_POR_PAGINA);
 
   const pausados = ranking.filter((a) => a.estado === "pausado").length;
 
@@ -687,12 +696,39 @@ export default function Agentes() {
 
           <Panel
             titulo="Operaciones"
-            meta={`${visibles.length} de ${operaciones.length}`}
+            meta={`${visibles.length} de ${operaciones.length}${
+              operaciones.length >= LIMITE_OPERACIONES ? " (las más recientes)" : ""
+            }`}
             flush
             pie={
-              <span className="sim__nota sim__nota--pie">
-                Despliega una fila para leer por qué el agente eligió esa operación y qué descartó.
-              </span>
+              <>
+                <span className="sim__nota sim__nota--pie">
+                  Despliega una fila para leer por qué el agente eligió esa operación y qué descartó.
+                </span>
+                {pag.paginas > 1 && (
+                  <nav className="ag__paginas" aria-label="Páginas de operaciones">
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={pag.pagina === 1}
+                      onClick={() => setPagina(pag.pagina - 1)}
+                    >
+                      ‹ Más recientes
+                    </button>
+                    <span className="ag__paginas-tramo">
+                      {pag.desde}–{pag.hasta} de {visibles.length}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={pag.pagina === pag.paginas}
+                      onClick={() => setPagina(pag.pagina + 1)}
+                    >
+                      Anteriores ›
+                    </button>
+                  </nav>
+                )}
+              </>
             }
           >
             <div className="toolbar">
@@ -760,7 +796,7 @@ export default function Agentes() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibles.map((o) => (
+                  {pag.filas.map((o) => (
                     <FilaOperacion
                       key={o.id}
                       o={o}

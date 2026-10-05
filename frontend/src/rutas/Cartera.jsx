@@ -12,11 +12,11 @@ import {
   leerSolicitudes,
   importarPosiciones,
   borrarPosiciones,
-  pareceAccion,
   seguirActivo,
   solicitarActivo,
 } from "../datos/cartera.js";
 import { leerCartera } from "../datos/csvCartera.js";
+import { ofrecerAccion as ofrecerAccionYahoo } from "../datos/buscador.js";
 import { descargarCSVModelo } from "../plantillaCartera.js";
 import {
   claseSigno,
@@ -88,10 +88,9 @@ function Buscador({ alCambiar, avisar }) {
   }
 
   const q = texto.trim();
-  const exacto = resultados.some(
-    (r) => r.origen === "catalogo" && r.simbolo.toUpperCase() === q.toUpperCase()
-  );
-  const ofrecerAccion = q && pareceAccion(q) && !exacto;
+  // Va primero: si se escribe un ticker, lo normal es buscar la acción, y
+  // una cripto de CoinGecko con el mismo ticker no debe tapar la opción.
+  const ofrecerAccion = ofrecerAccionYahoo(q, resultados);
 
   return (
     <div className="buscador">
@@ -107,6 +106,30 @@ function Buscador({ alCambiar, avisar }) {
 
       {q && (
         <ul className="buscador__lista">
+          {ofrecerAccion && (
+            <li className="buscador__item buscador__item--nueva">
+              <span className="buscador__ticker">{q.toUpperCase()}</span>
+              <span className="buscador__nombre">
+                Buscar la acción «{q.toUpperCase()}» en Yahoo Finance
+                <span className="buscador__origen">se comprueba y se descarga su histórico en 1-3 minutos</span>
+              </span>
+              <button
+                type="button"
+                className="btn"
+                disabled={ocupado !== null}
+                onClick={() =>
+                  ejecutar("accion", () => solicitarActivo("accion", q), (r) =>
+                    r.estado === "seguido"
+                      ? `${q.toUpperCase()} añadido a tu cartera.`
+                      : `Comprobando ${q.toUpperCase()} en Yahoo Finance…`
+                  )
+                }
+              >
+                {ocupado === "accion" ? "Enviando…" : "Añadir"}
+              </button>
+            </li>
+          )}
+
           {resultados.map((r) => {
             const clave = `${r.origen}-${r.simbolo}`;
             return (
@@ -144,29 +167,6 @@ function Buscador({ alCambiar, avisar }) {
             );
           })}
 
-          {ofrecerAccion && (
-            <li className="buscador__item buscador__item--nueva">
-              <span className="buscador__ticker">{q.toUpperCase()}</span>
-              <span className="buscador__nombre">
-                Buscar la acción «{q.toUpperCase()}» en Yahoo Finance
-                <span className="buscador__origen">se comprueba y se descarga su histórico en 1-3 minutos</span>
-              </span>
-              <button
-                type="button"
-                className="btn"
-                disabled={ocupado !== null}
-                onClick={() =>
-                  ejecutar("accion", () => solicitarActivo("accion", q), (r) =>
-                    r.estado === "seguido"
-                      ? `${q.toUpperCase()} añadido a tu cartera.`
-                      : `Comprobando ${q.toUpperCase()} en Yahoo Finance…`
-                  )
-                }
-              >
-                {ocupado === "accion" ? "Enviando…" : "Añadir"}
-              </button>
-            </li>
-          )}
 
           {!buscando && resultados.length === 0 && !ofrecerAccion && (
             <li className="buscador__vacio">Sin resultados para «{q}».</li>
