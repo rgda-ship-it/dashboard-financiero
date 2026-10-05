@@ -3169,6 +3169,67 @@ end
 $i68$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I69 · Un ciclo de agente que falla deja aviso (0025).
+--
+-- Se rompe a propósito el ciclo de un agente de pruebas (un trigger que
+-- rechaza su fila del día). Los demás siguen; queda UN aviso «fallo» con
+-- el error aunque el ciclo corra dos veces; y al arreglarlo, un aviso de
+-- que vuelve a funcionar.
+-- ═════════════════════════════════════════════════════════════════════
+create function public.zz_romper_ciclo() returns trigger language plpgsql as $f$
+begin
+    if new.agente_id = (select id from public.agentes where nombre = 'prueba-fallo') then
+        raise exception 'fallo provocado por I69';
+    end if;
+    return new;
+end $f$;
+create trigger zz_romper_ciclo before insert or update on public.agente_dias
+    for each row execute function public.zz_romper_ciclo();
+
+do $i69$
+declare
+    v_ag     bigint;
+    v_otro   bigint;
+    v_ciclos int;
+    v_texto  text;
+begin
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-fallo', 2, 'activo', '{"clases_admitidas": ["cripto"]}')
+    returning id into v_ag;
+    perform public.fn_crear_cuenta_agente(v_ag);
+    select id into v_otro from public.agentes where nombre = 'prueba-exigencia';
+    select coalesce(sum(ciclos), 0) into v_ciclos from public.agente_dias where agente_id = v_otro;
+
+    perform public.fn_ciclo_agentes();
+    perform public.fn_ciclo_agentes();
+
+    select string_agg(mensaje, ' | ') into v_texto from public.eventos_sistema
+     where agente_id = v_ag and tipo = 'fallo';
+    if v_texto is distinct from 'El ciclo de prueba-fallo falló: fallo provocado por I69' then
+        raise exception 'I69 FALLO: el fallo debía dejar exactamente un aviso con el error, dejó: %', v_texto;
+    end if;
+    if (select coalesce(sum(ciclos), 0) from public.agente_dias where agente_id = v_otro) <> v_ciclos + 2 then
+        raise exception 'I69 FALLO: el fallo de un agente frenó el ciclo de los demás';
+    end if;
+
+    drop trigger zz_romper_ciclo on public.agente_dias;
+    perform public.fn_ciclo_agentes();
+    perform public.fn_ciclo_agentes();
+    if (select count(*) from public.eventos_sistema
+         where agente_id = v_ag and tipo = 'agente' and datos ->> 'recuperado' = 'true') <> 1 then
+        raise exception 'I69 FALLO: al recuperarse debía quedar un único aviso de que vuelve a funcionar';
+    end if;
+    if has_function_privilege('authenticated', 'public.fn_registrar_fallo(bigint, text, text, text, text)', 'EXECUTE') then
+        raise exception 'I69 FALLO: authenticated puede registrar fallos';
+    end if;
+
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I69 un ciclo que falla deja un aviso por hora con el error, no frena a los demás, y la recuperación también se avisa';
+end
+$i69$;
+drop function public.zz_romper_ciclo();
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
