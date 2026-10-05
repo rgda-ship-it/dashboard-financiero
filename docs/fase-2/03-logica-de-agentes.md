@@ -151,7 +151,7 @@ numérico.
 | Riesgo por operación | 1,5 % del equity | 3,0 % | 5,0 % |
 | Máx. posiciones abiertas | 3 | 2 | 2 |
 | R:R mínimo exigido | 2,0 | 1,5 | 1,2 |
-| Fuerza de confluencia mínima | solo `alta` | `media` o `alta` | `media` o `alta` |
+| Fuerza de confluencia mínima | `media` o `alta` (solo `alta` hasta la 0026, D18) | `media` o `alta` | `media` o `alta` |
 | Apalancamiento | `min(recomendado, 3)` — se autolimita | `recomendado` | `recomendado` (el tope) |
 | Preferencia de volatilidad | ATR% bajo (< 3) | indiferente | ATR% alto — necesita recorrido |
 | Origen de niveles | solo `estructura` | `estructura` o `atr` | cualquiera |

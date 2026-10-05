@@ -4,6 +4,31 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-05 — Prudencia admite la fuerza media (0026, D18)
+
+### Cambiado — Prudencia deja de exigir fuerza alta
+Prudencia pidió «Revisar la estrategia de Prudencia» tras una semana
+deficiente y desde el 2 de octubre pasaba los ciclos sin candidatos. Se
+midió en producción qué filtro la dejaba fuera: de 833 señales alcistas y
+operables de acciones en 7 días, solo 38 eran de fuerza alta, y 388
+fallaban únicamente por la fuerza (ninguna solo por R:R, ATR o
+estructura). Las 32 que lo pasaban todo sí se operaron. Ahora admite
+`media` y `alta`; el resto de su perfil no cambia: solo acciones, niveles
+de estructura, R:R ≥ 2, ATR ≤ 3 %, como mucho 3× y un 1,5 % de riesgo por
+operación. Su estrategia sube de versión y la petición del backlog queda
+como implementada.
+
+### Descartado, con datos
+- **Distancia mínima al stop.** Los stops pegados al precio (< 0,25 ATR)
+  saltan a menudo pero pierden céntimos: sumaron +29,76 $ en la semana,
+  frente a −21,64 $ de los de stop ≥ 0,5 ATR. Filtrarlos habría quitado
+  lo que ganó.
+- **Disparador de cortos por proporción.** El motor no lee un mercado
+  bajista (17–29 % de señales bajistas en acciones, ≤ 10 % en cripto,
+  ninguna bajista fuerte): que no pidan cortos es coherente con sus datos.
+
+I70 nueva (70 invariantes).
+
 ## [Sin publicar] - 2026-10-05 — Un ciclo de agente que falla deja aviso (0025)
 
 ### Añadido — los fallos del ciclo ya no son silenciosos

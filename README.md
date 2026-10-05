@@ -72,7 +72,8 @@ dashboard-financiero/
 │       ├── 0022_saldo_para_operar.sql # Saldo para operar (equity × tope) y reparto ponderado (D17)
 │       ├── 0023_agentes_saldo_para_operar.sql # Los agentes: 100 % del saldo y reparto por exigencia (D17)
 │       ├── 0024_salida_por_deterioro.sql # Un agente cierra la posición cuya señal empeora
-│       └── 0025_avisos_de_fallo.sql # Un ciclo de agente que falla deja aviso en el registro
+│       ├── 0025_avisos_de_fallo.sql # Un ciclo de agente que falla deja aviso en el registro
+│       └── 0026_prudencia_fuerza_media.sql # Prudencia admite la fuerza media (D18)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
