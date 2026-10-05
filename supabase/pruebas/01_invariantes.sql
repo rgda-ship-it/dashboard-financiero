@@ -1710,8 +1710,10 @@ begin
         end if;
     end loop;
 
+    -- Desde la 0027 Audacia solo admite ATR > 2,3 %: descarta por ATR bajo
+    -- la acción (2 %) y zzag2 (1 %), y Cadencia la cripto de ATR 4 %.
     v_json := public.fn_decidir_agente(v_auda);
-    if coalesce((v_json #>> '{descartes_por_motivo,atr_bajo}')::int, 0) <> 1
+    if coalesce((v_json #>> '{descartes_por_motivo,atr_bajo}')::int, 0) <> 2
        or coalesce((v_json #>> '{descartes_por_motivo,direccion}')::int, 0) <> 1
        or coalesce((v_json #>> '{descartes_por_motivo,antiguedad}')::int, 0) <> 1 then
         raise exception 'I43 FALLO: los descartes de Audacia no son los esperados: %', v_json -> 'descartes_por_motivo';
@@ -1729,8 +1731,9 @@ begin
     -- les falta la meta entera del día y, con su riesgo por operación,
     -- cualquiera de sus candidatas la cubre si llega al objetivo: reparten
     -- entre todas las que admite su perfil. Prudencia solo admite la
-    -- acción; Audacia descarta zzag2 por ATR bajo.
-    if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=ZZAGA,Cadencia=zzag1,Cadencia=zzag2,Audacia=ZZAGA,Audacia=zzag1' then
+    -- acción. Desde la 0027 el ATR separa a Cadencia (≤ 2,3 %: ZZAGA y
+    -- zzag2) de Audacia (> 2,3 %: zzag1): ya no comparten ninguna.
+    if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=ZZAGA,Cadencia=zzag2,Audacia=zzag1' then
         raise exception 'I43 FALLO: los perfiles no diferencian: %', v_texto;
     end if;
     -- El racional explica la decisión: qué faltaba, qué se evaluó y qué se descartó.
@@ -1739,8 +1742,8 @@ begin
        and racional ? 'candidatos_evaluados' and racional ? 'descartados_top3'
        and racional ? 'deficit_pendiente' and racional ? 'version_estrategia'
        and racional ? 'elegido' and racional ? 'marcadas' and racional ? 'reparto';
-    if v_conteo <> 6 then
-        raise exception 'I43 FALLO: % de 6 órdenes llevan el racional completo', v_conteo;
+    if v_conteo <> 4 then
+        raise exception 'I43 FALLO: % de 4 órdenes llevan el racional completo', v_conteo;
     end if;
     raise notice 'PASS  I43 misma decisión con el mismo estado; sobre las mismas señales cada agente marca lo que admite su perfil y lo abre de una vez, con su racional';
 
@@ -1835,25 +1838,26 @@ begin
         raise exception 'I48 FALLO: la base de datos aceptó una práctica con 2 operaciones (N11)';
     end if;
 
-    -- Desde la 0023 Cadencia abrió sus tres candidatas de una vez. Para
-    -- comparar su conjunto de candidatos se cierran ZZAGA y zzag1 a su
-    -- precio de entrada (P&L cero): queda como antes, solo con zzag2.
+    -- Desde la 0023 Cadencia abrió sus candidatas de una vez (desde la
+    -- 0027, ZZAGA y zzag2). Para comparar su conjunto de candidatos se
+    -- cierra ZZAGA a su precio de entrada (P&L cero): queda solo zzag2.
     perform public.rpc_cerrar_orden(o.id, o.precio_entrada, 'manual', o.precio_entrada)
        from public.ordenes o
       where o.cuenta_id = v_c_cad and o.estado = 'abierta' and o.activo_id <> v_z2;
 
-    -- Adoptarla CAMBIA el conjunto de candidatos de Cadencia: zzag1 es de
-    -- fuerza media y ZZAGA es una acción; la práctica exige cripto alta.
+    -- Adoptarla CAMBIA el conjunto de candidatos de Cadencia: ZZAGA es una
+    -- acción y la práctica exige cripto alta. (zzag1 ya no es suya desde
+    -- la 0027: su ATR del 4 % es de Audacia.)
     select version_estrategia into v_num from public.agentes where id = v_cad;
     v_json := public.fn_decidir_agente(v_cad);
     if public.fn_adoptar_practica(v_cad) is distinct from v_practica then
         raise exception 'I48 FALLO: Cadencia no adoptó la única práctica compatible';
     end if;
     v_json2 := public.fn_decidir_agente(v_cad);
-    if (v_json ->> 'candidatos_evaluados')::int <> 2
+    if (v_json ->> 'candidatos_evaluados')::int <> 1
        or (v_json2 ->> 'candidatos_evaluados')::int <> 0
-       or (v_json2 ->> 'candidatos_antes_practicas')::int <> 2
-       or (v_json2 #>> '{descartes_por_motivo,practica}')::int <> 2 then
+       or (v_json2 ->> 'candidatos_antes_practicas')::int <> 1
+       or (v_json2 #>> '{descartes_por_motivo,practica}')::int <> 1 then
         raise exception 'I48 FALLO: adoptar no cambió los candidatos como se esperaba: antes % después %',
               v_json -> 'candidatos_evaluados', v_json2 -> 'candidatos_evaluados';
     end if;
@@ -3279,6 +3283,56 @@ begin
     raise notice 'PASS  I70 Prudencia admite fuerza media y sigue descartando la baja; la versión anterior queda en el histórico';
 end
 $i70$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I71 · Cadencia y Audacia se separan por volatilidad (0027, D19).
+--
+-- El mismo corte, 2,3 % de ATR, es el techo de Cadencia y el suelo de
+-- Audacia. Dos acciones que pasan todo lo demás de los dos perfiles, una
+-- con ATR 2 % y otra con 2,6 %: cada una es candidata de un solo agente.
+-- ═════════════════════════════════════════════════════════════════════
+do $i71$
+declare
+    v_cad   public.agentes;
+    v_auda  public.agentes;
+    v_texto text;
+begin
+    select * into v_cad  from public.agentes where nombre = 'Cadencia';
+    select * into v_auda from public.agentes where nombre = 'Audacia';
+    if (public.fn_parametros_agente(v_cad) ->> 'atr_pct_max')::numeric is distinct from 2.3
+       or (public.fn_parametros_agente(v_auda) ->> 'atr_pct_min')::numeric is distinct from 2.3 then
+        raise exception 'I71 FALLO: el corte no es el mismo 2,3 %%: Cadencia ≤ %, Audacia ≥ %',
+            public.fn_parametros_agente(v_cad) ->> 'atr_pct_max',
+            public.fn_parametros_agente(v_auda) ->> 'atr_pct_min';
+    end if;
+
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en) values
+        ('ZZTRAN', 'accion', 'yahoo', 'ZZTRAN', 'activo', 10, now()),
+        ('ZZMOVI', 'accion', 'yahoo', 'ZZMOVI', 'activo', 10, now());
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    select a.id, true, 5, 3, 'i71', 10, 9.6, 11, 4, 'alcista', 'largo', 'media', 'estructura', v.atr, 2, 0, now()
+      from (values ('ZZTRAN', 2.0), ('ZZMOVI', 2.6)) v(simbolo, atr)
+      join public.activos a on a.simbolo = v.simbolo;
+
+    select string_agg(g.nombre || ':' || u.simbolo || '=' || coalesce(u.motivo, 'candidata'), ','
+                      order by g.nombre, u.simbolo) into v_texto
+      from (values (v_cad), (v_auda)) x(ag)
+      cross join lateral (select (x.ag).nombre) g(nombre)
+      cross join lateral public.fn_universo_agente(public.fn_parametros_agente(x.ag),
+                                                   public.fn_cuenta_agente((x.ag).id), '[]'::jsonb) u
+     where u.simbolo in ('ZZTRAN', 'ZZMOVI');
+    if v_texto is distinct from
+       'Audacia:ZZMOVI=candidata,Audacia:ZZTRAN=atr_bajo,Cadencia:ZZMOVI=atr_alto,Cadencia:ZZTRAN=candidata' then
+        raise exception 'I71 FALLO: cada acción debería ser de un solo agente: %', v_texto;
+    end if;
+
+    delete from public.activos where simbolo in ('ZZTRAN', 'ZZMOVI');
+    raise notice 'PASS  I71 el ATR separa a Cadencia (≤ 2,3 %%) de Audacia (≥ 2,3 %%): cada señal es de uno solo';
+end
+$i71$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

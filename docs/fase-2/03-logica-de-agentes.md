@@ -153,7 +153,7 @@ numérico.
 | R:R mínimo exigido | 2,0 | 1,5 | 1,2 |
 | Fuerza de confluencia mínima | `media` o `alta` (solo `alta` hasta la 0026, D18) | `media` o `alta` | `media` o `alta` |
 | Apalancamiento | `min(recomendado, 3)` — se autolimita | `recomendado` | `recomendado` (el tope) |
-| Preferencia de volatilidad | ATR% bajo (< 3) | indiferente | ATR% alto — necesita recorrido |
+| Preferencia de volatilidad | ATR% bajo (< 3) | ATR% ≤ 2,3 (indiferente hasta la 0027, D19) | ATR% ≥ 2,3 — necesita recorrido (≥ 1,5 hasta la 0027) |
 | Origen de niveles | solo `estructura` | `estructura` o `atr` | cualquiera |
 | Margen total comprometido máx. | 40 % del equity | 55 % | 60 % |
 | Carácter | Espera el setup perfecto; pocos días operables, alta tasa de acierto | El término medio; opera casi todos los días | Necesita el recorrido de cripto; el que más probablemente haga Game Over |
