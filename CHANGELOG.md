@@ -4,6 +4,23 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-05 — Un ciclo de agente que falla deja aviso (0025)
+
+### Añadido — los fallos del ciclo ya no son silenciosos
+`fn_ciclo_agentes` capturaba el error de cada agente para no frenar a los
+demás, pero solo emitía un `raise warning` que no se guarda: un agente roto
+dejaba de operar y de comunicar sin que nada lo dijera. Surgió de «hace rato
+que no piden nada»; esa vez funcionaban y estaban callados, pero solo se
+pudo saber desde el SQL Editor.
+
+- Evento nuevo `fallo` con el error, su código y su contexto; uno por hora
+  por agente y error, no uno cada 5 minutos.
+- Cuando el agente vuelve a completar un ciclo, un evento lo dice.
+- Observar precios y resolver decisiones van también protegidos: un error
+  en ellos ya no tumba el ciclo de los tres agentes.
+
+I69 nueva (69 invariantes).
+
 ## [Sin publicar] - 2026-10-02 — Salida por deterioro de la señal (0024)
 
 ### Añadido — un agente cierra la posición cuya señal empeora
