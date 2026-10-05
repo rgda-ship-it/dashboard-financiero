@@ -56,5 +56,4 @@ export const importarPosiciones = (filas) =>
 
 export const borrarPosiciones = () => llamar(supabase.rpc("rpc_borrar_posiciones"));
 
-/** ¿Parece un símbolo bursátil? Mismo patrón que valida la BD. */
-export const pareceAccion = (texto) => /^[A-Z0-9^][A-Z0-9.=^-]{0,14}$/.test(texto.trim().toUpperCase());
+export { pareceAccion } from "./buscador.js";
