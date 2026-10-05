@@ -32,7 +32,10 @@ export const leerCurvas = () =>
       .order("fecha")
   );
 
-export const leerOperaciones = (limite = 200) =>
+/** Cuántas operaciones trae la pantalla de Agentes: las más recientes. */
+export const LIMITE_OPERACIONES = 200;
+
+export const leerOperaciones = (limite = LIMITE_OPERACIONES) =>
   llamar(
     supabase
       .from("v_operaciones_agentes")

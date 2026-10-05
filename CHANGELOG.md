@@ -4,7 +4,7 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
-## [Sin publicar] - 2026-10-05 — Corrección: SPCX es una acción, no la cripto `spcx` (0028)
+## [Sin publicar] - 2026-10-05 — Corrección: SPCX es una acción, no la cripto `spcx` (0028); operaciones por páginas
 
 ### Corregido — el buscador escondía la acción si había una cripto con el mismo ticker
 Al buscar «SPCX», el buscador de la cartera listaba primero la cripto de
@@ -21,7 +21,15 @@ tenían una posición abierta desde el 1 de octubre. La 0028 cierra sus
 posiciones abiertas al último precio (motivo `manual`; no se anulan,
 porque estuvieron abiertas de verdad), la quita de las carteras, la
 suspende y lo deja anotado en el registro. La acción SPCX se añade desde
-el buscador corregido. Frontend 22 → 25 tests.
+el buscador corregido.
+
+### Cambiado — las operaciones de los agentes se leen por páginas
+La tabla de Operaciones de la pantalla de Agentes pintaba de golpe todas
+las que trae (hasta 200, las más recientes) y la página se hacía
+interminable. Ahora muestra 20 por página, con «‹ Más recientes» y
+«Anteriores ›» al pie y el tramo que se ve («21–40 de 113»); cambiar un
+filtro vuelve a la primera página. Si se alcanza el tope de 200, la
+cabecera lo dice. Frontend 22 → 28 tests.
 
 ## [Sin publicar] - 2026-10-05 — Cadencia y Audacia se separan por volatilidad (0027, D19)
 
