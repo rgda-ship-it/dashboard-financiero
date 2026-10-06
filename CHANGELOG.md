@@ -4,6 +4,38 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-06 — El ETL mantiene todo el universo de los agentes (0029, D20)
+
+### Cambiado — el ETL procesa todo el catálogo activo
+El ETL solo refrescaba los activos que alguien seguía, pero el universo de
+los agentes es todo el catálogo activo (D12). Cuatro activos que nadie
+seguía (NKE y tres tokens cripto que replican acciones) seguían «activos»
+con la señal congelada desde hacía días, y los agentes los descartaban en
+cada ciclo «por antigüedad». Ahora el ETL procesa todo el catálogo activo,
+lo siga alguien o no. Para no pasar los límites de los proveedores, las
+cuotas globales (150 activos, 20 criptos por CoinGecko) cuentan ese mismo
+conjunto (`fn_en_universo_etl`): seguir uno que ya está dentro no cuesta, y
+una cripto nueva se rechaza si el universo ya tiene 20. Un suspendido que
+nadie sigue queda fuera; si alguien lo vuelve a seguir, vuelve a entrar.
+
+Los tres tokens (`tesla-dinari-tokenized-stock`,
+`mcdonald-s-dinari-tokenized-stock`, `nike-backpack-securities`) se
+suspenden, como la cripto `spcx`: no tienen posiciones ni seguidores.
+
+### Corregido — el backlog pedía lo que no faltaba
+- **«Señales más frecuentes»**: además de esos cuatro activos, la saltaba
+  la apertura. El primer ETL de acciones corre a las 9:37 NY y los agentes
+  miran desde las 9:30: en los ciclos de 9:30 y 9:35 las 28 acciones tenían
+  la señal del día anterior (56 descartes al día). De 9:30 a 9:45 una
+  acción sin su primera lectura cuenta como fuera de sesión.
+- **«Ampliar el universo de activos»** contaba también los ciclos con la
+  bolsa cerrada: Prudencia la cumplía cada noche. Ahora solo cuenta ciclos
+  con señales frescas y ninguna candidata (`ciclos_universo_sin_candidatos`).
+- **Una entrada resuelta se reabre** si llega una ocurrencia nueva otro
+  día, con la resolución anterior conservada y un evento en el registro.
+
+I72, I73 e I74 nuevas (74 invariantes). Python 159 → 160 tests.
+
 ## [Sin publicar] - 2026-10-05 — Corrección: SPCX es una acción, no la cripto `spcx` (0028); operaciones por páginas
 
 ### Corregido — el buscador escondía la acción si había una cripto con el mismo ticker

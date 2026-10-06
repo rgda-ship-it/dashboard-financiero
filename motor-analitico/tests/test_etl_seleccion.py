@@ -66,15 +66,20 @@ def test_la_consulta_incluye_suspendidos():
     assert [a["simbolo"] for a in sel.procesar] == ["bitcoin"]
 
 
-def test_solo_se_refrescan_activos_seguidos():
-    """Sprint 4: un activo que nadie sigue no gasta cuota de proveedor."""
+def test_se_refresca_todo_el_catalogo_activo():
+    """0029: el universo de los agentes es todo el catálogo activo, así que
+    un activo que nadie sigue también se refresca. Un suspendido que nadie
+    sigue, no: está retirado."""
     sin_nadie = _a(2, "solana", hace_min=500)
     sin_nadie["seguidores"] = 0
-    cliente = ClienteFalso([_a(1, "bitcoin", hace_min=500), sin_nadie])
+    retirado = _a(3, "spcx", estado="suspendido", hace_min=500)
+    retirado["seguidores"] = 0
+    cliente = ClienteFalso([_a(1, "bitcoin", hace_min=500), sin_nadie, retirado])
     sel = etl.seleccionar_activos(cliente, "cripto", None, 6)
     params = next(p for t, p in cliente.consultas if t == "activos")
-    assert params["seguidores"] == "gt.0"
-    assert [a["simbolo"] for a in sel.procesar] == ["bitcoin"]
+    assert "seguidores" not in params
+    assert "seguidores" in params["select"]
+    assert [a["simbolo"] for a in sel.procesar] == ["bitcoin", "solana"]
 
 
 def test_sin_tabla_ordenes_la_pasada_no_se_rompe():

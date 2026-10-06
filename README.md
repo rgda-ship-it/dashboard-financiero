@@ -75,7 +75,8 @@ dashboard-financiero/
 │       ├── 0025_avisos_de_fallo.sql # Un ciclo de agente que falla deja aviso en el registro
 │       ├── 0026_prudencia_fuerza_media.sql # Prudencia admite la fuerza media (D18)
 │       ├── 0027_separar_cadencia_audacia.sql # Cadencia y Audacia se separan por volatilidad (D19)
-│       └── 0028_spcx_no_es_cripto.sql # SPCX es una acción: se suspende la cripto del mismo ticker
+│       ├── 0028_spcx_no_es_cripto.sql # SPCX es una acción: se suspende la cripto del mismo ticker
+│       └── 0029_universo_etl_y_backlog.sql # El ETL mantiene todo el universo de los agentes (D20)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

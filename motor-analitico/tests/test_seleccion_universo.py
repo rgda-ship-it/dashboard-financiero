@@ -38,6 +38,17 @@ def test_suspendido_se_reintenta_cuando_vence_su_espera():
     assert _simbolos(r.procesar) == ["bitcoin"]
 
 
+def test_suspendido_que_nadie_sigue_esta_retirado():
+    """0029: el ETL procesa todo el catálogo activo; un suspendido sin
+    seguidores es un activo retirado y no entra. Con seguidores, sí."""
+    retirado = _activo(1, "spcx", estado="suspendido", ultimo=_hace(400))
+    retirado["seguidores"] = 0
+    seguido = _activo(2, "bitcoin", estado="suspendido", ultimo=_hace(400))
+    seguido["seguidores"] = 1
+    r = seleccionar([retirado, seguido], AHORA)
+    assert _simbolos(r.procesar) == ["bitcoin"]
+
+
 def test_suspendido_espera_mientras_no_vence():
     r = seleccionar([_activo(1, "bitcoin", estado="suspendido", espera=_dentro_de(60))], AHORA)
     assert r.procesar == [] and _simbolos(r.en_espera) == ["bitcoin"]
