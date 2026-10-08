@@ -6,7 +6,8 @@
 # espacia sus llamadas 6 s y respeta `Retry-After` ante un 429.
 #
 # TOPE 20 = TODO EL UNIVERSO POSIBLE (2026-10-01). La base de datos no deja
-# seguir más de 20 criptos en total (D7, por esta misma cuota), así que con
+# que el universo del ETL pase de 20 criptos (D7; desde la 0029, D20, cuenta
+# todo el catálogo activo y no solo lo seguido), así que con
 # `--max 20` cada pasada refresca todas las que pueda haber y ninguna se
 # queda atrás por la rotación. Con el repositorio privado el tope era 8 por
 # los 2.000 min/mes de Actions; con 13 criptos seguidas, 5 llegaban cada

@@ -121,7 +121,7 @@ def seleccionar_activos(
     Un backfill (`--simbolo`) no pasa por ninguna regla: alguien acaba de
     pedir ese activo y lo quiere ahora.
     """
-    campos = "id,simbolo,clase,proveedor,id_proveedor,estado,intentos,ultimo_etl_en,proximo_intento_en"
+    campos = "id,simbolo,clase,proveedor,id_proveedor,estado,intentos,ultimo_etl_en,proximo_intento_en,seguidores"
 
     if simbolo:
         filas = cliente.seleccionar(
@@ -134,12 +134,15 @@ def seleccionar_activos(
     # `suspendido` entra en la consulta a propósito: la regla de backoff
     # decide cuándo se reintenta. Antes quedaba fuera y un activo
     # suspendido no volvía nunca.
-    # Solo lo que alguien sigue (Sprint 4). Un activo que nadie tiene en
-    # su cartera conserva su histórico pero no gasta cuota de proveedor.
+    # TODO el catálogo activo, lo siga alguien o no (D12, 0029): es el
+    # universo de los agentes, y un activo que nadie sigue tenía la señal
+    # congelada mientras los agentes lo seguían viendo (NKE, desde el
+    # 2026-09-24). El límite de los proveedores lo garantizan las cuotas
+    # de la BD, que cuentan este mismo conjunto, y el `--max` de cada pasada.
+    # Un `suspendido` que nadie sigue queda fuera (seleccion_universo.py).
     params = {
         "select": campos,
         "estado": "in.(activo,pendiente_backfill,suspendido)",
-        "seguidores": "gt.0",
     }
     if clase:
         params["clase"] = f"eq.{clase}"

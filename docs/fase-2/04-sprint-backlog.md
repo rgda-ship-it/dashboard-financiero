@@ -433,7 +433,9 @@ con histórico completo en menos de 3 minutos. Requisitos 3 y 5.
 >
 > - **Las cuotas cuentan activos DISTINTOS seguidos** (`activos.seguidores > 0`).
 >   El coste de proveedor crece con activos distintos, no con usuarios. El
->   ETL solo refresca activos con seguidores. Se aplican en un trigger de
+>   ETL solo refresca activos con seguidores. *(Desde la 0029, D20: el ETL
+>   procesa todo el catálogo activo y las cuotas cuentan ese conjunto,
+>   `fn_en_universo_etl`.)* Se aplican en un trigger de
 >   `cartera_activos`, así que rigen también por la vía del workflow.
 > - **Cripto se valida al instante** contra una copia local de
 >   `/coins/list` (`catalogo_coingecko`, refresco semanal en keep-alive).
@@ -776,6 +778,7 @@ primer corte semanal. Requisitos 7, 8, 9 y 10.
 > | Saldo para operar (2026-10-02) | El usuario veía el apalancamiento de cada posición y un cupo de margen ÷ 3 | **D17 — saldo para operar = equity × tope de la fase; cada posición muestra lo que consume (margen × tope); G3 al 100 % por defecto en cuentas de usuario; el saldo libre se reparte entre las sugerencias marcadas, ponderado por apalancamiento** (0022). Los agentes, igual (0023): 100 % del saldo, sin G4, y marcan según su exigencia —el mayor número de candidatas que aún cubre la meta en objetivo; si ninguno la cubre, el de más ganancia— y las abren todas a la vez. Y cierran la posición cuya señal empeora sin esperar a tener el saldo lleno (0024) |
 > | Estrategia de Prudencia (2026-10-05) | Solo fuerza `alta`; pidió «Revisar la estrategia de Prudencia» tras una semana deficiente | **D18 — admite fuerza `media` o `alta`**; el resto de su perfil no cambia (0026). En 7 días, 388 de 833 señales alcistas operables de acciones fallaban solo por la fuerza. Se descartaron, con datos, un filtro de distancia mínima al stop (los stops pegados ganaron +29,76 $ y los sanos perdieron −21,64 $) y cambiar el disparador de cortos (el motor no lee un mercado bajista) |
 > | Cadencia y Audacia (2026-10-05) | Abrían las mismas órdenes en el mismo minuto: el ATR ≥ 1,5 % de Audacia no filtraba nada y todas las candidatas de Cadencia eran también suyas | **D19 — se separan por volatilidad con un corte común de ATR 2,3 %**: Cadencia ≤ 2,3, Audacia ≥ 2,3 (0027). Probados 2,0–3,0 sobre 10 días de bolsa: entre 2,2 y 2,4 las dos tienen al menos 2 símbolos cada día; con 2,3, 5,1 y 4,1 de media |
+> | Universo del ETL (2026-10-06) | El ETL solo refrescaba lo que alguien seguía, pero los agentes operan todo el catálogo activo (D12): NKE y tres tokens cripto seguían «activos» con la señal congelada | **D20 — el ETL procesa todo el catálogo activo, lo siga alguien o no, sin pasar los límites de los proveedores**: las cuotas globales (150 activos, 20 criptos) cuentan ese mismo conjunto (0029). Un suspendido que nadie sigue queda fuera. Y el backlog deja de pedir lo que no falta: la apertura (9:30–9:45 NY) no es señal añeja, «Ampliar el universo» solo cuenta ciclos con señales frescas, y una ocurrencia nueva reabre lo resuelto |
 >
 > Diferencias con la spec, con motivo (el detalle, en la cabecera de la
 > migración):

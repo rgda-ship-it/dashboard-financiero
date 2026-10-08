@@ -3335,6 +3335,153 @@ end
 $i71$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I72 · Las cuotas cuentan el universo del ETL (0029, D20).
+--
+-- El ETL procesa todo el catálogo activo, lo siga alguien o no, así que
+-- el tope de 20 criptos (CoinGecko) cuenta también las que nadie sigue:
+-- con 20 en el universo, una cripto nueva se rechaza aunque ninguna tenga
+-- seguidores; seguir una que ya está dentro no cuesta hueco. Un suspendido
+-- que nadie sigue está fuera del universo.
+-- ═════════════════════════════════════════════════════════════════════
+do $i72$
+declare
+    v_u     uuid := gen_random_uuid();
+    v_n     int;
+    v_texto text;
+begin
+    if not public.fn_en_universo_etl('activo', 0) or not public.fn_en_universo_etl('pendiente_backfill', 0)
+       or public.fn_en_universo_etl('suspendido', 0) or not public.fn_en_universo_etl('suspendido', 2)
+       or public.fn_en_universo_etl('invalido', 5) then
+        raise exception 'I72 FALLO: fn_en_universo_etl no describe el universo del ETL';
+    end if;
+
+    insert into auth.users (id, email, email_confirmed_at) values (v_u, 'cuota-universo@ejemplo.com', now());
+    update public.perfiles set estado = 'aprobado' where id = v_u;
+
+    -- Se llena el universo de cripto hasta 20 con criptos que nadie sigue.
+    select count(*) into v_n from public.activos
+     where clase = 'cripto' and public.fn_en_universo_etl(estado, seguidores);
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+    select 'zzu-' || i, 'cripto', 'coingecko', 'zzu-' || i, 'activo'
+      from generate_series(1, greatest(0, 20 - v_n)) i;
+    insert into public.catalogo_coingecko (id, simbolo, nombre)
+    values ('zzu-nueva', 'zzun', 'Nueva de I72'), ('zzu-1', 'zzu1', 'Llena de I72')
+    on conflict (id) do nothing;
+
+    perform pg_temp.como(v_u);
+    begin
+        perform public.rpc_solicitar_activo('cripto', 'zzu-nueva');
+        v_texto := null;
+    exception when raise_exception then
+        v_texto := sqlerrm;
+    end;
+    perform pg_temp.como_dueno();
+    if v_texto is null or v_texto not like '%criptomonedas distintas y el límite es 20%' then
+        raise exception 'I72 FALLO: con 20 criptos en el universo (sin seguidores) se aceptó una nueva (%)', v_texto;
+    end if;
+
+    if exists (select 1 from public.activos where simbolo = 'zzu-1') then
+        perform pg_temp.como(v_u);
+        perform public.rpc_solicitar_activo('cripto', 'zzu-1');
+        perform pg_temp.como_dueno();
+        if (select seguidores from public.activos where simbolo = 'zzu-1') <> 1 then
+            raise exception 'I72 FALLO: seguir una cripto que ya está en el universo debía costar cero';
+        end if;
+    end if;
+
+    delete from public.cartera_activos where activo_id in (select id from public.activos where simbolo like 'zzu-%');
+    delete from public.activos where simbolo like 'zzu-%';
+    delete from public.catalogo_coingecko where id like 'zzu-%';
+    raise notice 'PASS  I72 las cuotas cuentan el universo del ETL: 20 criptos sin seguidores llenan el tope; seguir una de dentro no cuesta';
+end
+$i72$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I73 · La apertura no es una señal añeja (0029).
+--
+-- De 9:30 a 9:45 de Nueva York la acción espera su primera lectura de la
+-- sesión; antes y después, no. Lunes 5 de octubre de 2026 (EDT, UTC-4).
+-- ═════════════════════════════════════════════════════════════════════
+do $i73$
+begin
+    if not public.fn_esperando_apertura('2026-10-05 13:35+00')
+       or public.fn_esperando_apertura('2026-10-05 13:25+00')       -- aún cerrado
+       or public.fn_esperando_apertura('2026-10-05 13:50+00')       -- pasado el margen
+       or public.fn_esperando_apertura('2026-10-03 13:35+00') then  -- sábado
+        raise exception 'I73 FALLO: el margen de apertura no es 9:30–9:45 NY en día de bolsa';
+    end if;
+    if position('fn_esperando_apertura' in pg_get_functiondef(
+           'public.fn_universo_agente(jsonb, bigint, jsonb)'::regprocedure)) = 0 then
+        raise exception 'I73 FALLO: el universo de los agentes no aplica el margen de apertura';
+    end if;
+    raise notice 'PASS  I73 de 9:30 a 9:45 NY una acción espera su primera lectura: no cuenta como añeja';
+end
+$i73$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I74 · El backlog mide lo que dice y reabre lo resuelto (0029).
+--
+-- «Ampliar el universo» cuenta solo ciclos con señales frescas y sin
+-- candidatas. Y una ocurrencia nueva (otro día) de una petición dada por
+-- implementada la reabre, conservando la resolución anterior.
+-- ═════════════════════════════════════════════════════════════════════
+do $i74$
+declare
+    v_ag    bigint;
+    v_dia   public.agente_dias;
+    v_b     public.agente_backlog;
+begin
+    select agente_id into v_ag from public.agente_dias limit 1;
+    select * into v_dia from public.agente_dias where agente_id = v_ag limit 1;
+
+    -- Ciclo con universo y sin candidatas: cuenta.
+    update public.agente_dias
+       set ciclos = ciclos + 1, ciclos_con_universo = ciclos_con_universo + 1,
+           ciclos_sin_candidatos = ciclos_sin_candidatos + 1
+     where agente_id = v_dia.agente_id and fecha = v_dia.fecha;
+    -- Ciclo con bolsa cerrada (sin universo) y sin candidatas: no cuenta.
+    update public.agente_dias
+       set ciclos = ciclos + 1, ciclos_sin_candidatos = ciclos_sin_candidatos + 1
+     where agente_id = v_dia.agente_id and fecha = v_dia.fecha;
+    if (select ciclos_universo_sin_candidatos from public.agente_dias
+         where agente_id = v_dia.agente_id and fecha = v_dia.fecha)
+       <> v_dia.ciclos_universo_sin_candidatos + 1 then
+        raise exception 'I74 FALLO: el contador de ciclos con universo y sin candidatas no cuadra';
+    end if;
+
+    perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'ajuste_regla:i74', 'Petición de I74',
+                                        'd', 'j', '{"i74": 1}', 3);
+    update public.agente_backlog set estado = 'implementado', resolucion = 'Hecho en la 9999'
+     where clave_deduplicacion = 'ajuste_regla:i74';
+    -- El mismo día no cuenta como ocurrencia nueva: sigue cerrada.
+    perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'ajuste_regla:i74', 'Petición de I74',
+                                        'd', 'j', '{"i74": 2}', 3);
+    if (select estado from public.agente_backlog where clave_deduplicacion = 'ajuste_regla:i74') <> 'implementado' then
+        raise exception 'I74 FALLO: la misma petición del mismo día reabrió la entrada';
+    end if;
+    -- Otro día (se borra la ocurrencia de hoy para simularlo): se reabre.
+    delete from public.agente_backlog_ocurrencias
+     where backlog_id = (select id from public.agente_backlog where clave_deduplicacion = 'ajuste_regla:i74');
+    perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'ajuste_regla:i74', 'Petición de I74',
+                                        'd', 'j', '{"i74": 3}', 3);
+    select * into v_b from public.agente_backlog where clave_deduplicacion = 'ajuste_regla:i74';
+    if v_b.estado <> 'nuevo' or v_b.ocurrencias <> 2
+       or v_b.resolucion not like 'Reabierta el %Antes, implementado: Hecho en la 9999' then
+        raise exception 'I74 FALLO: la ocurrencia nueva no reabrió la entrada como se esperaba: % / % / %',
+            v_b.estado, v_b.ocurrencias, v_b.resolucion;
+    end if;
+    if not exists (select 1 from public.eventos_sistema
+                    where tipo = 'backlog_nuevo' and (datos ->> 'reabierta')::boolean
+                      and (datos ->> 'backlog_id')::bigint = v_b.id) then
+        raise exception 'I74 FALLO: la reapertura no dejó su evento';
+    end if;
+
+    delete from public.agente_backlog where id = v_b.id;
+    raise notice 'PASS  I74 «Ampliar el universo» cuenta solo ciclos con señales frescas; una ocurrencia nueva reabre lo resuelto y conserva la resolución';
+end
+$i74$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

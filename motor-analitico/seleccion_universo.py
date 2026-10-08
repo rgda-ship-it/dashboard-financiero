@@ -9,7 +9,9 @@ con reglas de verdad y tiene que poder probarse sin levantar nada.
 Cuatro reglas, en este orden:
 
 1. `invalido` nunca entra. Es terminal: el proveedor rechazó el símbolo y
-   reintentarlo es cuota tirada.
+   reintentarlo es cuota tirada. Tampoco un `suspendido` que nadie sigue:
+   es un activo retirado del universo (la cripto `spcx`, los tokens que
+   replican acciones); si alguien lo vuelve a seguir, vuelve a entrar.
 
 2. BACKOFF. Un activo con `proximo_intento_en` en el futuro espera, sea
    cual sea su estado. Incluye a los `suspendido`: se reintentan cuando
@@ -87,6 +89,8 @@ def seleccionar(
 
     for activo in candidatos:
         if activo.get("estado") == "invalido":
+            continue
+        if activo.get("estado") == "suspendido" and activo.get("seguidores", 1) == 0:
             continue
 
         espera = _instante(activo.get("proximo_intento_en"))
