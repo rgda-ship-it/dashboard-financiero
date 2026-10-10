@@ -4,7 +4,7 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
-## [Sin publicar] - 2026-10-10 — Stop y objetivo alcanzables; el RSI no vota contra el MACD (0030, D21)
+## [Sin publicar] - 2026-10-10 — Stop y objetivo alcanzables; el RSI no vota contra el MACD; riesgo abierto total (0030, D21)
 
 ### Diagnóstico
 `scripts/diagnostico_agentes.sql` (solo lectura) sobre 11 días de
@@ -37,7 +37,17 @@ de 2, el 2,0 de Prudencia no lo cumpliría casi ninguna señal. Las prácticas
 con condición de R:R, destiladas sobre la escala vieja, se archivan y sus
 adopciones se abandonan. La guía de lectura explica las dos reglas.
 
-I41 adaptada, I75 nueva (75 invariantes). Python 160 → 175 tests.
+### Añadido — riesgo abierto total (G6, 0030)
+Con el stop a 1–2 ATR cada stop cuesta el riesgo completo por operación, y
+el reparto abre varias posiciones a la vez: Audacia con 5 arriesgaría el
+12,5 % de su saldo en activos que suelen caer juntos. Lo que arriesgan a la
+vez las posiciones abiertas de un agente no pasa ahora de 4 × su riesgo por
+operación. La decisión reparte el riesgo libre entre sus marcadas (motivo
+nuevo `riesgo_lleno`, que permite rotar) y un trigger lo impone al insertar
+la orden. No es un límite de pérdida diaria: se libera al cerrar o al mover
+el stop.
+
+I41 adaptada, I75 e I76 nuevas (76 invariantes). Python 160 → 175 tests.
 
 ## [Sin publicar] - 2026-10-06 — El ETL mantiene todo el universo de los agentes (0029, D20)
 

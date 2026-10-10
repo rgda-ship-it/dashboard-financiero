@@ -3517,6 +3517,85 @@ end
 $i75$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I76 · Riesgo abierto total, G6 (0030).
+--
+-- Un agente con riesgo del 2 % y 500 $ puede tener a la vez como mucho
+-- 4 × 2 % = 40 $ en juego. Seis criptos con el stop al 10 %: sin G6, el
+-- saldo le dejaría abrir las seis (60 $ en juego). La decisión reparte el
+-- riesgo libre entre las que marca, el ciclo no pasa de 40 $, la decisión
+-- siguiente dice `riesgo_lleno`, y una orden insertada a mano por encima
+-- la rechaza la base de datos.
+-- ═════════════════════════════════════════════════════════════════════
+do $i76$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_json   jsonb;
+    v_riesgo numeric;
+    v_act    bigint;
+    v_i      int;
+begin
+    for v_i in 1 .. 6 loop
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('zzg6' || v_i, 'cripto', 'coingecko', 'zzg6' || v_i, 'activo', 100, now())
+        returning id into v_act;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_act, true, 5, 3, 's9', 100, 90, 115, 5, 'alcista', 'largo', 'alta',
+                'estructura', 9.5, 3, 0, now());
+    end loop;
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-g6', 20, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "atr_pct_min": 9.2, "rr_minimo": 1.2, "riesgo_pct_operacion": 2}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+
+    -- 1. La decisión no propone más de 40 $ en juego entre sus marcadas.
+    v_json := public.fn_decidir_agente(v_ag);
+    select sum((x ->> 'riesgo_stop')::numeric) into v_riesgo
+      from jsonb_array_elements(v_json -> 'marcadas') x;
+    if v_json ->> 'accion' <> 'abrir' or v_riesgo > 40.01 or (v_json ->> 'riesgo_abierto_max')::numeric <> 40 then
+        raise exception 'I76 FALLO: la decisión debía repartir como mucho 40 $ de riesgo: % · % $ · máx %',
+              v_json ->> 'accion', v_riesgo, v_json ->> 'riesgo_abierto_max';
+    end if;
+
+    -- 2. El ciclo abre y el riesgo abierto queda en el límite, no por encima.
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true
+     where agente_id = v_ag and fecha = (now() at time zone 'UTC')::date;
+    perform public.fn_ciclo_agente(v_ag);
+    v_riesgo := public.fn_riesgo_abierto(v_cuenta);
+    if v_riesgo > 40.01 or v_riesgo < 30 then
+        raise exception 'I76 FALLO: tras el ciclo el riesgo abierto es % $ (límite 40 $)', v_riesgo;
+    end if;
+
+    -- 3. Con el riesgo lleno no propone nada nuevo.
+    if public.fn_decidir_agente(v_ag) ->> 'accion' not in ('riesgo_lleno', 'saldo_lleno', 'sin_candidatos') then
+        raise exception 'I76 FALLO: con el riesgo abierto lleno la decisión fue %',
+              public.fn_decidir_agente(v_ag) ->> 'accion';
+    end if;
+
+    -- 4. Una orden a mano por encima del límite la rechaza PostgreSQL (G6).
+    begin
+        insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+             cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+        values (v_cuenta, v_act, 'agente', 100, now(), 2, 5, 40, 115, 90, 80);
+        raise exception 'I76 FALLO: G6 dejó insertar una orden con 20 $ más de riesgo';
+    exception when sqlstate 'P0001' then
+        if sqlerrm not like 'G6:%' then raise; end if;
+    end;
+
+    update public.activos set estado = 'suspendido' where simbolo like 'zzg6%';
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I76 riesgo abierto total: la decisión reparte el riesgo libre, el ciclo no pasa de 4 × el riesgo por operación y G6 rechaza lo que se salga';
+end
+$i76$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

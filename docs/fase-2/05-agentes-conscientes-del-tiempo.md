@@ -3,7 +3,7 @@
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-10
 > **Estado**: **Propuesta revisada con las respuestas del dueño**. Nada de esto está implementado.
-> Las preguntas abiertas del §8 deciden el alcance de la primera entrega.
+> Las decisiones del dueño están en el §8.
 > **Contexto**: diagnóstico de 11 días en producción
 > (`scripts/diagnostico_agentes.sql`) y D21 (0030), que deja el stop y el
 > objetivo a una distancia alcanzable. Este documento es el paso
@@ -319,12 +319,12 @@ y ya están suspendidos. Propuesta: llenar los huecos con criptos líquidas
 
 | # | Entrega | Qué incluye | Cambia el comportamiento |
 |---|---|---|---|
-| 0 | **Puntos 1 y 2** (D21) | Ya hechos; falta unirlos. Con el riesgo abierto total si se aprueba (§8) | Sí |
-| 1 | **A. Medir** | Tabla `mercados` con festivos; funciones de tiempo; horizonte y `p` estimados en cada orden; `precio_max/min_visto_en`; huecos medidos por activo; meta semanal y ritmo en `ultima_decision` | No: registra y muestra |
+| 0 | **Puntos 1 y 2** (D21) | Hechos, con el riesgo abierto total (G6); falta unirlos | Sí |
+| 1 | **A. Medir** | Tabla `mercados` con festivos; funciones de tiempo; horizonte y `p` estimados en cada orden; `precio_max/min_visto_en`; huecos medidos por activo; meta semanal y ritmo en `ultima_decision`; régimen de mercado de cada práctica (§9); autodiagnóstico semanal al backlog (§10) | No: registra, muestra y pide |
 | 2 | **D. Cripto prudente** | Perfiles por mercado, el cálculo del §6.3 con su petición al backlog, universo cripto | Sí |
 | 3 | **M3' + C. Noches y fines de semana** | Huecos reales en el simulador y la evaluación caso a caso del §5.4 | Sí |
 | 4 | **B. Aporte por sesión** | Orden por aporte a la trayectoria de metas, horizonte máximo, revisión al cumplirse el horizonte, calidad que gradúa el tamaño | Sí |
-| 5 | **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo | Sí, a medida que hay datos |
+| 5 | **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo; evaluación continua y vigencia de las prácticas (§9) | Sí, a medida que hay datos |
 
 Por qué este orden:
 
@@ -340,7 +340,7 @@ Por qué este orden:
 
 ---
 
-## 8. Decisiones del dueño y lo que queda abierto
+## 8. Decisiones del dueño
 
 Decidido (2026-10-10):
 
@@ -350,13 +350,102 @@ Decidido (2026-10-10):
 4. **Prudencia en cripto**: cálculo prudente del §6.3; si no basta, lo
    pide por el backlog.
 5. **Orden**: el recomendado en el §7.
+6. **Riesgo abierto total ≤ 4 × el riesgo por operación** (§5.5). Ya
+   implementado en la 0030 como G6, junto con los puntos 1 y 2.
+7. **Huecos reales en el simulador (M3')**, también para los usuarios.
+8. **Horizonte máximo**: Prudencia 10 sesiones, Cadencia 5, Audacia 3.
 
-Abierto:
+---
 
-1. **Riesgo abierto total** (§5.5). Propuesta: la suma de lo que
-   arriesgan las posiciones abiertas de un agente no pasa de 4 × su riesgo
-   por operación (hoy: Prudencia 3 %, Cadencia 6 %, Audacia 10 % del saldo).
-   ¿Se aplica, y con qué cifra?
-2. **M3'** (§5.4): los huecos reales afectan también al simulador de los
-   usuarios. ¿De acuerdo?
-3. **Horizonte máximo** por agente (§5.2): ¿10 · 5 · 3 sesiones?
+## 9. Prácticas con fecha de caducidad
+
+### 9.1 El problema que señala el dueño
+
+Una práctica validada y respaldada puede haber sido **situacional**: lo que
+funcionó en un mercado alcista y tranquilo puede dejar de funcionar cuando
+el mercado cambia. Revisado el código, el sistema hoy no lo detecta:
+
+| Pieza | Lo que hace hoy | Por qué no basta |
+|---|---|---|
+| Evaluación de una adopción (`fn_evaluar_adopciones`) | A las 2 semanas, con 5 operaciones, compara el rendimiento antes y después **una sola vez** | Si sale «mejoró» o «neutro», **no se vuelve a evaluar nunca**: la práctica se aplica para siempre |
+| Estadística de la práctica | Suma toda la historia, sin pesar lo reciente | Diez aciertos de hace un mes pesan igual que diez fallos de esta semana |
+| Estado `validada` | Solo se pierde si **dos** adopciones salen «empeoró» | Una práctica que solo adopta un agente no se puede refutar nunca |
+| Contexto de mercado | No se guarda | No se sabe en qué mercado se aprendió ni si el de hoy se le parece |
+
+### 9.2 Propuesta
+
+1. **Evaluación continua, no única.** Cada semana, cada adopción viva se
+   reevalúa sobre una ventana móvil (las últimas 4 semanas). Si empeora,
+   se abandona aunque antes hubiera mejorado.
+2. **Contrafactual de verdad.** Hoy se compara «antes» con «después», y
+   entre medias cambian el mercado y la estrategia. Mejor comparar lo que
+   la práctica dejó fuera con lo que dejó pasar en el mismo periodo: los
+   descartes por `practica` quedan registrados en cada decisión, y lo que
+   habría hecho cada señal descartada se calcula como en la rotación.
+3. **Vigencia.** Una práctica sin operaciones nuevas que la respalden en 4
+   semanas pasa a `en_revision`: deja de aplicarse y de ofrecerse hasta
+   que vuelva a tener evidencia reciente. La que la tiene recupera su
+   estado sola.
+4. **Contexto al publicarla.** Se guarda el régimen de mercado del momento
+   (proporción de señales alcistas, ATR medio del universo, tendencia de
+   BTC y del S&P 500). Una práctica solo se aplica cuando el régimen
+   actual se parece al de su evidencia.
+5. **Refutación con un solo agente.** Si quien la adoptó acumula evidencia
+   reciente en contra con suficientes operaciones, basta para suspenderla
+   para él, sin esperar a un segundo agente.
+
+Encaja en la entrega A (guardar el régimen de mercado) y en la E
+(calibración y evaluación continua).
+
+---
+
+## 10. Que los agentes propongan su propio diagnóstico
+
+### 10.1 La pregunta del dueño
+
+> «La mayoría del análisis que estamos realizando ahora, ¿no debieron ser
+> propuesta de los agentes?»
+
+Sí. El diseño lo pretendía (el backlog autónomo, doc 03 §8), pero sus
+disparadores solo miran la **infraestructura** y nunca la **calidad de los
+resultados**. En 11 días los agentes pidieron 12 cosas: señales más
+frecuentes (falso positivo), ampliar el universo, volatilidad de 6
+criptos, revisar el umbral de fase y, tras la semana deficiente, «revisar
+mi estrategia» sin ningún análisis detrás. Ninguna petición decía «llevo
+53 stops y ningún objetivo».
+
+Y los dos disparadores que sí miraban los resultados **no podían saltar
+nunca**: «cierre parcial» exige operaciones que lleguen al 80 % del camino
+al objetivo, y «trailing stop», cierres en objetivo. Con los niveles de
+antes no hubo ninguno de los dos.
+
+Hay un límite que conviene decir claro: son deterministas. Solo pueden
+detectar lo que alguien ha escrito como disparador. Llamarlos
+«operadores expertos» no les da criterio: les da un nombre.
+
+### 10.2 Propuesta: autodiagnóstico semanal
+
+En el corte semanal, cada agente ejecuta sobre sus propias operaciones las
+mismas medidas que `scripts/diagnostico_agentes.sql`, y abre una petición
+en el backlog, con la evidencia, cuando una cruza su umbral:
+
+| Medida | Umbral de partida | Petición |
+|---|---|---|
+| Cierres en objetivo | 0 de ≥ 15 cierres | «Mis objetivos no se alcanzan», con la distribución del mejor recorrido |
+| Distancia al stop | Mediana < 0,5 ATR | «Mis stops están dentro del ruido» |
+| Votos contradictorios | ≥ 50 % de entradas con algún voto en contra | «Entro con señales que se contradicen» |
+| Concentración de descartes | Un solo filtro tumba ≥ 80 % de las candidatas | «El filtro X me deja sin operar», con lo que habría pasado |
+| Saldo parado | Saldo lleno en un mercado cerrado mientras otro abierto tenía candidatas | «Mi saldo queda atrapado», con las horas y las candidatas perdidas |
+| Metas | 0 días cumplidos en la semana | «Mi meta no es alcanzable con mi perfil», con el movimiento que exige frente al ATR real |
+| Prácticas | Una adoptada que empeora en la ventana reciente | «La práctica X ya no funciona» (§9) |
+
+Así, lo que esta vez descubrió una revisión externa lo habría pedido el
+propio agente en su primer corte semanal.
+
+Más adelante, la **capa narrativa** (doc 03 §2, hoy apagada) podría
+redactar ese informe semanal en prosa y proponer hipótesis para que el
+humano las revise. Sin decidir nunca: el agente sigue siendo determinista
+y reproducible. Tendría un coste por uso que hoy el proyecto no tiene, y
+es decisión del dueño.
+
+Encaja en la entrega A: son las mismas medidas que ya hay que registrar.

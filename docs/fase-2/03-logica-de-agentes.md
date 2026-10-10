@@ -199,7 +199,7 @@ que se decidió cada operación.
 
 ## 4. Guardarraíles duros — inviolables por cualquier agente
 
-Estos cinco límites los impone `rpc_abrir_orden` en PostgreSQL, **no el
+Estos límites los impone PostgreSQL (`rpc_abrir_orden`; G6, un trigger sobre `ordenes` desde la 0030), **no el
 código del agente**. Un agente con un bug, una estrategia adoptada con un
 valor absurdo o una llamada manual no pueden saltárselos.
 
@@ -210,6 +210,7 @@ valor absurdo o una llamada manual no pueden saltárselos.
 | G3 | Margen total comprometido ≤ `margen_comprometido_max_pct` | 100 % en los agentes (0023) y por defecto en una cuenta de usuario (0022); antes, 40–60 % según agente | Garantiza que siempre quede saldo libre para el siguiente día. Un agente con el 100 % comprometido no puede operar aunque aparezca el mejor setup del mes. En una cuenta de usuario es «qué parte del saldo para operar quieres usar» (D17) |
 | G4 | Posiciones abiertas simultáneas ≤ `max_posiciones_abiertas` | 2–3 | Limita la correlación: tres posiciones en cripto en un mercado que cae son una sola apuesta con tres nombres. Solo agentes desde la 0021; **retirado en la 0023**: cuántas abre un agente lo decide su reparto por exigencia, y solo la cuarentena lo limita a una |
 | G5 | Solo señales con `operable = true` y antigüedad ≤ `antiguedad_senal_max_min` | 90 min | Regla protegida nº4: sin volatilidad conocida no se opera. Y una señal de ayer no describe el mercado de hoy |
+| G6 | Riesgo abierto total de un agente ≤ 4 × su riesgo por operación (0030, D21) | Prudencia 3 %, Cadencia 6 %, Audacia 10 % del equity con el riesgo reducido de hoy | Con el stop a 1–2 ATR cada stop cuesta el riesgo completo, y el reparto abre varias a la vez en activos que caen juntos. No limita lo perdido en el día: lo que está en juego a la vez. Trigger en `ordenes` |
 
 > **G2 y G3 son la diferencia entre un experimento y un sorteo.** Merece la
 > pena entender el efecto combinado: con riesgo del 5 % por operación y
