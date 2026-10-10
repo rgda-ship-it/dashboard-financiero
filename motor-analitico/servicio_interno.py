@@ -28,6 +28,7 @@ from conectores.coingecko import ConectorCriptoCoinGecko
 from indicadores.tecnicos import (
     calcular_indicadores,
     evaluar_confluencia,
+    calcular_niveles_operativos,
     calcular_soporte_resistencia,
     calcular_tp_sl_por_atr,
 )
@@ -231,11 +232,20 @@ def _escanear_ticker(ticker: str) -> dict:
         and resistencia is not None
     )
 
-    # Los niveles técnicos se emiten SIEMPRE y sin rol operativo; sl/tp son
-    # el mismo número, pero solo cuando el sistema encuadra la operación.
+    # Los niveles técnicos se emiten SIEMPRE y sin rol operativo. sl/tp solo
+    # cuando el sistema encuadra la operación, y desde el 2026-10-10 ya no
+    # son el mismo número: se anclan al soporte y la resistencia pero se
+    # acotan en ATR (`calcular_niveles_operativos`), para que el stop no
+    # quede dentro del ruido de una sesión ni el objetivo a semanas de
+    # distancia. Con operable, el ATR es positivo: sin él no hay
+    # apalancamiento recomendado.
     # No se invierten los roles en un sesgo corto: emitir un setup de corto
     # completo justo después de negarse a apalancarlo sería incoherente y,
     # sin modelo de coste de préstamo ni funding, engañoso.
+    sl = tp = None
+    if operable:
+        sl, tp = calcular_niveles_operativos(precio_actual, soporte, resistencia, atr)
+        sl, tp = _precio(sl), _precio(tp)
     return {
         "ticker": ticker,
         "precio_actual": _num(_precio(precio_actual)) if precio_actual is not None else None,
@@ -262,8 +272,8 @@ def _escanear_ticker(ticker: str) -> dict:
         "leverage_tope": _num(leverage.tope),
         "leverage_recomendado": _num(leverage.recomendado) if operable else None,
         "leverage_referencia_volatilidad": _num(leverage.referencia_volatilidad),
-        "sl": soporte if operable else None,
-        "tp": resistencia if operable else None,
+        "sl": sl,
+        "tp": tp,
         "soporte": soporte,
         "resistencia": resistencia,
         "niveles_origen": niveles_origen,

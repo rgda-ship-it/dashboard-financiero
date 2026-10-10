@@ -4,6 +4,51 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-10 — Stop y objetivo alcanzables; el RSI no vota contra el MACD; riesgo abierto total (0030, D21)
+
+### Diagnóstico
+`scripts/diagnostico_agentes.sql` (solo lectura) sobre 11 días de
+producción y 113 operaciones de los agentes: 53 cierres en stop y **ninguno
+en objetivo**; ninguna operación llegó al 80 % del camino y la mediana del
+mejor recorrido fue 0,35 ATR. Los stops estaban a 0,1–0,2 ATR del precio
+(R:R de ~200, el precio apoyado en el mínimo de 20 días) y los objetivos a
+~8 ATR. El 80 % de las entradas eran un 2 contra 1 contradictorio; 65
+contaban el RSI en sobreventa como alcista con el MACD bajista (47
+acabaron en stop). La salida por deterioro, en cambio, funciona: en 20 de
+22 resueltas cerrar fue mejor que aguantar.
+
+### Cambiado — niveles operativos acotados en ATR (motor)
+Soporte y resistencia siguen siendo la estructura de 20 velas, pero el SL y
+el TP ya no son el mismo número: se anclan a ellos y se acotan en ATR
+(`calcular_niveles_operativos`). El stop queda entre 1 y 2 ATR del precio y
+el objetivo como mucho a 2 ATR (y al menos a 0,5). El R:R va de 0,25 a 2,
+así que ordenar por R:R ya no premia el stop pegado al precio. Cada stop
+pasa a costar el riesgo que declara el agente, no céntimos. Las posiciones
+abiertas conservan sus niveles.
+
+### Cambiado — el RSI extremo solo vota si el MACD no lo contradice (motor)
+Sobreventa con el MACD bajista (o sobrecompra con el MACD alcista) se
+muestra en el detalle como neutral, «sin voto». Afecta también al escáner
+del usuario: esas filas dejan de ser alcistas.
+
+### Cambiado — R:R mínimo de los agentes en la escala nueva (0030)
+Prudencia 2,0 → 1,5 y Cadencia 1,5 → 1,3 (Audacia, 1,2): con un R:R máximo
+de 2, el 2,0 de Prudencia no lo cumpliría casi ninguna señal. Las prácticas
+con condición de R:R, destiladas sobre la escala vieja, se archivan y sus
+adopciones se abandonan. La guía de lectura explica las dos reglas.
+
+### Añadido — riesgo abierto total (G6, 0030)
+Con el stop a 1–2 ATR cada stop cuesta el riesgo completo por operación, y
+el reparto abre varias posiciones a la vez: Audacia con 5 arriesgaría el
+12,5 % de su saldo en activos que suelen caer juntos. Lo que arriesgan a la
+vez las posiciones abiertas de un agente no pasa ahora de 4 × su riesgo por
+operación. La decisión reparte el riesgo libre entre sus marcadas (motivo
+nuevo `riesgo_lleno`, que permite rotar) y un trigger lo impone al insertar
+la orden. No es un límite de pérdida diaria: se libera al cerrar o al mover
+el stop.
+
+I41 adaptada, I75 e I76 nuevas (76 invariantes). Python 160 → 175 tests.
+
 ## [Sin publicar] - 2026-10-06 — El ETL mantiene todo el universo de los agentes (0029, D20)
 
 ### Cambiado — el ETL procesa todo el catálogo activo

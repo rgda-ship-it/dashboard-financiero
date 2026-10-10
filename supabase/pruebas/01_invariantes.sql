@@ -1589,11 +1589,12 @@ begin
     end if;
     -- Los guardarraíles leen la CUENTA: tiene que reflejar la estrategia.
     -- Desde la 0023 el margen de todo agente es el 100 % del saldo para
-    -- operar, diga lo que diga su estrategia.
+    -- operar, diga lo que diga su estrategia. Desde la 0030 su R:R mínimo
+    -- es 1,5 (escala acotada en ATR, máximo 2).
     select format('%s/%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas,
                   margen_comprometido_max_pct, ratio_rr_minimo) into v_texto
       from public.cuentas_simulacion where id = v_c_pru;
-    if v_texto <> '1.50/3/100.00/2.00' then
+    if v_texto <> '1.50/3/100.00/1.50' then
         raise exception 'I41 FALLO: la cuenta de Prudencia no refleja su estrategia: %', v_texto;
     end if;
     if not exists (select 1 from public.agente_estrategia_versiones where agente_id = v_pru and version = 1) then
@@ -3480,6 +3481,119 @@ begin
     raise notice 'PASS  I74 «Ampliar el universo» cuenta solo ciclos con señales frescas; una ocurrencia nueva reabre lo resuelto y conserva la resolución';
 end
 $i74$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I75 · El R:R mínimo de cada agente cabe en la escala nueva (0030).
+--
+-- Desde el 2026-10-10 el motor acota SL y TP en ATR: el R:R de una señal
+-- va como mucho hasta 2 (TP_MAX_ATR / SL_MIN_ATR en indicadores/
+-- tecnicos.py). Un agente que exija 2 o más no opera nunca, y ser prudente
+-- no puede ser no operar. Y ninguna práctica viva puede filtrar por R:R:
+-- las que había se destilaron sobre la escala vieja.
+-- ═════════════════════════════════════════════════════════════════════
+do $i75$
+declare
+    v_r record;
+begin
+    for v_r in select a.nombre, (public.fn_parametros_agente(a) ->> 'rr_minimo')::numeric as rr
+                 from public.agentes a
+    loop
+        if v_r.rr >= 2 then
+            raise exception 'I75 FALLO: % exige R:R % y el motor no emite más de 2', v_r.nombre, v_r.rr;
+        end if;
+    end loop;
+    if (select array_agg((public.fn_parametros_agente(a) ->> 'rr_minimo')::numeric order by a.id)
+          from public.agentes a where a.nombre in ('Prudencia', 'Cadencia', 'Audacia'))
+       <> array[1.5, 1.3, 1.2]::numeric[] then
+        raise exception 'I75 FALLO: el R:R mínimo de Prudencia, Cadencia y Audacia no es 1,5 · 1,3 · 1,2';
+    end if;
+    if (select ratio_rr_minimo from public.cuentas_simulacion c
+          join public.agentes a on a.id = c.agente_id
+         where a.nombre = 'Prudencia' and c.estado <> 'game_over' limit 1) <> 1.5 then
+        raise exception 'I75 FALLO: la cuenta de Prudencia no recibió el R:R mínimo nuevo';
+    end if;
+    raise notice 'PASS  I75 el R:R mínimo de cada agente cabe en la escala acotada en ATR (máximo 2)';
+end
+$i75$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I76 · Riesgo abierto total, G6 (0030).
+--
+-- Un agente con riesgo del 2 % y 500 $ puede tener a la vez como mucho
+-- 4 × 2 % = 40 $ en juego. Seis criptos con el stop al 10 %: sin G6, el
+-- saldo le dejaría abrir las seis (60 $ en juego). La decisión reparte el
+-- riesgo libre entre las que marca, el ciclo no pasa de 40 $, la decisión
+-- siguiente dice `riesgo_lleno`, y una orden insertada a mano por encima
+-- la rechaza la base de datos.
+-- ═════════════════════════════════════════════════════════════════════
+do $i76$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_json   jsonb;
+    v_riesgo numeric;
+    v_act    bigint;
+    v_i      int;
+begin
+    for v_i in 1 .. 6 loop
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('zzg6' || v_i, 'cripto', 'coingecko', 'zzg6' || v_i, 'activo', 100, now())
+        returning id into v_act;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_act, true, 5, 3, 's9', 100, 90, 115, 5, 'alcista', 'largo', 'alta',
+                'estructura', 9.5, 3, 0, now());
+    end loop;
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-g6', 20, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "atr_pct_min": 9.2, "rr_minimo": 1.2, "riesgo_pct_operacion": 2}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+
+    -- 1. La decisión no propone más de 40 $ en juego entre sus marcadas.
+    v_json := public.fn_decidir_agente(v_ag);
+    select sum((x ->> 'riesgo_stop')::numeric) into v_riesgo
+      from jsonb_array_elements(v_json -> 'marcadas') x;
+    if v_json ->> 'accion' <> 'abrir' or v_riesgo > 40.01 or (v_json ->> 'riesgo_abierto_max')::numeric <> 40 then
+        raise exception 'I76 FALLO: la decisión debía repartir como mucho 40 $ de riesgo: % · % $ · máx %',
+              v_json ->> 'accion', v_riesgo, v_json ->> 'riesgo_abierto_max';
+    end if;
+
+    -- 2. El ciclo abre y el riesgo abierto queda en el límite, no por encima.
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true
+     where agente_id = v_ag and fecha = (now() at time zone 'UTC')::date;
+    perform public.fn_ciclo_agente(v_ag);
+    v_riesgo := public.fn_riesgo_abierto(v_cuenta);
+    if v_riesgo > 40.01 or v_riesgo < 30 then
+        raise exception 'I76 FALLO: tras el ciclo el riesgo abierto es % $ (límite 40 $)', v_riesgo;
+    end if;
+
+    -- 3. Con el riesgo lleno no propone nada nuevo.
+    if public.fn_decidir_agente(v_ag) ->> 'accion' not in ('riesgo_lleno', 'saldo_lleno', 'sin_candidatos') then
+        raise exception 'I76 FALLO: con el riesgo abierto lleno la decisión fue %',
+              public.fn_decidir_agente(v_ag) ->> 'accion';
+    end if;
+
+    -- 4. Una orden a mano por encima del límite la rechaza PostgreSQL (G6).
+    begin
+        insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+             cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+        values (v_cuenta, v_act, 'agente', 100, now(), 2, 5, 40, 115, 90, 80);
+        raise exception 'I76 FALLO: G6 dejó insertar una orden con 20 $ más de riesgo';
+    exception when sqlstate 'P0001' then
+        if sqlerrm not like 'G6:%' then raise; end if;
+    end;
+
+    update public.activos set estado = 'suspendido' where simbolo like 'zzg6%';
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I76 riesgo abierto total: la decisión reparte el riesgo libre, el ciclo no pasa de 4 × el riesgo por operación y G6 rechaza lo que se salga';
+end
+$i76$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

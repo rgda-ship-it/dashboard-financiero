@@ -182,26 +182,50 @@ def evaluar_confluencia(df_con_indicadores: pd.DataFrame) -> ResultadoConfluenci
                 SenalIndicador("cruce_medias", Direccion.BAJISTA, "SMA 50 < SMA 200")
             )
 
-    # --- RSI ---
-    rsi = ultima.get("RSI_14")
-    if pd.notna(rsi):
-        if rsi < 30:
-            senales.append(
-                SenalIndicador("rsi", Direccion.ALCISTA, f"RSI en sobreventa ({rsi:.1f})")
-            )
-        elif rsi > 70:
-            senales.append(
-                SenalIndicador("rsi", Direccion.BAJISTA, f"RSI en sobrecompra ({rsi:.1f})")
-            )
-
     # --- MACD (columna típica: MACDh_12_26_9 = histograma) ---
+    # Se lee ANTES que el RSI porque el RSI extremo depende de él (abajo),
+    # pero se añade después para conservar el orden de siempre en el
+    # detalle.
     macd_hist_col = next(
         (c for c in df_con_indicadores.columns if c.startswith("MACDh_")), None
     )
+    senal_macd = None
     if macd_hist_col and pd.notna(ultima.get(macd_hist_col)):
         hist = ultima[macd_hist_col]
         direccion = Direccion.ALCISTA if hist > 0 else Direccion.BAJISTA
-        senales.append(SenalIndicador("macd", direccion, f"Histograma MACD {hist:.3f}"))
+        senal_macd = SenalIndicador("macd", direccion, f"Histograma MACD {hist:.3f}")
+
+    # --- RSI ---
+    # Un RSI extremo es una lectura de reversión: anticipa un giro que
+    # todavía no ha empezado. Solo vota si el impulso (MACD) no dice lo
+    # contrario. Sobreventa con el MACD bajista es un precio que sigue
+    # cayendo, no uno que gira: medido en producción (2026-10-10), 65 de las
+    # 113 entradas de los agentes eran exactamente eso —medias alcistas,
+    # MACD bajista y RSI < 30 contado como alcista— y 47 acabaron en el
+    # stop. Se sigue mostrando, pero como neutral: no cuenta en ningún lado.
+    rsi = ultima.get("RSI_14")
+    if pd.notna(rsi):
+        if rsi < 30:
+            if senal_macd is not None and senal_macd.direccion == Direccion.BAJISTA:
+                senales.append(SenalIndicador(
+                    "rsi", Direccion.NEUTRAL,
+                    f"RSI en sobreventa ({rsi:.1f}), sin voto: el MACD sigue bajista"))
+            else:
+                senales.append(
+                    SenalIndicador("rsi", Direccion.ALCISTA, f"RSI en sobreventa ({rsi:.1f})")
+                )
+        elif rsi > 70:
+            if senal_macd is not None and senal_macd.direccion == Direccion.ALCISTA:
+                senales.append(SenalIndicador(
+                    "rsi", Direccion.NEUTRAL,
+                    f"RSI en sobrecompra ({rsi:.1f}), sin voto: el MACD sigue alcista"))
+            else:
+                senales.append(
+                    SenalIndicador("rsi", Direccion.BAJISTA, f"RSI en sobrecompra ({rsi:.1f})")
+                )
+
+    if senal_macd is not None:
+        senales.append(senal_macd)
 
     # --- Volumen relativo (confirma, no dirige) ---
     vol_rel = ultima.get("Volumen_relativo")
@@ -272,6 +296,48 @@ def calcular_soporte_resistencia(
     soporte = float(recientes["Low"].min())
     resistencia = float(recientes["High"].max())
     return soporte, resistencia
+
+
+# Niveles OPERATIVOS (stop y objetivo), en múltiplos del ATR. El soporte y
+# la resistencia de 20 velas describen la estructura; el stop y el objetivo
+# son lo que se puede ejecutar con ellos. Hasta el 2026-10-10 eran el mismo
+# número, y medido en producción eso daba stops a 0,1–0,2 ATR (el precio
+# apoyado en el mínimo de 20 días: R:R de 200 que saltaban por ruido en
+# horas) y objetivos a 8 ATR (el máximo de 20 días: ninguna de 113
+# operaciones llegó ni al 80 % del camino; la mediana del mejor recorrido
+# fue 0,35 ATR).
+#
+#   stop     = soporte, pero a no menos de 1 ATR ni a más de 2 ATR del precio
+#   objetivo = resistencia, pero a no más de 2 ATR (y a no menos de 0,5)
+#
+# 1 ATR es el movimiento de un día típico: un stop más cerca lo salta el
+# ruido de la propia sesión. 2 ATR es el recorrido alcanzable en unas pocas
+# sesiones; más lejos, el objetivo deja de ser una salida y pasa a ser un
+# deseo. Con estos topes el R:R va de 0,25 a 2: ya no premia los stops
+# pegados al precio.
+SL_MIN_ATR = 1.0
+SL_MAX_ATR = 2.0
+TP_MIN_ATR = 0.5
+TP_MAX_ATR = 2.0
+
+
+def calcular_niveles_operativos(
+    precio_actual: float, soporte: float, resistencia: float, atr: float
+) -> tuple[float, float]:
+    """(stop, objetivo) de una operación en largo, anclados a la estructura
+    y acotados en ATR. El llamador garantiza `atr > 0` y un precio válido.
+
+    El objetivo nunca va más allá de la resistencia: si está más cerca que
+    2 ATR, la resistencia manda (es el obstáculo). El mínimo de 0,5 ATR solo
+    actúa con el precio ya en la resistencia o por encima: el R:R resultante
+    (≤ 0,5) lo descarta cualquier filtro, pero el par sigue cumpliendo
+    stop < precio < objetivo, que es lo que exige el contrato.
+    """
+    distancia_sl = min(max(precio_actual - soporte, SL_MIN_ATR * atr), SL_MAX_ATR * atr)
+    # Solo con un ATR de más del 45 % del precio: el stop no puede bajar de 0.
+    distancia_sl = min(distancia_sl, 0.9 * precio_actual)
+    distancia_tp = min(max(resistencia - precio_actual, TP_MIN_ATR * atr), TP_MAX_ATR * atr)
+    return precio_actual - distancia_sl, precio_actual + distancia_tp
 
 
 def calcular_tp_sl_por_atr(
