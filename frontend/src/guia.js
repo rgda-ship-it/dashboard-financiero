@@ -246,10 +246,10 @@ export const SECCIONES = [
           "Un proceso dentro de la base de datos, cada minuto, sin que nadie mire la pantalla. El orden no es casual: con un solo precio no se puede saber si en ese minuto se tocó primero el objetivo o el stop, así que ante la duda gana siempre el lado conservador. Y la liquidación se evalúa antes que el stop porque a 5× puede llegar primero.",
       },
       {
-        termino: "Se cierra al nivel, no al precio observado",
+        termino: "Se cierra al nivel, salvo en un hueco de apertura",
         formula: null,
         lectura:
-          "Si el precio se desploma un 3 % por debajo de tu stop entre dos pasadas, la operación se registra AL STOP, no a ese precio. Premiar o castigar por ese hueco sería simular una ejecución que el sistema no modela. El precio que disparó el cierre se guarda aparte, en la columna «observado» del histórico: la diferencia entre las dos cifras es el deslizamiento, y está ahí para poder medirlo el día que se modele.",
+          "Si el precio se desploma un 3 % por debajo de tu stop entre dos pasadas con el mercado abierto, la operación se registra AL STOP: el mercado cotizaba sin pausa y una orden de stop se habría ejecutado cerca de su nivel. Pero si entre medias el mercado estuvo CERRADO (una noche, un fin de semana, un festivo) y la acción abre ya por debajo del stop, no había a quién venderle al nivel: la operación sale al precio de apertura, como en un bróker, y el histórico lo marca como hueco. El precio que disparó el cierre se guarda siempre en la columna «observado».",
       },
       {
         termino: "Un precio añejo no cierra nada",
@@ -391,7 +391,7 @@ export const SECCIONES = [
         termino: "El monitor ve un precio por minuto",
         formula: null,
         lectura:
-          "Las posiciones se evalúan una vez por minuto contra un único precio: lo que el mercado haga entre dos pasadas no se ve. Entre que un precio cruza un nivel y la posición se cierra pueden pasar unos dos minutos, y un hueco de mercado se registra al nivel, no al precio del hueco.",
+          "Las posiciones se evalúan una vez por minuto contra un único precio: lo que el mercado haga entre dos pasadas no se ve. Entre que un precio cruza un nivel y la posición se cierra pueden pasar unos dos minutos. Un stop cruzado con el mercado abierto se registra al nivel; uno que la acción salta al abrir tras un cierre, al precio de apertura.",
       },
       {
         termino: "Las señales tienen la edad del escaneo",

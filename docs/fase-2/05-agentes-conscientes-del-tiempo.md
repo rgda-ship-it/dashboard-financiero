@@ -322,7 +322,7 @@ y ya están suspendidos. Propuesta: llenar los huecos con criptos líquidas
 | 0 | **Puntos 1 y 2** (D21) | Hechos, con el riesgo abierto total (G6); falta unirlos | Sí |
 | 1 | **A. Medir** (hecha, 0031) | Tabla `mercados` con festivos; funciones de tiempo; horizonte y `p` estimados en cada orden; `precio_max/min_visto_en`; huecos medidos por activo; meta semanal y ritmo en `ultima_decision`; régimen de mercado de cada práctica (§9); autodiagnóstico semanal al backlog (§10) | No: registra, muestra y pide |
 | 2 | **D. Cripto prudente** (hecha, 0032) | Perfiles por mercado, el cálculo del §6.3 con su petición al backlog, universo cripto | Sí |
-| 3 | **M3' + C. Noches y fines de semana** | Huecos reales en el simulador y la evaluación caso a caso del §5.4 | Sí |
+| 3 | **M3' (hecha, 0033) + C. Noches y fines de semana** | Huecos reales en el simulador y la evaluación caso a caso del §5.4 | Sí |
 | 4 | **B. Aporte por sesión** | Orden por aporte a la trayectoria de metas, horizonte máximo, revisión al cumplirse el horizonte, calidad que gradúa el tamaño | Sí |
 | 5 | **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo; evaluación continua y vigencia de las prácticas (§9) | Sí, a medida que hay datos |
 

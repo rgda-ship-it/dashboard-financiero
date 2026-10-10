@@ -943,7 +943,8 @@ export default function Simulador() {
               pie={
                 <span className="sim__nota sim__nota--pie">
                   El monitor revisa el precio cada minuto y cierra solo cuando toca un nivel. El
-                  cierre se registra <strong>al nivel</strong>, no al precio observado.
+                  cierre se registra <strong>al nivel</strong>, salvo si la acción abre ya más allá
+                  del stop tras un cierre de mercado: entonces sale al precio de apertura.
                 </span>
               }
             >

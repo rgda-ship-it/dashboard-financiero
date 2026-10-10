@@ -4,6 +4,26 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-10 — Huecos reales en el simulador: M3' (0033)
+
+### Cambiado — un stop saltado por un hueco de apertura sale al precio del hueco
+La regla M3 cerraba siempre al nivel del stop. Con el mercado abierto es
+razonable; con el mercado cerrado no: una acción que el viernes cierra a
+100 con el stop en 98 y el lunes abre a 95 no sale a 98, sale a 95. El
+simulador la sacaba a 98, y un fin de semana no tenía riesgo de hueco: un
+agente que aprende de sus resultados habría aprendido que mantener las
+acciones el fin de semana sale gratis.
+
+Ahora, si entre la última vez que el monitor vio la orden y el precio
+actual el mercado estuvo cerrado (noche, fin de semana o festivo, según el
+calendario de la 0031) y el precio ya está más allá del stop, la orden se
+cierra a ese precio y se marca `cierre_por_hueco`. El objetivo sigue
+cerrándose a su nivel (lado conservador) y la liquidación se evalúa primero.
+La cripto cotiza sin pausa: no tiene huecos. Afecta también a las cuentas de
+los usuarios. Guía de lectura y simulador explican la regla.
+
+I82 nueva (82 invariantes).
+
 ## [Sin publicar] - 2026-10-10 — Cripto prudente: prudencia como tamaño (0032, D22)
 
 Entrega D del doc 05. En 11 días ninguna cripto real pasó los filtros:

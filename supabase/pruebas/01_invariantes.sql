@@ -3938,6 +3938,79 @@ end
 $i81$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I82 · Huecos reales: M3' (0033).
+--
+-- 1. Cuándo hubo un cierre de mercado entre dos instantes (NYSE y cripto).
+-- 2. El monitor: con un cierre entre medias y el precio por debajo del
+--    stop, la orden sale al precio del hueco y se marca; sin cierre, sale
+--    al nivel del stop (M3 de siempre). Para no depender de la hora a la
+--    que corre la prueba, se usa una cripto y se marca su mercado, solo
+--    durante la prueba, como mercado con huecos: su «sesión» acaba a
+--    medianoche UTC.
+-- ═════════════════════════════════════════════════════════════════════
+do $i82$
+declare
+    v_act    bigint;
+    v_act2   bigint;
+    v_cuenta bigint;
+    v_a      bigint;
+    v_b      bigint;
+    v_o      public.ordenes;
+begin
+    -- 1. Cierres de mercado.
+    if not public.fn_hubo_cierre('nyse', '2026-10-09 15:50 America/New_York', '2026-10-12 09:37 America/New_York')
+       or public.fn_hubo_cierre('nyse', '2026-10-12 10:00 America/New_York', '2026-10-12 11:00 America/New_York')
+       or public.fn_hubo_cierre('nyse', '2026-10-09 15:50 America/New_York', '2026-10-09 15:59 America/New_York')
+       or not public.fn_hubo_cierre('nyse', '2026-10-10 12:00 America/New_York', '2026-10-12 09:37 America/New_York')
+       or not public.fn_hubo_cierre('nyse', '2026-11-25 15:00 America/New_York', '2026-11-27 09:40 America/New_York')
+       or public.fn_hubo_cierre('cripto', now() - interval '3 days', now()) then
+        raise exception 'I82 FALLO: fn_hubo_cierre no reconoce bien los cierres de mercado';
+    end if;
+
+    -- 2. El monitor.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzhueco', 'cripto', 'coingecko', 'zzhueco', 'activo', 100, now()) returning id into v_act;
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzhueco2', 'cripto', 'coingecko', 'zzhueco2', 'activo', 100, now()) returning id into v_act2;
+    select c.id into v_cuenta from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id
+     where a.nombre = 'Cadencia' and c.estado <> 'game_over';
+
+    -- A: vista por última vez hace dos días (con medianoche entre medias).
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion, ultima_observacion_en)
+    values (v_cuenta, v_act, 'agente', 100, now() - interval '2 days', 0.1, 1, 10, 110, 98, 1,
+            now() - interval '2 days')
+    returning id into v_a;
+    perform public.fn_registrar_movimiento(v_cuenta, v_a, 'bloqueo_margen', -10, 10);
+    -- B: vista hace un instante, sin cierre entre medias.
+    insert into public.ordenes (cuenta_id, activo_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion, ultima_observacion_en)
+    values (v_cuenta, v_act2, 'agente', 100, now(), 0.1, 1, 10, 110, 98, 1, now() - interval '1 second')
+    returning id into v_b;
+    perform public.fn_registrar_movimiento(v_cuenta, v_b, 'bloqueo_margen', -10, 10);
+
+    update public.mercados set riesgo_hueco = 'alto' where clave = 'cripto';
+    update public.activos set ultimo_precio = 95, ultimo_precio_en = now() where id in (v_act, v_act2);
+    perform public.fn_monitorear_ordenes();
+    update public.mercados set riesgo_hueco = 'bajo' where clave = 'cripto';
+
+    select * into v_o from public.ordenes where id = v_a;
+    if v_o.estado <> 'cerrada' or v_o.precio_salida <> 95 or not v_o.cierre_por_hueco or v_o.pnl_bruto <> -0.50 then
+        raise exception 'I82 FALLO: con un cierre entre medias debía salir al precio del hueco (95): % % % %',
+              v_o.estado, v_o.precio_salida, v_o.cierre_por_hueco, v_o.pnl_bruto;
+    end if;
+    select * into v_o from public.ordenes where id = v_b;
+    if v_o.estado <> 'cerrada' or v_o.precio_salida <> 98 or v_o.cierre_por_hueco or v_o.precio_observado_cierre <> 95 then
+        raise exception 'I82 FALLO: sin cierre entre medias debía salir al nivel del stop (98): % % % %',
+              v_o.estado, v_o.precio_salida, v_o.cierre_por_hueco, v_o.precio_observado_cierre;
+    end if;
+
+    update public.activos set estado = 'suspendido' where id in (v_act, v_act2);
+    raise notice 'PASS  I82 huecos reales: con el mercado cerrado entre medias, el stop sale al precio del hueco; si no, al nivel';
+end
+$i82$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
