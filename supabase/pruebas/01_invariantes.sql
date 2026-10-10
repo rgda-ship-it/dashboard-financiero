@@ -1589,11 +1589,12 @@ begin
     end if;
     -- Los guardarraíles leen la CUENTA: tiene que reflejar la estrategia.
     -- Desde la 0023 el margen de todo agente es el 100 % del saldo para
-    -- operar, diga lo que diga su estrategia.
+    -- operar, diga lo que diga su estrategia. Desde la 0030 su R:R mínimo
+    -- es 1,5 (escala acotada en ATR, máximo 2).
     select format('%s/%s/%s/%s', riesgo_pct_operacion, max_posiciones_abiertas,
                   margen_comprometido_max_pct, ratio_rr_minimo) into v_texto
       from public.cuentas_simulacion where id = v_c_pru;
-    if v_texto <> '1.50/3/100.00/2.00' then
+    if v_texto <> '1.50/3/100.00/1.50' then
         raise exception 'I41 FALLO: la cuenta de Prudencia no refleja su estrategia: %', v_texto;
     end if;
     if not exists (select 1 from public.agente_estrategia_versiones where agente_id = v_pru and version = 1) then
@@ -3480,6 +3481,40 @@ begin
     raise notice 'PASS  I74 «Ampliar el universo» cuenta solo ciclos con señales frescas; una ocurrencia nueva reabre lo resuelto y conserva la resolución';
 end
 $i74$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I75 · El R:R mínimo de cada agente cabe en la escala nueva (0030).
+--
+-- Desde el 2026-10-10 el motor acota SL y TP en ATR: el R:R de una señal
+-- va como mucho hasta 2 (TP_MAX_ATR / SL_MIN_ATR en indicadores/
+-- tecnicos.py). Un agente que exija 2 o más no opera nunca, y ser prudente
+-- no puede ser no operar. Y ninguna práctica viva puede filtrar por R:R:
+-- las que había se destilaron sobre la escala vieja.
+-- ═════════════════════════════════════════════════════════════════════
+do $i75$
+declare
+    v_r record;
+begin
+    for v_r in select a.nombre, (public.fn_parametros_agente(a) ->> 'rr_minimo')::numeric as rr
+                 from public.agentes a
+    loop
+        if v_r.rr >= 2 then
+            raise exception 'I75 FALLO: % exige R:R % y el motor no emite más de 2', v_r.nombre, v_r.rr;
+        end if;
+    end loop;
+    if (select array_agg((public.fn_parametros_agente(a) ->> 'rr_minimo')::numeric order by a.id)
+          from public.agentes a where a.nombre in ('Prudencia', 'Cadencia', 'Audacia'))
+       <> array[1.5, 1.3, 1.2]::numeric[] then
+        raise exception 'I75 FALLO: el R:R mínimo de Prudencia, Cadencia y Audacia no es 1,5 · 1,3 · 1,2';
+    end if;
+    if (select ratio_rr_minimo from public.cuentas_simulacion c
+          join public.agentes a on a.id = c.agente_id
+         where a.nombre = 'Prudencia' and c.estado <> 'game_over' limit 1) <> 1.5 then
+        raise exception 'I75 FALLO: la cuenta de Prudencia no recibió el R:R mínimo nuevo';
+    end if;
+    raise notice 'PASS  I75 el R:R mínimo de cada agente cabe en la escala acotada en ATR (máximo 2)';
+end
+$i75$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

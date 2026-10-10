@@ -40,9 +40,9 @@ export const SECCIONES = [
       {
         termino: "Los cuatro indicadores",
         formula:
-          "Cruce de medias  · SMA 50 > SMA 200 → alcista;  < → bajista\nRSI (14)         · < 30 → alcista (sobreventa);  > 70 → bajista\nMACD (12,26,9)   · histograma > 0 → alcista;  ≤ 0 → bajista\nVolumen relativo · volumen / media de 20 sesiones",
+          "Cruce de medias  · SMA 50 > SMA 200 → alcista;  < → bajista\nRSI (14)         · < 30 → alcista (sobreventa);  > 70 → bajista\n                   · sin voto si el MACD dice lo contrario\nMACD (12,26,9)   · histograma > 0 → alcista;  ≤ 0 → bajista\nVolumen relativo · volumen / media de 20 sesiones",
         lectura:
-          "Un RSI entre 30 y 70 no aporta señal: no cuenta ni a favor ni en contra. El volumen es el único que no vota — solo entra si supera 1.5× su media y solo para confirmar la dirección que ya domina, nunca para decidirla ni para desempatar.",
+          "Un RSI entre 30 y 70 no aporta señal: no cuenta ni a favor ni en contra. Un RSI extremo anticipa un giro que aún no ha empezado, así que solo vota si el MACD no lo contradice: sobreventa con el MACD bajista es un precio que sigue cayendo, y se muestra en gris, sin voto. El volumen es el único que no vota — solo entra si supera 1.5× su media y solo para confirmar la dirección que ya domina, nunca para decidirla ni para desempatar.",
       },
       {
         termino: "Volatilidad (ATR %)",
@@ -61,9 +61,9 @@ export const SECCIONES = [
       {
         termino: "Riesgo / objetivo (SL – TP · Sop. – Res.)",
         formula:
-          "soporte     = mínimo de los últimos 20 mínimos\nresistencia = máximo de los últimos 20 máximos\n\nSi la ventana no describe estructura\n(resistencia − soporte < ATR, o ≤ 0):\n  soporte     = precio − 2 × ATR\n  resistencia = precio + 2 × ATR\n\nSolo con sesgo largo:\n  SL = soporte   ·   TP = resistencia",
+          "soporte     = mínimo de los últimos 20 mínimos\nresistencia = máximo de los últimos 20 máximos\n\nSi la ventana no describe estructura\n(resistencia − soporte < ATR, o ≤ 0):\n  soporte     = precio − 2 × ATR\n  resistencia = precio + 2 × ATR\n\nSolo con sesgo largo:\n  SL = soporte, entre 1 y 2 ATR por debajo del precio\n  TP = resistencia, como mucho 2 ATR por encima\n       (y al menos 0,5 ATR)",
         lectura:
-          "Los mismos dos números tienen dos lecturas. Con sesgo largo llevan rol: SL en rojo es lo que se pierde, TP en verde lo que se busca. Sin sesgo largo aparecen en gris como «Sop.» y «Res.» — estructura de precio, válida en cualquier dirección, pero sin ninguna operación propuesta detrás. El punto es el precio actual entre ambos: pegado a la resistencia queda poco recorrido al alza; pegado al soporte, casi todo el rango está por debajo.",
+          "Los mismos dos números tienen dos lecturas. Con sesgo largo llevan rol: SL en rojo es lo que se pierde, TP en verde lo que se busca. Sin sesgo largo aparecen en gris como «Sop.» y «Res.» — estructura de precio, válida en cualquier dirección, pero sin ninguna operación propuesta detrás. El punto es el precio actual entre ambos: pegado a la resistencia queda poco recorrido al alza; pegado al soporte, casi todo el rango está por debajo. El SL y el TP se anclan a esa estructura pero se acotan en ATR: un stop a menos de un día típico de movimiento lo salta el ruido de la propia sesión, y un objetivo a más de 2 ATR está a semanas de distancia. Por eso el R:R va como mucho hasta 2.",
         nota: "Nunca se invierten los roles para una lectura bajista. Emitir un SL arriba y un TP abajo sería entregar un setup de corto completo justo después de negarse a apalancarlo, y sin modelar el coste de mantener un corto eso sería engañoso. El detalle de la fila indica si los niveles vienen de la estructura o del fallback por ATR.",
       },
     ],

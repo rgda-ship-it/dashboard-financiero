@@ -194,3 +194,16 @@ def test_escalas_de_poder_de_trading_de_la_guia_son_las_de_la_migracion():
     assert sorted(guia) == sorted(sql)
     # Y el tramo de abajo: 20 veces el equity en los dos sitios.
     assert "20 × equity" in GUIA and "p_equity * 20" in SQL_PODER
+
+
+def test_topes_en_atr_de_los_niveles_de_la_guia_son_los_del_motor():
+    # 2026-10-10: SL y TP se anclan a la estructura y se acotan en ATR.
+    from indicadores.tecnicos import SL_MAX_ATR, SL_MIN_ATR, TP_MAX_ATR, TP_MIN_ATR
+
+    sl_min, sl_max = _uno(r"SL = soporte, entre (\d+(?:,\d+)?) y (\d+(?:,\d+)?) ATR")
+    tp_max = _uno(r"TP = resistencia, como mucho (\d+(?:,\d+)?) ATR")
+    tp_min = _uno(r"\(y al menos (\d+(?:,\d+)?) ATR\)")
+    assert (_num(sl_min), _num(sl_max)) == (SL_MIN_ATR, SL_MAX_ATR)
+    assert (_num(tp_min), _num(tp_max)) == (TP_MIN_ATR, TP_MAX_ATR)
+    rr_max = _uno(r"el R:R va como mucho hasta (\d+(?:,\d+)?)")
+    assert _num(rr_max) == TP_MAX_ATR / SL_MIN_ATR

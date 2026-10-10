@@ -150,7 +150,7 @@ numérico.
 | Saldo inicial | 500 $ | 500 $ | 500 $ |
 | Riesgo por operación | 1,5 % del equity | 3,0 % | 5,0 % |
 | Máx. posiciones abiertas | 3 | 2 | 2 |
-| R:R mínimo exigido | 2,0 | 1,5 | 1,2 |
+| R:R mínimo exigido | 1,5 (2,0 hasta la 0030, D21) | 1,3 (1,5 hasta la 0030) | 1,2 |
 | Fuerza de confluencia mínima | `media` o `alta` (solo `alta` hasta la 0026, D18) | `media` o `alta` | `media` o `alta` |
 | Apalancamiento | `min(recomendado, 3)` — se autolimita | `recomendado` | `recomendado` (el tope) |
 | Preferencia de volatilidad | ATR% bajo (< 3) | ATR% ≤ 2,3 (indiferente hasta la 0027, D19) | ATR% ≥ 2,3 — necesita recorrido (≥ 1,5 hasta la 0027) |
@@ -715,6 +715,8 @@ la DoD nº5):
 | N1 | El saldo es derivado; el libro mayor `movimientos_saldo` es la verdad | Doc A §5.2 |
 | N2 | Toda orden lleva TP y SL obligatorios: no existe posición sin gestión de riesgo | `CHECK` en `ordenes` |
 | N3 | El R:R mínimo filtra candidatos; la Fase 1 emitía niveles sin comprobar que mereciera la pena | `senales.ratio_rr` + filtro del agente |
+| N15 | SL y TP se anclan al soporte y la resistencia pero se acotan en ATR: stop entre 1 y 2 ATR del precio, objetivo como mucho a 2 ATR. El R:R va de 0,25 a 2 (D21) | `indicadores/tecnicos.py` · `calcular_niveles_operativos` |
+| N16 | Un RSI extremo solo vota si el MACD no lo contradice (D21) | `indicadores/tecnicos.py` · `evaluar_confluencia` |
 | N4 | La liquidación se evalúa antes que el stop, y si queda por encima del SL se **baja** el apalancamiento | §5.3 paso 6, §5.4 regla M1 |
 | N5 | Ante ambigüedad TP/SL en el mismo intervalo, gana el SL | §5.4 regla M2 |
 | N6 | El cierre se registra al nivel, no al precio observado | §5.4 regla M3 |

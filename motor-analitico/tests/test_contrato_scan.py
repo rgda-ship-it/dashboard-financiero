@@ -86,8 +86,11 @@ def test_confluencia_alcista_asigna_roles_a_los_niveles():
     assert d["indicadores_alcistas"] == 2 and d["indicadores_bajistas"] == 0, d["senales"]
     assert d["sesgo_operativo"] == "largo"
     assert d["operable"] is True
-    assert d["sl"] == d["soporte"]
-    assert d["tp"] == d["resistencia"]
+    # Los niveles con rol se anclan a la estructura y se acotan en ATR
+    # (2026-10-10): encuadran el precio y el objetivo no pasa de la
+    # resistencia.
+    assert d["sl"] < d["precio_actual"] < d["tp"]
+    assert d["tp"] <= d["resistencia"]
 
 
 def test_empate_es_sin_sesgo_y_no_dimensiona():
@@ -142,7 +145,7 @@ def test_invariantes_del_contrato_en_cada_item_sin_error():
         assert 1.0 <= d["leverage_referencia_volatilidad"] <= d["leverage_tope"]
         assert d["soporte"] is not None and d["resistencia"] is not None
         assert d["resistencia"] > d["soporte"]
-        assert d["sl"] is None or (d["sl"] == d["soporte"] and d["tp"] == d["resistencia"])
+        assert d["sl"] is None or d["sl"] < d["precio_actual"] < d["tp"]
         assert d["sesgo_operativo"] == sesgo_esperado[d["direccion"]]
         assert d["niveles_origen"] in ("estructura", "atr")
 

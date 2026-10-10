@@ -408,7 +408,12 @@ def _invariantes_universales(d: dict) -> None:
         1.0 <= d["leverage_recomendado"] <= d["leverage_tope"]
     )
     assert 1.0 <= d["leverage_referencia_volatilidad"] <= d["leverage_tope"]
-    assert d["sl"] is None or (d["sl"] == d["soporte"] and d["tp"] == d["resistencia"])
+    # Desde el 2026-10-10 sl/tp ya no son soporte/resistencia: se anclan a
+    # ellos y se acotan en ATR. Lo que el contrato exige es que encuadren
+    # el precio y que el objetivo no pase de la resistencia salvo con el
+    # mínimo de 0,5 ATR (precio ya en la resistencia).
+    if d["sl"] is not None:
+        assert d["sl"] < d["precio_actual"] < d["tp"]
     assert d["sesgo_operativo"] == sesgo_esperado[d["direccion"]]
     assert d["niveles_origen"] in ("estructura", "atr")
 
@@ -462,8 +467,12 @@ def _frame_rsi_sobreventa_en_tendencia_bajista() -> pd.DataFrame:
 def test_15_un_alcista_y_dos_bajistas_nunca_es_destino_de_rotacion():
     d = _escanear_con(_frame_rsi_sobreventa_en_tendencia_bajista())
     detalle = d["senales"]
-    assert d["indicadores_alcistas"] == 1, detalle
+    # Desde el 2026-10-10 la sobreventa con el MACD bajista no vota: se
+    # muestra como neutral. Era 1 contra 2; ahora es 0 contra 2.
+    assert d["indicadores_alcistas"] == 0, detalle
     assert d["indicadores_bajistas"] == 2, detalle
+    rsi = next(s for s in detalle if s["nombre"] == "rsi")
+    assert rsi["direccion"] == "neutral" and "sin voto" in rsi["detalle"], rsi
     assert d["fuerza"] == "media", detalle  # "media" la da el lado bajista
     assert d["direccion"] == "bajista"
 
