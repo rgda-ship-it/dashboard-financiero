@@ -75,7 +75,7 @@ s_operaciones as (
                'atr', atr_entrada, 'fuerza', fuerza_entrada, 'origen', niveles_origen,
                'alc', alc, 'baj', baj, 'rr', rr_senal, 'votos', votos,
                'senal_edad_min', round(extract(epoch from fecha_entrada - senal_calculada_en) / 60),
-               'modo_reparto', racional #>> '{reparto,modo}',
+               'modo_reparto', racional -> 'reparto' ->> 'modo',
                'deficit', racional -> 'deficit_pendiente') order by id)
       from ord
 ),
@@ -162,13 +162,13 @@ s_cripto_filtro as (
                    jsonb_agg(distinct crip.simbolo) as cuales
               from public.agentes g
               cross join lateral (select public.fn_parametros_agente(g) as p) pp
-              join crip on pp.p -> 'clases_admitidas' ? 'cripto'
+              join crip on pp.p -> 'clases_admitidas' @> '["cripto"]'::jsonb
               cross join lateral (select case
                    when not (crip.indicadores_alcistas > crip.indicadores_bajistas) then 'direccion'
                    when not crip.operable and crip.atr_pct is null then 'sin_atr'
                    when not crip.operable then 'no_operable'
-                   when not (pp.p -> 'fuerzas_admitidas' ? coalesce(crip.fuerza, '')) then 'fuerza'
-                   when not (pp.p -> 'niveles_origen_admitidos' ? coalesce(crip.niveles_origen, '')) then 'niveles_origen'
+                   when not (pp.p -> 'fuerzas_admitidas' @> jsonb_build_array(coalesce(crip.fuerza, ''))) then 'fuerza'
+                   when not (pp.p -> 'niveles_origen_admitidos' @> jsonb_build_array(coalesce(crip.niveles_origen, ''))) then 'niveles_origen'
                    when crip.ratio_rr is null or crip.ratio_rr < (pp.p ->> 'rr_minimo')::numeric then 'rr'
                    when pp.p ->> 'atr_pct_min' is not null
                         and (crip.atr_pct is null or crip.atr_pct < (pp.p ->> 'atr_pct_min')::numeric) then 'atr_bajo'
