@@ -2,7 +2,7 @@
 
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-10
-> **Estado**: **Propuesta para el dueño**. Nada de esto está implementado.
+> **Estado**: **Propuesta revisada con las respuestas del dueño**. Nada de esto está implementado.
 > Las preguntas abiertas del §8 deciden el alcance de la primera entrega.
 > **Contexto**: diagnóstico de 11 días en producción
 > (`scripts/diagnostico_agentes.sql`) y D21 (0030), que deja el stop y el
@@ -125,69 +125,115 @@ el monitor que ya corre cada minuto.
 
 ## 5. Cómo decide un agente consciente del tiempo
 
-### 5.1 Contribución esperada, no R:R
+> **Revisado tras las respuestas del dueño (2026-10-10).** La primera
+> versión descartaba las entradas que no cabían en el tiempo que le
+> quedaba al mercado y cerraba por tiempo de forma mecánica. Era una
+> visión inmediata: una entrada que no cubre la meta de hoy puede cubrir
+> la de mañana, y entrar ahora al mejor precio es mejor que entrar mañana
+> a uno peor. Ninguna de las dos reglas descarta ni cierra ya por sí sola:
+> las dos pasan a ser **evaluaciones**.
+
+### 5.1 Aporte a la trayectoria de metas, no R:R
 
 El orden de candidatos deja de ser «mayor R:R primero» y pasa a ser
-**cuánto aporta a la meta por hora de capital comprometido**:
+**cuánto aporta a las metas por cada sesión que compromete el capital**:
 
 ```
-valor_esperado = p × ganancia_objetivo − (1 − p) × pérdida_stop
-aporte_por_hora = valor_esperado / horizonte_estimado_horas
+valor_esperado     = p × ganancia_objetivo − (1 − p) × pérdida_stop − coste_hueco
+aporte_por_sesion  = valor_esperado / horizonte_estimado_sesiones
 ```
 
-Mientras no haya ventaja medida, `p` sale del §4 y el valor esperado ronda
-cero: el orden lo deciden el horizonte y la calidad de la señal (§6), y
-eso es honesto. En cuanto la calibración muestre grupos con ventaja,
-suben solos.
+El aporte no se mide contra la meta de hoy, sino contra la **trayectoria
+de metas** del agente: lo que falta hoy, lo que falta en los días
+siguientes de la semana y la de la semana siguiente. Una operación de 3
+sesiones que cierra el miércoles cuenta para la meta del miércoles.
 
-### 5.2 Filtro de ventana
+`coste_hueco` es cero si la operación no cruza ningún cierre de mercado y,
+si lo cruza, la pérdida esperada por un hueco de apertura medido en ese
+activo (§5.4). Mientras no haya ventaja medida, `p` sale del §4 y el valor
+esperado ronda cero: el orden lo deciden el horizonte, el hueco y la
+calidad de la señal (§6), y eso es honesto. En cuanto la calibración
+muestre grupos con ventaja, suben solos.
 
-Una candidata se descarta (motivo nuevo: `fuera_de_ventana`) si su
-horizonte estimado **no cabe** en lo que queda de su mercado, salvo que el
-agente acepte pasar la noche (§5.4). Un viernes a las 15:00, una operación
-de acciones de 2 sesiones no cabe; una de cripto, sí.
+### 5.2 Horizonte de planificación (sustituye al «filtro de ventana»)
 
-### 5.3 Stop por tiempo
+No se descarta una entrada por no caber en lo que queda de sesión. Compite
+por su aporte por sesión, con su coste de hueco si pasa la noche o el fin
+de semana. El único límite duro es un **horizonte máximo** por agente, para
+que el capital no quede inmovilizado sin fecha. Propuesta de partida:
+Prudencia 10 sesiones, Cadencia 5, Audacia 3. Audacia necesita más
+rotación para su 7 % diario; Prudencia puede esperar.
 
-Una posición que ha consumido el doble de su horizonte estimado sin
-recorrer la mitad del camino al objetivo se cierra (motivo `tiempo`). Es
-capital parado que podría estar en otra operación, y la salida por
-deterioro ya demostró que cerrar a tiempo ahorra: en 20 de 22 casos
-resueltos, cerrar fue mejor que aguantar.
+### 5.3 Revisión al cumplirse el horizonte (sustituye al «stop por tiempo»)
 
-### 5.4 Fin de sesión y fin de semana
+Cuando una posición alcanza su horizonte estimado, se **reevalúa como si
+fuera una entrada nueva**: con el precio y la señal de ahora se recalculan
+su valor esperado, su horizonte restante y su aporte por sesión.
 
-Treinta minutos antes del cierre de un mercado con `riesgo_hueco` alto, el
-agente revisa cada posición abierta en él:
+- Se mantiene si su aporte restante supera al de la mejor alternativa para
+  ese capital.
+- Si no, se cierra (motivo `tiempo`).
 
-- **La mantiene** si su valor esperado sigue siendo positivo y la pérdida
-  posible por un hueco de apertura (estimada como el stop más 1 ATR de
-  hueco) cabe en su presupuesto de riesgo diario.
-- **La cierra o la reduce** si no cabe, o si es viernes y hay candidatas
-  en un mercado abierto el fin de semana con mejor aporte por hora. Esto
-  es lo que el dueño echó en falta: liberar saldo para la cripto.
+Es la comparación que ya hace la rotación (0016), extendida a cualquier
+momento en que una posición agote su horizonte, y juzgada igual contra su
+contrafactual.
 
-El viernes el listón es más alto que entre semana: el hueco del lunes
-llega después de 65 horas sin poder salir.
+### 5.4 Noches y fines de semana: caso a caso
+
+No hay regla fija (respuesta 2 del dueño). Antes del cierre de un mercado
+con hueco, el agente decide para cada posición **mantener, reducir o
+cerrar**, comparando:
+
+```
+mantener  = valor_esperado_restante − coste_hueco
+liberar   = aporte de la mejor alternativa en los mercados que siguen
+            abiertos, durante el tiempo que dura el cierre
+```
+
+Con estos datos:
+
+| Factor | De dónde sale |
+|---|---|
+| **Mercado:** riesgo de hueco del activo | Huecos medidos en `precios_diarios`: apertura frente al cierre anterior, en ATR, separando lunes y resto de días |
+| **Posición:** distancia al stop y al objetivo, progreso, señal vigente | La orden y la señal de ahora |
+| **Saldo:** cuánto hay libre y qué candidatas esperan en los mercados abiertos | El reparto del propio ciclo |
+| **Metas:** dónde está el agente en la semana | §5.5. Por delante: proteger lo ganado. Por detrás: no renunciar a la oportunidad |
+
+Es una decisión registrada (`cierre_sesion`) y juzgada contra lo que habría
+pasado sin ella, así que el agente aprende de cada fin de semana.
+
+**Requisito previo: que el simulador modele los huecos.** Hoy la regla M3
+cierra **al nivel** del stop aunque el lunes la acción abra muy por debajo:
+en el simulador, un fin de semana no tiene riesgo de hueco. Con eso, un
+agente que aprende de sus resultados aprendería a mantenerlo todo
+siempre. Propuesta (M3'): si el primer precio fresco después de un cierre
+de mercado ya está más allá del stop, la orden se cierra a ese precio, como
+haría un bróker. Afecta también a las simulaciones de los usuarios.
 
 ### 5.5 La meta diaria y la semanal
 
 ```
 meta_semana       = saldo_lunes × ((1 + meta_diaria)^dias_operables − 1)
 falta_semana      = meta_semana − pnl_realizado_semana
-ritmo_necesario   = falta_semana / horas_operables_restantes_semana
+ritmo_necesario   = falta_semana / sesiones_operables_restantes_semana
 ```
 
 Lo que hace el agente con eso:
 
 - **Si va por delante**, el modo conservación de hoy (N9) se extiende:
   puede dar el día por bueno con lo que ya lleva de la semana.
-- **Si va por detrás**, prioriza horizontes más cortos y mercados abiertos
-  (más intentos en el tiempo que queda), **no** más riesgo por operación.
-  El riesgo por operación sigue topado por su perfil y por G2.
-- **Presupuesto de pérdida diario** (nuevo y necesario): si las pérdidas
-  realizadas del día alcanzan un límite, no abre nada más ese día. Hoy no
-  existe ningún freno así. Propuesta: 3 × su riesgo por operación.
+- **Si va por detrás**, cambia **qué** busca (horizontes más cortos,
+  mercados abiertos, más intentos), **nunca** el riesgo por operación
+  (respuesta 3 del dueño, confirmada).
+- **Sin presupuesto de pérdida diario** (respuesta 1 del dueño).
+
+**Riesgo abierto total (pendiente de decisión, §8).** No es un límite de
+pérdida diaria: limita cuánto está en juego **a la vez**, no cuánto se ha
+perdido hoy, y se libera en cuanto se cierra una posición. Hace falta por
+el punto 1 (D21): cada stop cuesta ahora el riesgo completo por operación
+y el reparto abre varias posiciones en el mismo ciclo. Audacia con 5
+posiciones arriesga el 12,5 % de su saldo a la vez, en activos que suelen
+caer juntos. Antes de D21, con stops a 0,1 %, ese riesgo era de céntimos.
 
 Cada ciclo deja en `ultima_decision` la meta de la semana, lo que falta,
 el ritmo necesario y el tiempo restante por mercado. Así se ve en
@@ -222,10 +268,45 @@ Cadencia sin que nadie lo haya decidido. Cada perfil pasa a tener sus
 rangos **por mercado**, y el ATR se mide también contra la propia historia
 del activo (percentil), no solo en valor absoluto.
 
-Prudencia puede operar cripto con su riesgo reducido (por ejemplo, la
-mitad) y las mismas exigencias de estructura. Prudente, pero presente.
+### 6.3 Prudencia en cripto: el cálculo (respuesta 4 del dueño)
 
-### 6.3 Universo cripto
+El dimensionado ya iguala el riesgo en dólares, sea cual sea la
+volatilidad: el stop está a 1–2 ATR y el tamaño sale de él. Lo que la
+cripto añade son colas más gordas y que todas se mueven con BTC. Por eso
+el ajuste prudente tiene dos piezas:
+
+**1. Riesgo por operación escalado por volatilidad**, tomando como
+referencia el propio techo de ATR de Prudencia en acciones (3 %):
+
+```
+riesgo_cripto = riesgo_prudencia × min(1, 3 % / ATR_activo)
+                (no entra si el factor baja de 0,25, es decir, ATR > 12 %)
+```
+
+| Activo (ATR medio medido) | Factor | Riesgo con el reducido de hoy (0,75 %) | Riesgo en $ (saldo 509 $) | Margen resultante |
+|---|---|---|---|---|
+| BTC (2,5 %) | 1,00 | 0,75 % | 3,82 $ | ≈ 51 $ |
+| ETH (3,1 %) | 0,97 | 0,73 % | 3,70 $ | ≈ 40 $ |
+| SOL (4,0 %) | 0,75 | 0,56 % | 2,86 $ | ≈ 24 $ |
+| XRP (5,1 %) | 0,59 | 0,44 % | 2,25 $ | ≈ 15 $ |
+| ADA (6,0 %) | 0,50 | 0,38 % | 1,91 $ | ≈ 16 $ |
+| ZEC (9,3 %) | 0,32 | 0,24 % | 1,23 $ | ≈ 7 $ → **no llega al mínimo de 10 $** |
+
+(Stop a 1 ATR, fuerza media; apalancamiento del motor con el tope de 3× de Prudencia. Margen = riesgo ÷ distancia al stop ÷ apalancamiento.)
+
+**2. Riesgo abierto en cripto ≤ 1 × su riesgo por operación**: la suma de
+lo que arriesgan sus posiciones cripto abiertas no pasa de una posición
+completa. Dos criptos abiertas son casi la misma apuesta.
+
+**Si no basta, lo pide.** Cuando en 5 días operables al menos 10
+candidatas cripto quedan fuera **solo** por estos dos límites (margen por
+debajo de 10 $ o riesgo cripto lleno), Prudencia abre una petición en el
+backlog («Ampliar el riesgo en cripto»), con las señales concretas y el
+riesgo que habrían necesitado. Decide el administrador; nada se amplía
+solo. El mismo patrón sirve para cualquier límite de perfil que tumbe
+candidatas de forma repetida.
+
+### 6.4 Universo cripto
 
 De los 20 huecos de cripto, solo 8 son criptos líquidas reales (BTC, ETH,
 BNB, SOL, XRP, ADA, DOGE, ZEC). El resto eran tokens que replican acciones
@@ -234,31 +315,48 @@ y ya están suspendidos. Propuesta: llenar los huecos con criptos líquidas
 
 ---
 
-## 7. Entregas propuestas
+## 7. Entregas propuestas, en el orden recomendado
 
-| Entrega | Qué incluye | Cambia el comportamiento |
-|---|---|---|
-| **A. Medir** | Tabla `mercados` con festivos; funciones de tiempo; `horizonte_estimado`, `p_estimada` y `precio_max/min_visto_en` en cada orden; meta semanal y ritmo en `ultima_decision` | No: solo registra y muestra |
-| **B. Entrar con tiempo** | Orden por aporte por hora, filtro de ventana, stop por tiempo, presupuesto de pérdida diario | Sí |
-| **C. Cierres de sesión** | Revisión antes del cierre, política de noche y fin de semana, liberar saldo para la cripto | Sí |
-| **D. Prudencia como tamaño** | Puntuación de calidad, riesgo graduado, perfiles por mercado, universo cripto | Sí |
-| **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo | Sí, a medida que hay datos |
+| # | Entrega | Qué incluye | Cambia el comportamiento |
+|---|---|---|---|
+| 0 | **Puntos 1 y 2** (D21) | Ya hechos; falta unirlos. Con el riesgo abierto total si se aprueba (§8) | Sí |
+| 1 | **A. Medir** | Tabla `mercados` con festivos; funciones de tiempo; horizonte y `p` estimados en cada orden; `precio_max/min_visto_en`; huecos medidos por activo; meta semanal y ritmo en `ultima_decision` | No: registra y muestra |
+| 2 | **D. Cripto prudente** | Perfiles por mercado, el cálculo del §6.3 con su petición al backlog, universo cripto | Sí |
+| 3 | **M3' + C. Noches y fines de semana** | Huecos reales en el simulador y la evaluación caso a caso del §5.4 | Sí |
+| 4 | **B. Aporte por sesión** | Orden por aporte a la trayectoria de metas, horizonte máximo, revisión al cumplirse el horizonte, calidad que gradúa el tamaño | Sí |
+| 5 | **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo | Sí, a medida que hay datos |
 
-A es la base de todo y no tiene riesgo: conviene que corra una semana
-antes de B, para que B arranque con horizontes medidos y no supuestos.
+Por qué este orden:
+
+- **A primero**: no cambia ninguna decisión y todo lo demás necesita sus
+  datos. Lo ideal es que corra una semana antes de B.
+- **D antes que C**: liberar saldo el viernes no sirve si no hay cripto
+  que comprar. El 10 de octubre había 177 $ libres y ninguna candidata.
+  D se puede hacer en paralelo con A.
+- **M3' junto con C**: sin huecos reales, la evaluación del fin de semana
+  aprendería que mantener siempre sale gratis.
+- **B al final**: es el cambio más profundo y el que más gana con
+  horizontes ya medidos.
 
 ---
 
-## 8. Preguntas para el dueño
+## 8. Decisiones del dueño y lo que queda abierto
 
-1. **Presupuesto de pérdida diario.** ¿3 × el riesgo por operación de cada
-   agente (con el riesgo reducido de hoy: Prudencia 2,25 %, Cadencia 4,5 %,
-   Audacia 7,5 % del saldo)? ¿Otra cifra?
-2. **Noches y fines de semana en acciones.** ¿Se permite mantener
-   posiciones si caben en el presupuesto de riesgo (§5.4), o los agentes
-   cierran siempre las acciones antes del fin de semana?
-3. **Ir por detrás de la meta semanal.** Confirmar que solo cambia qué se
-   busca y nunca sube el riesgo por operación (§5.5).
-4. **Prudencia en cripto.** ¿Con la mitad de su riesgo, o prefieres otra
-   proporción?
-5. **Orden de entrega.** ¿A → B → C → D, o adelantar D (cripto) a C?
+Decidido (2026-10-10):
+
+1. **Sin presupuesto de pérdida diario.**
+2. **Noches y fines de semana, caso a caso** (§5.4), nunca una regla fija.
+3. **Ir por detrás de la meta nunca sube el riesgo por operación.**
+4. **Prudencia en cripto**: cálculo prudente del §6.3; si no basta, lo
+   pide por el backlog.
+5. **Orden**: el recomendado en el §7.
+
+Abierto:
+
+1. **Riesgo abierto total** (§5.5). Propuesta: la suma de lo que
+   arriesgan las posiciones abiertas de un agente no pasa de 4 × su riesgo
+   por operación (hoy: Prudencia 3 %, Cadencia 6 %, Audacia 10 % del saldo).
+   ¿Se aplica, y con qué cifra?
+2. **M3'** (§5.4): los huecos reales afectan también al simulador de los
+   usuarios. ¿De acuerdo?
+3. **Horizonte máximo** por agente (§5.2): ¿10 · 5 · 3 sesiones?
