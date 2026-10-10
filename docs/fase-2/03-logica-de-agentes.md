@@ -153,6 +153,7 @@ numérico.
 | R:R mínimo exigido | 1,5 (2,0 hasta la 0030, D21) | 1,3 (1,5 hasta la 0030) | 1,2 |
 | Fuerza de confluencia mínima | `media` o `alta` (solo `alta` hasta la 0026, D18) | `media` o `alta` | `media` o `alta` |
 | Apalancamiento | `min(recomendado, 3)` — se autolimita | `recomendado` | `recomendado` (el tope) |
+| Cripto (0032, D22) | Admitida: ATR ≤ 12 %, riesgo × min(1, 3 / ATR), riesgo abierto en cripto ≤ 1 × su riesgo | ATR ≤ 4 %, riesgo × min(1, 2,3 / ATR), riesgo abierto en cripto ≤ 2 × | ATR ≥ 4 %, sin escalar, riesgo abierto en cripto ≤ 2 × |
 | Preferencia de volatilidad | ATR% bajo (< 3) | ATR% ≤ 2,3 (indiferente hasta la 0027, D19) | ATR% ≥ 2,3 — necesita recorrido (≥ 1,5 hasta la 0027) |
 | Origen de niveles | solo `estructura` | `estructura` o `atr` | cualquiera |
 | Margen total comprometido máx. | 40 % del equity | 55 % | 60 % |

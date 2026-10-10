@@ -4,6 +4,44 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-10 — Cripto prudente: prudencia como tamaño (0032, D22)
+
+Entrega D del doc 05. En 11 días ninguna cripto real pasó los filtros:
+Prudencia no admitía cripto, el tope de ATR de Cadencia (2,3 %) dejaba
+fuera hasta a BTC, y solo 8 de los 20 huecos de cripto eran criptos
+líquidas. «Ser prudente no puede ser no operar.»
+
+### Cambiado — perfiles por mercado
+`estrategia.por_clase.<clase>` sobrescribe, para un mercado, el rango de ATR
+y dos parámetros nuevos: `riesgo_atr_ref` (el riesgo por operación se
+multiplica por min(1, ref / ATR del activo)) y `riesgo_abierto_mult` (lo que
+arriesgan a la vez sus posiciones de ese mercado no pasa de ese múltiplo de
+su riesgo por operación).
+
+- **Prudencia** admite cripto: ATR ≤ 12 %, riesgo × min(1, 3 / ATR), y como
+  mucho 1 × su riesgo a la vez en cripto. BTC con el riesgo completo, ADA
+  con la mitad.
+- **Cadencia**, cripto tranquila: ATR ≤ 4 %, riesgo × min(1, 2,3 / ATR), y
+  como mucho 2 × su riesgo a la vez.
+- **Audacia**, cripto con recorrido: ATR ≥ 4 %, sin escalar, y como mucho 2 ×
+  su riesgo a la vez.
+
+### Añadido — si no basta, lo piden
+Una candidata que queda fuera solo por estos límites deja el descarte
+`riesgo_escalado` o `riesgo_clase_lleno`, y el autodiagnóstico semanal pide
+ampliarlos cuando se repite. Nada se amplía solo.
+
+### Cambiado — universo cripto real
+Entran LTC, LINK, AVAX, DOT, TRX y BCH (el ETL de cripto las da de alta en
+su próxima pasada) y sale el token que replica la acción de MaxLinear.
+Quedan 14 criptos de un tope de 20.
+
+Lo que no cambia: solo largos y dominancia estricta. Casi el 80 % de las
+señales cripto de estos días no eran alcistas: no se inventan candidatas,
+se deja de descartar por perfil las que sí lo son.
+
+I1, I25, I43 e I79 adaptadas; I81 nueva (81 invariantes).
+
 ## [Sin publicar] - 2026-10-10 — Medir el tiempo y autodiagnóstico de los agentes (0031)
 
 Entrega A del doc 05. **No cambia ninguna decisión de los agentes**:
