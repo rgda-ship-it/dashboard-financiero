@@ -690,6 +690,7 @@ sistema. Esto es lo que hace que la tabla merezca revisarse.
 | **Cierre parcial** | ≥ 3 operaciones que tocaron el 80 % del recorrido al TP y después retrocedieron al SL | `nueva_herramienta` | `nueva_herramienta:cierre_parcial` |
 | **Trailing stop** | ≥ 3 operaciones cerradas en TP cuyo precio siguió subiendo > 2 % en las 24 h siguientes | `nueva_herramienta` | `nueva_herramienta:trailing_stop` |
 | **Señal añeja** | ≥ 10 descartes por `antiguedad_senal_max_min` superada | `ajuste_regla` | `ajuste_regla:cadencia_etl` |
+| **Autodiagnóstico semanal** (0031) | Lunes tras el corte: sin objetivos alcanzados, stops a < 0,5 ATR, entradas contradictorias, un filtro que tumba el 80 %, saldo atrapado, metas sin cumplir o una práctica que pierde (doc 05 §10) | `ajuste_regla` | `diagnostico:{medida}:agente_{id}` |
 
 Cada inserción lleva `evidencia jsonb` con los identificadores de las órdenes
 o los días concretos que la sostienen. **Sin evidencia el `INSERT` se

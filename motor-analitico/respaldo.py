@@ -62,6 +62,9 @@ TABLAS = {
     "solicitudes_activo": "id",
     "auditoria_admin": "id",
     "catalogo_coingecko": "id",
+    # Calendario de mercados (0031): lo siembra la migración, pero los
+    # festivos se actualizan a mano cada año y no deben perderse.
+    "mercados": "clave",
     # Experimento: simulador y agentes (desde 0018). `senales` aquí son
     # solo las que justifican una orden (ver FUENTES).
     "senales": "id",

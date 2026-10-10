@@ -3596,6 +3596,221 @@ end
 $i76$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I77 · El calendario de mercados (0031).
+--
+-- La NYSE: abierta un viernes a las 15:30 con 30 minutos por delante;
+-- cerrada el sábado, con la próxima apertura el lunes a las 9:30; cerrada
+-- en Acción de Gracias; 4 sesiones esa semana. La cripto, siempre abierta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i77$
+begin
+    if not public.fn_sesion_abierta('nyse', '2026-10-09 15:30 America/New_York')
+       or public.fn_minutos_restantes_sesion('nyse', '2026-10-09 15:30 America/New_York') <> 30 then
+        raise exception 'I77 FALLO: el viernes a las 15:30 la NYSE está abierta y le quedan 30 minutos';
+    end if;
+    if public.fn_sesion_abierta('nyse', '2026-10-09 16:00 America/New_York') then
+        raise exception 'I77 FALLO: a las 16:00 la NYSE ya ha cerrado';
+    end if;
+    if public.fn_sesion_abierta('nyse', '2026-10-10 12:00 America/New_York')
+       or public.fn_proxima_apertura('nyse', '2026-10-10 12:00 America/New_York')
+          <> '2026-10-12 09:30 America/New_York'::timestamptz then
+        raise exception 'I77 FALLO: el sábado está cerrada y abre el lunes a las 9:30';
+    end if;
+    if public.fn_sesion_abierta('nyse', '2026-11-26 11:00 America/New_York')
+       or public.fn_proxima_apertura('nyse', '2026-11-26 11:00 America/New_York')
+          <> '2026-11-27 09:30 America/New_York'::timestamptz then
+        raise exception 'I77 FALLO: Acción de Gracias es festivo y la próxima sesión es el viernes';
+    end if;
+    if public.fn_sesiones_entre('nyse', '2026-11-23', '2026-11-29') <> 4
+       or public.fn_sesiones_entre('cripto', '2026-11-23', '2026-11-29') <> 7 then
+        raise exception 'I77 FALLO: la semana de Acción de Gracias tiene 4 sesiones de bolsa y 7 de cripto';
+    end if;
+    if not public.fn_sesion_abierta('cripto', '2026-10-10 23:59 UTC')
+       or public.fn_minutos_restantes_sesion('cripto', '2026-10-10 23:00 UTC') <> 60 then
+        raise exception 'I77 FALLO: la cripto está siempre abierta';
+    end if;
+    if public.fn_mercado_de_clase('accion') <> 'nyse' or public.fn_mercado_de_clase('cripto') <> 'cripto' then
+        raise exception 'I77 FALLO: cada clase de activo tiene su mercado';
+    end if;
+    raise notice 'PASS  I77 calendario de mercados: sesiones, festivos, minutos restantes y próxima apertura';
+end
+$i77$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I78 · Cada orden nace con su estimación y su régimen; el recorrido se
+-- mide en el tiempo (0031).
+--
+-- Entrada 100, objetivo 104, stop 98, ATR del 2 %: el objetivo está a
+-- 2 ATR y el stop a 1, así que unas 2 sesiones y p = 1/3. Al observar
+-- precios se guardan el mejor y el peor, y cuándo.
+-- ═════════════════════════════════════════════════════════════════════
+do $i78$
+declare
+    v_act    bigint;
+    v_senal  bigint;
+    v_cuenta bigint;
+    v_orden  public.ordenes;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzest', 'cripto', 'coingecko', 'zzest', 'activo', 100, now()) returning id into v_act;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_act, true, 5, 3, 's9', 100, 98, 104, 3, 'alcista', 'largo', 'media', 'estructura', 2, 2, 0, now())
+    returning id into v_senal;
+    select c.id into v_cuenta from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id
+     where a.nombre = 'Cadencia' and c.estado <> 'game_over';
+
+    insert into public.ordenes (cuenta_id, activo_id, senal_id, origen, precio_entrada, fecha_entrada,
+         cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+    values (v_cuenta, v_act, v_senal, 'agente', 100, now(), 0.1, 1, 10, 104, 98, 1)
+    returning * into v_orden;
+    if v_orden.horizonte_estimado_sesiones <> 2 or v_orden.p_estimada <> 0.3333
+       or v_orden.regimen is null or not (v_orden.regimen ? 'clases') then
+        raise exception 'I78 FALLO: la orden debía nacer con 2 sesiones, p = 0,3333 y su régimen: % / % / %',
+              v_orden.horizonte_estimado_sesiones, v_orden.p_estimada, v_orden.regimen;
+    end if;
+
+    update public.activos set ultimo_precio = 102, ultimo_precio_en = now() where id = v_act;
+    perform public.fn_agentes_observar_precios();
+    update public.activos set ultimo_precio = 99, ultimo_precio_en = now() where id = v_act;
+    perform public.fn_agentes_observar_precios();
+    select * into v_orden from public.ordenes where id = v_orden.id;
+    if v_orden.precio_max_visto <> 102 or v_orden.precio_max_visto_en is null
+       or v_orden.precio_min_visto <> 99 or v_orden.precio_min_visto_en is null then
+        raise exception 'I78 FALLO: debía guardar el mejor (102) y el peor (99) con su momento: % % / % %',
+              v_orden.precio_max_visto, v_orden.precio_max_visto_en, v_orden.precio_min_visto, v_orden.precio_min_visto_en;
+    end if;
+
+    perform public.fn_registrar_movimiento(v_cuenta, v_orden.id, 'bloqueo_margen', -10, 10);
+    perform public.rpc_cerrar_orden(v_orden.id, 99, 'manual', 99);
+    update public.activos set estado = 'suspendido' where id = v_act;
+    raise notice 'PASS  I78 cada orden nace con su horizonte, su probabilidad y su régimen; se guardan el mejor y el peor precio, y cuándo';
+end
+$i78$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I79 · Régimen de las prácticas, plan de la semana y huecos (0031).
+-- ═════════════════════════════════════════════════════════════════════
+do $i79$
+declare
+    v_act   bigint;
+    v_plan  record;
+    v_hueco record;
+begin
+    -- Una práctica nueva guarda el régimen de mercado del momento.
+    insert into public.mejores_practicas (agente_autor_id, firma, titulo, contexto, regla, condiciones,
+                                          resultado_observado, confianza, estado, sentido)
+    select a.id, 'i79', 't', 'c', 'r', '{"clase": "cripto"}', '{"ops": 3}', 0.7, 'archivada', 'exigir'
+      from public.agentes a where a.nombre = 'Audacia';
+    if (select regimen is null or not (regimen ? 'clases') from public.mejores_practicas where firma = 'i79') then
+        raise exception 'I79 FALLO: la práctica no guardó el régimen de mercado';
+    end if;
+    delete from public.mejores_practicas where firma = 'i79';
+
+    -- El plan de la semana: meta compuesta sobre las sesiones de su mercado.
+    select * into v_plan from public.v_agentes_plan where nombre = 'Audacia';
+    if v_plan.sesiones_semana <> 7
+       or v_plan.meta_semana <> round(v_plan.saldo_lunes * (power(1 + v_plan.objetivo_diario_pct / 100, 7) - 1), 2)
+       or v_plan.falta_semana <> v_plan.meta_semana - v_plan.pnl_semana
+       or jsonb_array_length(v_plan.mercados) <> 2 then
+        raise exception 'I79 FALLO: el plan de Audacia no cuadra: %', row_to_json(v_plan);
+    end if;
+    if (select sesiones_semana from public.v_agentes_plan where nombre = 'Prudencia')
+       <> public.fn_sesiones_entre('nyse', v_plan.lunes, v_plan.lunes + 6) then
+        raise exception 'I79 FALLO: la semana de Prudencia (solo acciones) son las sesiones de la NYSE';
+    end if;
+
+    -- Huecos: un lunes que abre un 3 % por debajo del cierre del viernes.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+    values ('ZZHUECO', 'accion', 'yahoo', 'ZZHUECO', 'activo') returning id into v_act;
+    insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, origen)
+    select v_act, d::date, 100, 101, 99, 100, 'yahoo'
+      from generate_series(current_date - 30, current_date - 1, interval '1 day') d
+     where extract(isodow from d) between 1 and 5;
+    update public.precios_diarios set apertura = 97
+     where activo_id = v_act
+       and fecha = (select max(fecha) from public.precios_diarios where activo_id = v_act and extract(isodow from fecha) = 1);
+    insert into public.senales (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor, atr_pct)
+    values (v_act, false, 5, 3, 's9', 2);
+    select * into v_hueco from public.v_huecos_activos where activo_id = v_act;
+    if v_hueco.caida_max_pct <> 3 or v_hueco.lunes < 1 or v_hueco.caida_p90_lunes_pct <= 0 then
+        raise exception 'I79 FALLO: el hueco del lunes no se midió: %', row_to_json(v_hueco);
+    end if;
+    update public.activos set estado = 'suspendido' where id = v_act;
+    raise notice 'PASS  I79 las prácticas guardan su régimen, el plan de la semana cuadra y los huecos de apertura se miden';
+end
+$i79$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I80 · Autodiagnóstico semanal (0031).
+--
+-- Un agente de pruebas con 15 cierres en el stop, ninguno en el objetivo,
+-- stops a 0,1 ATR y todas sus entradas con un voto en contra: el
+-- autodiagnóstico pide «objetivos», «stops» y «votos», con evidencia. Un
+-- segundo pase el mismo día no duplica nada.
+-- ═════════════════════════════════════════════════════════════════════
+do $i80$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_act    bigint;
+    v_senal  bigint;
+    v_orden  bigint;
+    v_n      int;
+begin
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-diagnostico', 5, 'pausado', '{"clases_admitidas": ["cripto"]}') returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzdiag', 'cripto', 'coingecko', 'zzdiag', 'activo', 100, now()) returning id into v_act;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_act, true, 5, 3, 's9', 100, 99.8, 116, 3, 'alcista', 'largo', 'media', 'estructura', 2, 2, 1, now())
+    returning id into v_senal;
+
+    for i in 1 .. 15 loop
+        insert into public.ordenes (cuenta_id, activo_id, senal_id, origen, precio_entrada, fecha_entrada,
+             cantidad, apalancamiento, margen_comprometido, tp, sl, precio_liquidacion)
+        values (v_cuenta, v_act, v_senal, 'agente', 100, now(), 0.1, 1, 10, 116, 99.8, 1)
+        returning id into v_orden;
+        perform public.fn_registrar_movimiento(v_cuenta, v_orden, 'bloqueo_margen', -10, 10);
+        perform public.rpc_cerrar_orden(v_orden, 99.8, 'sl', 99.7);
+    end loop;
+
+    v_n := public.fn_autodiagnostico_agente(v_ag);
+    if v_n < 3
+       or (select count(*) from public.agente_backlog
+            where clave_deduplicacion in ('diagnostico:objetivos:agente_' || v_ag,
+                                          'diagnostico:stops:agente_' || v_ag,
+                                          'diagnostico:votos:agente_' || v_ag)
+              and evidencia ? 'ordenes') <> 3 then
+        raise exception 'I80 FALLO: el autodiagnóstico debía pedir objetivos, stops y votos con evidencia (pidió %)', v_n;
+    end if;
+    if (select descripcion from public.agente_backlog
+         where clave_deduplicacion = 'diagnostico:objetivos:agente_' || v_ag) not like '15 cierres en 14 días, ninguno en el objetivo y 15 en el stop%' then
+        raise exception 'I80 FALLO: la petición de objetivos no describe la evidencia';
+    end if;
+
+    perform public.fn_autodiagnostico_agente(v_ag);
+    if (select max(ocurrencias) from public.agente_backlog where clave_deduplicacion like 'diagnostico:%:agente_' || v_ag) <> 1 then
+        raise exception 'I80 FALLO: un segundo pase el mismo día no debe sumar ocurrencias';
+    end if;
+    if not exists (select 1 from public.eventos_sistema
+                    where agente_id = v_ag and (datos ->> 'autodiagnostico')::int >= 3) then
+        raise exception 'I80 FALLO: el autodiagnóstico no dejó constancia en el registro';
+    end if;
+
+    delete from public.agente_backlog where clave_deduplicacion like 'diagnostico:%:agente_' || v_ag;
+    update public.activos set estado = 'suspendido' where id = v_act;
+    raise notice 'PASS  I80 el autodiagnóstico semanal pide, con evidencia, lo que una revisión externa descubrió: objetivos, stops y votos';
+end
+$i80$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

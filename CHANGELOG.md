@@ -4,6 +4,40 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-10 — Medir el tiempo y autodiagnóstico de los agentes (0031)
+
+Entrega A del doc 05. **No cambia ninguna decisión de los agentes**:
+registra, muestra y pide.
+
+### Añadido
+- **Calendario de mercados** (`mercados`): sesiones y festivos de la NYSE
+  2026–2027 y la cripto, con funciones para saber si un mercado está
+  abierto, cuánto le queda, cuándo vuelve a abrir y cuántas sesiones hay
+  entre dos fechas. Las funciones de siempre (`fn_mercado_abierto`…) no se
+  tocan todavía: cambiarlas cambiaría decisiones.
+- **Estimación de cada orden** al abrirla: horizonte en sesiones (a × b,
+  con a y b las distancias al objetivo y al stop en ATR) y probabilidad de
+  llegar al objetivo sin presumir ventaja (b / (a + b)), más el régimen de
+  mercado del momento.
+- **Recorrido en el tiempo**: mejor y peor precio visto, y cuándo.
+- **`v_huecos_activos`**: huecos de apertura de cada acción en % y en ATR,
+  en general y los lunes.
+- **Régimen de mercado en cada práctica nueva** (señales alcistas y ATR
+  medio por clase, tendencia de BTC): la base para detectar prácticas
+  situacionales.
+- **`v_agentes_plan`**: meta de la semana, P&L, lo que falta, ritmo
+  necesario por sesión y el tiempo de cada mercado del agente.
+- **Autodiagnóstico semanal** (lunes 00:17 UTC, tras el corte): cada agente
+  mide sus operaciones y abre una petición en el backlog, con evidencia,
+  si ningún cierre llega al objetivo, si sus stops están a menos de medio
+  ATR, si la mitad de sus entradas tienen un voto en contra, si un solo
+  filtro tumba el 80 % de sus candidatas, si su saldo queda atrapado con la
+  bolsa cerrada y candidatas esperando, si no cumple ninguna meta diaria o
+  si una práctica adoptada le hace perder. Las operaciones cuentan desde la
+  0030, para no pedir lo que ya se corrigió.
+
+I77–I80 nuevas (80 invariantes).
+
 ## [Sin publicar] - 2026-10-10 — Stop y objetivo alcanzables; el RSI no vota contra el MACD; riesgo abierto total (0030, D21)
 
 ### Diagnóstico
