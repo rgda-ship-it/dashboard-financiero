@@ -2,7 +2,7 @@
 
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-10
-> **Estado**: **Propuesta revisada con las respuestas del dueño**. Entrega A hecha (0031); el resto, sin implementar.
+> **Estado**: **Propuesta revisada con las respuestas del dueño**. Entregas A (0031) y D (0032) hechas; el resto, sin implementar.
 > Las decisiones del dueño están en el §8.
 > **Contexto**: diagnóstico de 11 días en producción
 > (`scripts/diagnostico_agentes.sql`) y D21 (0030), que deja el stop y el
@@ -321,7 +321,7 @@ y ya están suspendidos. Propuesta: llenar los huecos con criptos líquidas
 |---|---|---|---|
 | 0 | **Puntos 1 y 2** (D21) | Hechos, con el riesgo abierto total (G6); falta unirlos | Sí |
 | 1 | **A. Medir** (hecha, 0031) | Tabla `mercados` con festivos; funciones de tiempo; horizonte y `p` estimados en cada orden; `precio_max/min_visto_en`; huecos medidos por activo; meta semanal y ritmo en `ultima_decision`; régimen de mercado de cada práctica (§9); autodiagnóstico semanal al backlog (§10) | No: registra, muestra y pide |
-| 2 | **D. Cripto prudente** | Perfiles por mercado, el cálculo del §6.3 con su petición al backlog, universo cripto | Sí |
+| 2 | **D. Cripto prudente** (hecha, 0032) | Perfiles por mercado, el cálculo del §6.3 con su petición al backlog, universo cripto | Sí |
 | 3 | **M3' + C. Noches y fines de semana** | Huecos reales en el simulador y la evaluación caso a caso del §5.4 | Sí |
 | 4 | **B. Aporte por sesión** | Orden por aporte a la trayectoria de metas, horizonte máximo, revisión al cumplirse el horizonte, calidad que gradúa el tamaño | Sí |
 | 5 | **E. Calibración** | Sustituir las estimaciones de partida por las observadas por grupo; evaluación continua y vigencia de las prácticas (§9) | Sí, a medida que hay datos |

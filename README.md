@@ -78,7 +78,8 @@ dashboard-financiero/
 │       ├── 0028_spcx_no_es_cripto.sql # SPCX es una acción: se suspende la cripto del mismo ticker
 │       ├── 0029_universo_etl_y_backlog.sql # El ETL mantiene todo el universo de los agentes (D20)
 │       ├── 0030_niveles_alcanzables.sql # Stop y objetivo acotados en ATR: R:R mínimo en la escala nueva (D21)
-│       └── 0031_medir_tiempo_y_autodiagnostico.sql # Calendario de mercados, estimación de cada orden y autodiagnóstico semanal
+│       ├── 0031_medir_tiempo_y_autodiagnostico.sql # Calendario de mercados, estimación de cada orden y autodiagnóstico semanal
+│       └── 0032_cripto_prudente.sql # Los tres operan cripto: riesgo escalado por volatilidad y tope por mercado (D22)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

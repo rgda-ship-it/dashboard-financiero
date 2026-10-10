@@ -49,7 +49,10 @@ begin
         raise exception 'I1 FALLO: se esperaban 21 acciones en la semilla, hay %', v_conteo;
     end if;
 
-    select count(*) into v_conteo from public.activos where clase = 'cripto';
+    -- La 0032 añade seis criptos líquidas al catálogo: no son de la semilla.
+    select count(*) into v_conteo from public.activos
+     where clase = 'cripto'
+       and simbolo not in ('litecoin', 'chainlink', 'avalanche-2', 'polkadot', 'tron', 'bitcoin-cash');
     if v_conteo <> 3 then
         raise exception 'I1 FALLO: se esperaban 3 criptos en la semilla, hay %', v_conteo;
     end if;
@@ -754,12 +757,15 @@ begin
     select 'moneda-' || g, 'm' || g, 'Moneda ' || g from generate_series(1, 21) g;
 
     perform pg_temp.como(v_x);
-    for i in 1..17 loop   -- + bitcoin, ethereum, solana = 20
+    -- 11 monedas + las 3 de la semilla + las 6 líquidas de la 0032 = 20.
+    for i in 1..11 loop
         perform public.rpc_solicitar_activo('cripto', 'moneda-' || i);
     end loop;
     perform public.rpc_solicitar_activo('cripto', 'bitcoin');
     perform public.rpc_solicitar_activo('cripto', 'ethereum');
     perform public.rpc_solicitar_activo('cripto', 'solana');
+    perform public.rpc_solicitar_activo('cripto', x)
+       from unnest(array['litecoin', 'chainlink', 'avalanche-2', 'polkadot', 'tron', 'bitcoin-cash']) x;
     -- X sigue ya 21 (1 acción + 20 criptos). Cuatro acciones más: 25.
     for i in 5..8 loop
         perform public.rpc_seguir_activo(v_ids[i]);
@@ -1640,7 +1646,7 @@ begin
     -- ZZAGA: acción a 10 $, alta, estructura, R:R 2,2 -> la de Prudencia (a
     --        10 $ y no a 100: con unidades enteras, los 75 $ de nominal de
     --        Prudencia no llegan para una acción de 100)
-    -- zzag1: cripto, media, atr, R:R 2,5, ATR 4         -> la de Audacia
+    -- zzag1: cripto, media, atr, R:R 2,5, ATR 4,5       -> la de Audacia
     -- zzag2: cripto, alta, atr, R:R 4, ATR 1            -> la de Cadencia (Audacia la
     --                                                     descarta: ATR < 1,5)
     -- zzag3: bajista, no operable                       -> descarte por dirección
@@ -1651,7 +1657,7 @@ begin
          niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
     values
         (v_zza, true, 5, 3, 's6', 10, 9, 12.2, 5, 'alcista', 'largo', 'alta',  'estructura', 2, 3, 0, now()),
-        (v_z1,  true, 5, 2, 's6', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr',        4, 2, 0, now()),
+        (v_z1,  true, 5, 2, 's6', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr',      4.5, 2, 0, now()),
         (v_z2,  true, 5, 3, 's6', 100, 90, 140, 5, 'alcista', 'largo', 'alta',  'atr',        1, 3, 0, now()),
         (v_z4,  true, 5, 3, 's6', 100, 90, 150, 5, 'alcista', 'largo', 'alta',  'atr',        2, 3, 0, now() - interval '3 hours');
     insert into public.senales
@@ -1734,6 +1740,10 @@ begin
     -- entre todas las que admite su perfil. Prudencia solo admite la
     -- acción. Desde la 0027 el ATR separa a Cadencia (≤ 2,3 %: ZZAGA y
     -- zzag2) de Audacia (> 2,3 %: zzag1): ya no comparten ninguna.
+    -- Desde la 0032 cada perfil tiene su rango de ATR en cripto: Cadencia
+    -- hasta el 4 % y Audacia desde el 4 %: zzag1 (ATR 4,5) sigue siendo
+    -- solo de Audacia y zzag2 (ATR 1) de Cadencia. Prudencia admite
+    -- cripto, pero solo niveles de estructura.
     if v_texto is distinct from 'Prudencia=ZZAGA,Cadencia=ZZAGA,Cadencia=zzag2,Audacia=zzag1' then
         raise exception 'I43 FALLO: los perfiles no diferencian: %', v_texto;
     end if;
@@ -1807,7 +1817,7 @@ begin
         (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
          precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
          niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
-    values (v_z1, true, 5, 2, 's6-hist', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr', 4, 2, 0,
+    values (v_z1, true, 5, 2, 's6-hist', 100, 90, 125, 3, 'alcista', 'largo', 'media', 'atr', 4.5, 2, 0,
             now() - interval '3 days')
     returning id into v_senal;
     insert into public.ordenes
@@ -3717,9 +3727,14 @@ begin
        or jsonb_array_length(v_plan.mercados) <> 2 then
         raise exception 'I79 FALLO: el plan de Audacia no cuadra: %', row_to_json(v_plan);
     end if;
-    if (select sesiones_semana from public.v_agentes_plan where nombre = 'Prudencia')
+    -- Un agente que solo opera acciones: su semana son las sesiones de la
+    -- NYSE. (Prudencia lo era hasta la 0032; ahora también opera cripto.)
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-plan', 2, 'pausado', '{"clases_admitidas": ["accion"]}') returning id into v_act;
+    perform public.fn_crear_cuenta_agente(v_act);
+    if (select sesiones_semana from public.v_agentes_plan where nombre = 'prueba-plan')
        <> public.fn_sesiones_entre('nyse', v_plan.lunes, v_plan.lunes + 6) then
-        raise exception 'I79 FALLO: la semana de Prudencia (solo acciones) son las sesiones de la NYSE';
+        raise exception 'I79 FALLO: la semana de un agente solo de acciones son las sesiones de la NYSE';
     end if;
 
     -- Huecos: un lunes que abre un 3 % por debajo del cierre del viernes.
@@ -3809,6 +3824,118 @@ begin
     raise notice 'PASS  I80 el autodiagnóstico semanal pide, con evidencia, lo que una revisión externa descubrió: objetivos, stops y votos';
 end
 $i80$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I81 · Cripto prudente: riesgo escalado por volatilidad y riesgo abierto
+-- por mercado (0032).
+--
+-- Un agente con riesgo del 2 % (10 $ sobre 500 $), referencia de ATR 3 en
+-- cripto y como mucho 1 × su riesgo abierto en cripto. Tres criptos:
+--   A  ATR 3,05 → factor 0,98
+--   B  ATR 6,05 → factor 0,50
+--   D  ATR 12   → factor 0,25: con 2,5 $ de riesgo y el stop a 1 ATR no
+--      llega a 10 $ de margen → descarte `riesgo_escalado`
+-- Entre todas las cripto que marca no arriesga más de 10 $; una vez
+-- abiertas, otra cripto cae por `riesgo_clase_lleno`; y si eso se repite,
+-- el autodiagnóstico pide ampliar el riesgo.
+-- ═════════════════════════════════════════════════════════════════════
+do $i81$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_json   jsonb;
+    v_act    bigint;
+    v_n      numeric;
+    v_x      record;
+begin
+    for v_x in select * from (values ('zzpa', 3.05, 97.0, 106.0, 3.0), ('zzpb', 6.05, 94.0, 112.0, 3.0),
+                                     ('zzpd', 12.0, 88.0, 124.0, 3.0)) t(sim, atr, sl, tp, lev)
+    loop
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values (v_x.sim, 'cripto', 'coingecko', v_x.sim, 'activo', 100, now()) returning id into v_act;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_act, true, 5, 2, 's9', 100, v_x.sl, v_x.tp, v_x.lev, 'alcista', 'largo', 'alta',
+                'estructura', v_x.atr, 3, 0, now());
+    end loop;
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-cripto-prudente', 20, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "rr_minimo": 1.5, "riesgo_pct_operacion": 2,
+           "por_clase": {"cripto": {"atr_pct_min": 3, "atr_pct_max": 12.5,
+                                    "riesgo_atr_ref": 3, "riesgo_abierto_mult": 1}}}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+
+    -- 1. Factores, descarte por riesgo escalado y tope del mercado.
+    v_json := public.fn_decidir_agente(v_ag);
+    if (select (c ->> 'factor_riesgo')::numeric from jsonb_array_elements(v_json -> 'candidatos') c
+         where c ->> 'simbolo' = 'zzpb') <> 0.4959
+       or (select c ->> 'descarte' from jsonb_array_elements(v_json -> 'candidatos') c
+            where c ->> 'simbolo' = 'zzpd') <> 'riesgo_escalado'
+       or coalesce((v_json #>> '{descartes_por_motivo,riesgo_escalado}')::int, 0) <> 1 then
+        raise exception 'I81 FALLO: factores o descarte por riesgo escalado inesperados: %', v_json -> 'candidatos';
+    end if;
+    select sum((x ->> 'riesgo_stop')::numeric) into v_n from jsonb_array_elements(v_json -> 'marcadas') x;
+    if v_json ->> 'accion' <> 'abrir' or v_n > 10.01 then
+        raise exception 'I81 FALLO: entre sus cripto debía arriesgar como mucho 10 $: % · %', v_json ->> 'accion', v_n;
+    end if;
+
+    -- 2. Abre, y el riesgo abierto en cripto no pasa de 1 × su riesgo.
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true
+     where agente_id = v_ag and fecha = (now() at time zone 'UTC')::date;
+    perform public.fn_ciclo_agente(v_ag);
+    v_n := public.fn_riesgo_abierto_clase(v_cuenta, 'cripto');
+    if v_n > 10.01 or v_n < 5 then
+        raise exception 'I81 FALLO: riesgo abierto en cripto de % $ (tope 10 $)', v_n;
+    end if;
+
+    -- 3. Con el mercado lleno, una cripto nueva cae por riesgo_clase_lleno.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzpc', 'cripto', 'coingecko', 'zzpc', 'activo', 100, now()) returning id into v_act;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_act, true, 5, 2, 's9', 100, 96, 108, 3, 'alcista', 'largo', 'alta', 'estructura', 4, 3, 0, now());
+    v_json := public.fn_decidir_agente(v_ag);
+    if (select c ->> 'descarte' from jsonb_array_elements(v_json -> 'candidatos') c
+         where c ->> 'simbolo' = 'zzpc') <> 'riesgo_clase_lleno' then
+        raise exception 'I81 FALLO: con el riesgo cripto lleno, zzpc debía caer por riesgo_clase_lleno: %', v_json -> 'candidatos';
+    end if;
+
+    -- 4. Si se repite, el autodiagnóstico pide ampliarlo, con evidencia.
+    update public.agente_dias
+       set descartes = descartes || '{"riesgo_clase_lleno": 150}'::jsonb
+     where agente_id = v_ag and fecha = (now() at time zone 'UTC')::date;
+    perform public.fn_autodiagnostico_agente(v_ag);
+    if not exists (select 1 from public.agente_backlog
+                    where clave_deduplicacion = 'diagnostico:riesgo_clase_lleno:agente_' || v_ag
+                      and evidencia ->> 'limite' = 'clase_lleno') then
+        raise exception 'I81 FALLO: el autodiagnóstico no pidió ampliar el riesgo por mercado';
+    end if;
+
+    -- 5. Los perfiles reales: los tres operan cripto, cada uno a su manera.
+    if (select string_agg(nombre || ':' || coalesce(public.fn_param_clase(public.fn_parametros_agente(a), 'cripto', 'atr_pct_min') #>> '{}', '-')
+                          || '-' || coalesce(public.fn_param_clase(public.fn_parametros_agente(a), 'cripto', 'atr_pct_max') #>> '{}', '-'),
+                          ' ' order by id)
+          from public.agentes a
+         where nombre in ('Prudencia', 'Cadencia', 'Audacia')
+           and public.fn_parametros_agente(a) -> 'clases_admitidas' ? 'cripto')
+       <> 'Prudencia:--12 Cadencia:--4 Audacia:4--' then
+        raise exception 'I81 FALLO: los rangos de ATR en cripto no son los de la 0032';
+    end if;
+
+    delete from public.agente_backlog where clave_deduplicacion like 'diagnostico:%:agente_' || v_ag;
+    update public.activos set estado = 'suspendido' where simbolo in ('zzpa', 'zzpb', 'zzpc', 'zzpd');
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I81 cripto prudente: el riesgo se escala por volatilidad, el mercado tiene su tope de riesgo abierto, y el agente pide ampliarlo si se repite';
+end
+$i81$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
