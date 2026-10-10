@@ -488,6 +488,7 @@ Las cuatro reglas del monitor, para que ningún dev las reinvente:
 | **M2 — Empate al lado conservador** | Si el intervalo pudo tocar ambos, gana el SL | Los resultados del experimento serían optimistas de forma sistemática |
 | **M3 — Cierre al nivel, no al precio observado** | `precio_salida = sl` o `tp`; el observado va a otra columna | El P&L dependería del azar del muestreo, no de la estrategia |
 | **M4 — Precio fresco obligatorio** | Antigüedad > 15 min → no se evalúa | Se cerrarían posiciones el fin de semana contra precios congelados |
+| **M3' — Salvo hueco de apertura** (0033) | Si entre la última observación y el precio actual el mercado estuvo cerrado y el precio ya pasó el stop, `precio_salida` es ese precio y `cierre_por_hueco = true` | Un fin de semana no tendría riesgo de hueco, y los agentes aprenderían que mantener acciones sale gratis |
 
 Y la regla de integridad, que es de la base de datos y no del monitor:
 `rpc_cerrar_orden` es **idempotente**. Dos pasadas concurrentes sobre la
@@ -722,7 +723,7 @@ la DoD nº5):
 | N16 | Un RSI extremo solo vota si el MACD no lo contradice (D21) | `indicadores/tecnicos.py` · `evaluar_confluencia` |
 | N4 | La liquidación se evalúa antes que el stop, y si queda por encima del SL se **baja** el apalancamiento | §5.3 paso 6, §5.4 regla M1 |
 | N5 | Ante ambigüedad TP/SL en el mismo intervalo, gana el SL | §5.4 regla M2 |
-| N6 | El cierre se registra al nivel, no al precio observado | §5.4 regla M3 |
+| N6 | El cierre se registra al nivel, no al precio observado; salvo un stop saltado por un hueco de apertura tras un cierre de mercado, que sale al precio del hueco (M3', 0033) | §5.4 regla M3 |
 | N7 | Un precio con más de 15 minutos no cierra posiciones | §5.4 regla M4 |
 | N8 | El objetivo diario se mide sobre **P&L realizado**, no sobre el equity flotante | §5.2 |
 | N9 | Meta cumplida ⇒ modo conservación: no se abren posiciones nuevas ese día | §5.1 paso 3 |
