@@ -132,7 +132,7 @@ export const CRITERIOS_ESTRATEGIA = {
   observacion: { texto: "en observación", tono: "warn", nota: "entre 0 y +0,10 R: sigue hasta 60 operaciones" },
   validado: { texto: "validado en vivo", tono: "ok", nota: "más de +0,10 R por operación" },
   retirar: { texto: "retirada", tono: "neg", nota: "expectativa por debajo del criterio: queda en pausa" },
-  caida: { texto: "pausa por caída", tono: "neg", nota: "más de un 15 % por debajo de su máximo" },
+  caida: { texto: "pausa por caída", tono: "neg", nota: "más de un 35 % por debajo de su máximo" },
 };
 
 export const VEREDICTOS = {

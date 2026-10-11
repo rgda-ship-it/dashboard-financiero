@@ -89,7 +89,8 @@ dashboard-financiero/
 │       ├── 0035_spread_observado.sql # El spread real de cada acción, medido; se cobra el mayor entre lo medido y lo supuesto
 │       ├── 0036_universo_solo_con_alcistas.sql # «Ampliar el universo» solo cuenta ciclos con alcistas descartadas
 │       ├── 0037_agente_tendencia_cripto.sql # Agente experimental «Tendencia cripto»: sin meta, stop que sigue, decisión diaria (D24)
-│       └── 0038_precios_para_la_decision_diaria.sql # El monitor pide el precio del universo del agente en su ventana de decisión
+│       ├── 0038_precios_para_la_decision_diaria.sql # El monitor pide el precio del universo del agente en su ventana de decisión
+│       └── 0039_caida_maxima_35.sql # La pausa por caída de «Tendencia cripto» pasa del 15 % al 35 %
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

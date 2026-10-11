@@ -4455,6 +4455,37 @@ end
 $i87$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I88 · La pausa por caída de «Tendencia cripto» salta al 35 % (0039).
+--
+-- Una caída del 20 %, normal en la estrategia (el laboratorio de cartera
+-- llega al 26 % ganando), no la pausa; una del 40 %, sí.
+-- ═════════════════════════════════════════════════════════════════════
+do $i88$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_equity numeric;
+begin
+    select id into v_ag from public.agentes where nombre = 'Tendencia cripto';
+    v_cuenta := public.fn_cuenta_agente(v_ag);
+    v_equity := public.fn_equity(v_cuenta);
+    if (select (estrategia ->> 'caida_max_pct')::numeric from public.agentes where id = v_ag) <> 35 then
+        raise exception 'I88 FALLO: el umbral de caída debía ser 35 %%';
+    end if;
+
+    update public.cuentas_simulacion set capital_maximo_alcanzado = round(v_equity / 0.8, 2) where id = v_cuenta;
+    if (select criterio from public.v_agentes_estrategia where agente_id = v_ag) = 'caida' then
+        raise exception 'I88 FALLO: una caída del 20 %% no debía pausar al agente';
+    end if;
+    update public.cuentas_simulacion set capital_maximo_alcanzado = round(v_equity / 0.6, 2) where id = v_cuenta;
+    if (select criterio from public.v_agentes_estrategia where agente_id = v_ag) <> 'caida' then
+        raise exception 'I88 FALLO: una caída del 40 %% debía marcar «caida»';
+    end if;
+    raise notice 'PASS  I88 la pausa por caída de Tendencia cripto salta al 35 %%, no al 20 %%';
+end
+$i88$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

@@ -31,7 +31,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Dueño | Pega el SQL en el editor SQL de Supabase y sube el CSV al chat. Claude no tiene acceso directo a producción. Para copiar SQL largo, usar la URL *raw* de GitHub (las copias parciales dieron errores de sintaxis) |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I87), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I88), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -97,7 +97,8 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Laboratorio de cartera (`laboratorio/cartera.py`, modo `cartera`) | Una sola cuenta con el 1 %, G6, a 1×, con caja y prioridad por fuerza de la ruptura, igual que el agente. Con un activo y sin G6 reproduce las operaciones del motor (prueba de paridad) |
 | ✅ | Ensayo sobre producción (`scripts/ensayo_tendencia.sql`), 2026-10-11 | Las 14 criptos tienen 29 días con rango real y 200 cierres. El token de maxlinear no tiene 200 cierres. Hoy no entraría en ninguna: 3 están bajo su media de 200 y 11 sin ruptura |
 | ✅ | 0038: precio fresco para la decisión diaria | Sin posición, una cripto solo recibía precio del ETL horario. Si el ETL tardaba, la decisión de las :20 lo encontraba viejo y el agente podía pasar el día sin entrar. Ahora el monitor pide también el universo del agente de 01:00 a 07:59 UTC (I87) |
-| ⏭️ 👤 | **Decidir el umbral de pausa por caída** | Hoy está en 15 %. El laboratorio de cartera da caídas del 25–26 % en una estrategia que gana (+1,1 R; doc 07 §6). Con un 15 % se habría pausado sola en plena racha. La propuesta es subirlo al 35 %, por encima de la peor caída histórica con margen. Mientras no haya operaciones se puede cambiar sin contaminar el experimento; después ya no |
+| ✅ 👤 | Umbral de pausa por caída: **35 %** (decidido el 2026-10-11) | Migración 0039 e invariante I88. El laboratorio de cartera cae hasta un 26 % ganando; con el 15 % de la 0037 se habría pausado en plena racha |
+| ⏭️ 👤 | **Aplicar la 0039 junto con la 0038** | Las dos antes de las 01:20 UTC si es posible |
 | ⏭️ 👤 | **Aplicar la 0038 antes de las 01:20 UTC** | Si no da tiempo, el agente decide igual. Solo corre el riesgo de registrar `sin_precio` si el ETL se retrasa |
 | 🗓️ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con 500 $ de saldo y un 1 % de riesgo |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
@@ -105,7 +106,7 @@ punto ⏭️ de la lista de control»*.
 | ⏭️ 👤 | Antes de la primera decisión: ensayo de solo lectura con `scripts/ensayo_tendencia.sql` | Muestra qué haría hoy con cada cripto (entrar, sin señal, sin datos) y con qué stop. Sirve para detectar a tiempo las criptos sin velas suficientes |
 | ⏭️ 👤 | Al día siguiente de activarlo, comprobar que decidió | `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
-| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 15 %, se pausa y se revisa |
+| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
 | 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
 
 ### 3.2 Laboratorio de estrategias (doc 06)
@@ -154,7 +155,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0038_precios_para_la_decision_diaria.sql`. La siguiente es la 0039 |
+| Migración más reciente | `0039_caida_maxima_35.sql`. La siguiente es la 0040 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

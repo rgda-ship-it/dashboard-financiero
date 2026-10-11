@@ -292,7 +292,7 @@ export const SECCIONES = [
           "entra   cierre diario > máximo de los 20 días anteriores\n        y cierre > media de 200 días\nstop    cierre − 2 ATR; después sube a mejor cierre − 3 ATR\n        (nunca baja)\nsale    por el stop, o al cerrar bajo el mínimo de 10 días\nriesgo  1 % del equity por operación, a 1x, sin objetivo\n\nR = resultado ÷ riesgo inicial\njuicio a las 30 operaciones:  < 0 R → se retira\n                              0 a +0,10 R → sigue hasta 60\n                              > +0,10 R → validado en vivo",
         lectura:
           "Es la única estrategia que pasó el laboratorio (cinco años de velas, sin mirar el futuro, con spread y huecos), y la prueba de robustez la dejó en «real pero no demostrada»: dependía mucho de una moneda. Por eso es un experimento con el criterio de retirada fijado antes de empezar. Decide una vez al día por cripto, con la vela diaria cerrada. Pierde más veces de las que gana; vive de pocas operaciones que recorren mucho, y por eso no tiene objetivo. Con el mercado bajo su media de 200 días casi no opera, y eso es lo esperado. Los otros tres siguen igual: son el grupo de control.",
-        nota: "Si cae más de un 15 % desde su máximo o cumple el criterio de retirada, queda en pausa sola.",
+        nota: "Si cae más de un 35 % desde su máximo (en el laboratorio cayó hasta un 26 % ganando) o cumple el criterio de retirada, queda en pausa sola.",
       },
       {
         termino: "Cómo elige y reparte un agente",
