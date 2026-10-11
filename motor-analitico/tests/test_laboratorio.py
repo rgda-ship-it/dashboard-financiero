@@ -224,3 +224,35 @@ def test_g6_deja_fuera_senales_y_la_curva_cuadra():
     assert apretado.descartadas > 0
     assert len(apretado.operaciones) < len(libre.operaciones)
     assert (apretado.equity > 0).all()
+
+
+# ---------------------------------------------------------------------------
+# Segunda ronda (doc 06 §3.8): métricas del manual
+# ---------------------------------------------------------------------------
+
+def test_racha_de_perdidas_y_costes_sobre_el_bruto():
+    ops = [_op(r, dia=i) for i, r in enumerate([1, -1, -1, -1, 2, -1, -1])]
+    for o in ops:
+        o.coste_r = 0.1
+    m = metricas.medir(ops)
+    assert m.racha_perdidas == 3
+    # Bruto antes de costes: (1 + 0,1) + (2 + 0,1) = 3,2; costes 0,7 → 21,9 %.
+    assert m.coste_pct == pytest.approx(0.7 / 3.2 * 100)
+
+
+def test_el_motor_anota_regimen_y_coste_de_cada_operacion():
+    from laboratorio.ejecutar import con_regimen
+    df = con_regimen(_serie_aleatoria(n=900, semilla=6))
+    ops = simular(df, ESTRATEGIAS["tendencia"](), lambda p: 0.5, "S", "cripto")
+    assert ops and all(o.regimen in ("tendencia", "rango", "sin_dato") for o in ops)
+    assert all(o.coste_r == pytest.approx(0.5 / (o.precio_entrada - o.sl_inicial)) for o in ops)
+
+
+def test_el_informe_incluye_las_estrategias_nuevas_y_el_regimen():
+    from laboratorio.ejecutar import con_regimen, informe
+    df = con_regimen(_serie_aleatoria(n=900, semilla=8))
+    ops = {n: simular(df, E(), lambda p: p * 0.001, "S", "cripto") for n, E in ESTRATEGIAS.items()}
+    texto = informe(ops, df.index[600], df.index[0], df.index[-1], 1, [])
+    for n in ESTRATEGIAS:
+        assert f"## {n}" in texto
+    assert "por régimen" in texto and "Racha" in texto

@@ -170,6 +170,30 @@ llega al criterio: sigue sin agente. El dueño eligió la opción A, un **agente
 criterio de retirada fijado de antemano (D24, doc 07), en lugar de seguir
 solo en el laboratorio.
 
+### 3.8 Segunda ronda: las estrategias del manual
+
+El dueño aportó un «Manual práctico de estrategias de trading» (2026-10-11)
+con cinco estrategias. Así se tradujeron:
+
+| Del manual | En el laboratorio | Qué pregunta responde |
+|---|---|---|
+| §2.2 Rupturas | Ya era **tendencia** (la de Tendencia cripto) | — |
+| §2.2 Ruptura con volumen | **ruptura_volumen**: tendencia, solo si el volumen del día supera 1,5 × su media de 20 | ¿El filtro mejora la ruptura o solo le quita operaciones? |
+| §2.2 y §3.4 Objetivo fijado de antemano | **ruptura_2r**: la misma ruptura, con objetivo a 2R y el stop quieto | ¿Fijar el objetivo, como aconseja el manual, es mejor o peor que el stop que sigue sin objetivo? |
+| §2.1 y §3 Swing con retroceso | **retroceso**, en velas diarias (el manual usa 4 h): <br>• contexto: cierre sobre la media de 50, que sube, y media de 20 sobre la de 50; <br>• retroceso que toca la media de 20; <br>• entrada cuando el cierre supera el máximo de ayer; <br>• stop bajo el mínimo de 5 días y objetivo a 2R; <br>• sale si cierra bajo la media de 50 | ¿Comprar el retroceso es mejor que comprar la ruptura? |
+| §2.3 Reversión con contexto | **reversion_bollinger**: <br>• solo con ADX 14 < 20 (mercado lateral); <br>• ayer cerró bajo la banda inferior y hoy dentro (rechazo del extremo); <br>• objetivo en la media; <br>• salida a los 10 días | ¿Le faltaba a «reversion» el contexto y la confirmación? |
+| §2.4 Intradía con VWAP | No se prueba | Necesita velas de minutos con volumen, y no hay histórico suficiente. El agente no decide a esa velocidad, y el spread se come el recorrido intradía |
+| §2.5 Derivados (funding, interés abierto) | No se prueba ahora | Necesita una fuente de datos nueva, y QuantFury no opera perpetuos. Queda como posible filtro de Tendencia cripto más adelante |
+
+Métricas nuevas que pide el manual (§7.4), en todas las estrategias:
+- la peor racha de pérdidas seguidas;
+- los costes (spread) como porcentaje del beneficio bruto;
+- la expectativa en validación según el régimen al dar la señal (ADX 14 ≥ 25 = tendencia; si no, rango).
+
+**Advertencia de método** (el mismo manual, §7.2, «selección oportunista»):
+con siete estrategias, alguna puede pasar por suerte. Una ganadora nueva no
+recibe agente sin superar antes la prueba de robustez (§3.7).
+
 ---
 
 ## 4. Lo que viene después

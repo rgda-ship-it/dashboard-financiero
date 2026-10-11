@@ -32,6 +32,8 @@ class Medidas:
     dias_medios: float
     t: float
     ic90: tuple[float, float]
+    racha_perdidas: int = 0          # peor racha de pérdidas seguidas (manual §7.4)
+    coste_pct: float = 0.0           # spread pagado ÷ beneficio bruto antes de costes, en %
 
 
 def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
@@ -57,7 +59,16 @@ def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
     medias = rng.choice(r, size=(2000, n), replace=True).mean(axis=1)
     ic = (float(np.quantile(medias, 0.05)), float(np.quantile(medias, 0.95)))
 
+    racha = peor = 0
+    for o in sorted(ops, key=lambda x: x.fecha_salida):
+        racha = racha + 1 if o.r <= 0 else 0
+        peor = max(peor, racha)
+    costes = np.array([getattr(o, "coste_r", 0.0) for o in ops], dtype=float)
+    bruto = np.clip(r + costes, 0, None).sum()
+
     return Medidas(
+        racha_perdidas=peor,
+        coste_pct=float(costes.sum() / bruto * 100) if bruto > 0 else 0.0,
         operaciones=n,
         aciertos_pct=float((r > 0).mean() * 100),
         expectativa_r=float(r.mean()),
