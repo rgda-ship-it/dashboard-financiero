@@ -28,6 +28,10 @@ export const leerRanking = () =>
 export const leerEstrategias = () =>
   llamar(supabase.from("v_agentes_estrategia").select("*").order("agente_id"));
 
+/** Las mismas medidas para todos los agentes (0040): el experimento. */
+export const leerComparativa = () =>
+  llamar(supabase.from("v_comparativa_agentes").select("*").order("agente_id"));
+
 export const leerCurvas = () =>
   llamar(
     supabase

@@ -4,6 +4,16 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — 0040: panel comparativo
+
+### Añadido
+**`v_comparativa_agentes`**: las mismas medidas para los cuatro agentes, para contestar la pregunta del experimento.
+- Medidas: expectativa en R, R total, aciertos, factor de beneficio, P&L, rentabilidad y caída.
+- R = resultado ÷ riesgo inicial, el que había hasta el stop al abrir. Cuenta la cantidad inicial y el resultado de los cierres parciales.
+- Dos ventanas: todo el histórico y «desde el experimento», que empieza con el alta de Tendencia cripto.
+- Se ve en el panel «Comparativa» de la pantalla de Agentes.
+- Invariante I89.
+
 ## [Sin publicar] - 2026-10-11 — 0039: pausa por caída al 35 %
 
 ### Cambiado
