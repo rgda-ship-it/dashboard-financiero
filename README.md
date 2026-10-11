@@ -37,6 +37,7 @@ dashboard-financiero/
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
 │   ├── altas.yml              # Alta de activos nuevos (lo dispara la BD)
 │   ├── backfill.yml           # Rehacer el histórico de un símbolo, a mano
+│   ├── laboratorio.yml        # Laboratorio de estrategias sobre años de histórico, a mano (doc 06)
 │   └── keep-alive.yml         # Latido semanal + respaldo JSON + retención + catálogo CoinGecko
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
@@ -104,6 +105,7 @@ dashboard-financiero/
 │   ├── seleccion_universo.py  # FASE 2 — qué activos procesa cada pasada (lógica pura)
 │   ├── altas.py               # FASE 2 — valida y rellena activos nuevos (workflow altas)
 │   ├── catalogo_cripto.py     # FASE 2 — copia semanal de /coins/list de CoinGecko
+│   ├── laboratorio/           # Backtesting sin mirar el futuro: motor, estrategias, medidas (doc 06)
 │   ├── respaldo.py            # FASE 2 — latido, respaldo JSON y retención (vía REST)
 │   ├── conectores/
 │   │   ├── yahoo_finance.py   # Acciones (vía yfinance, no oficial — aislado como adaptador)
