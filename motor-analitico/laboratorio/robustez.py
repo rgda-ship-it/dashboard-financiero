@@ -36,18 +36,22 @@ from laboratorio.ejecutar import _fmt  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
 from laboratorio.motor import Operacion, simular  # noqa: E402
 
-CAB = ["Ops", "Aciertos", "Expectativa (R)", "IC 90 %", "Media %", "F. beneficio", "Caída máx.", "Días"]
+from laboratorio.ejecutar import CABECERA as CAB  # noqa: E402
 
 # Rejilla de parámetros por estrategia: cada combinación es una variante.
 REJILLAS = {
     "tendencia": {"ruptura": (10, 15, 20, 30, 55), "sigue_atr": (2.5, 3.0, 4.0), "stop_atr": (1.5, 2.0, 3.0)},
     "reversion": {"umbral_rsi": (5, 10, 20), "dias_max": (3, 5, 10), "stop_atr": (2.0, 3.0, 4.0)},
     "actual": {"rr_minimo": (1.0, 1.2, 1.5, 2.0)},
+    "retroceso": {"objetivo_r": (1.5, 2.0, 3.0)},
+    "ruptura_volumen": {"factor_volumen": (1.2, 1.5, 2.0), "ruptura": (20, 30, 55)},
+    "ruptura_2r": {"objetivo_r": (1.5, 2.0, 3.0), "ruptura": (20, 30, 55)},
+    "reversion_bollinger": {"adx_max": (15, 20, 25), "dias_max": (5, 10, 15)},
 }
 
 
 def _variante(nombre: str, params: dict):
-    if nombre == "tendencia" and "ruptura" in params:
+    if nombre in ("tendencia", "ruptura_volumen", "ruptura_2r") and "ruptura" in params:
         params = {**params, "salida": max(5, params["ruptura"] // 2)}
     return ESTRATEGIAS[nombre](**params)
 

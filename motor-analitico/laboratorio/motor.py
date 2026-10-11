@@ -58,6 +58,8 @@ class Operacion:
     precio_salida: float
     motivo: str             # sl | tp | hueco | regla | fin
     dias: int
+    coste_r: float = 0.0    # spread pagado (entrada + salida), en R
+    regimen: str = ""       # régimen al dar la señal (columna REGIMEN), si lo hay
 
     @property
     def riesgo(self) -> float:
@@ -93,6 +95,7 @@ Spread = Callable[[float], float]   # precio -> spread completo en $
 def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             activo: str = "", clase: str = "", inicio: int = 0) -> list[Operacion]:
     """Opera un activo de principio a fin con una estrategia."""
+    regimenes = df["REGIMEN"] if "REGIMEN" in df.columns else None
     df = estrategia.preparar(df)
     o, h, l, c = (df[col].to_numpy(dtype=float) for col in ("Open", "High", "Low", "Close"))
     fechas = df.index
@@ -109,12 +112,18 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
 
     def cerrar(t: int, precio: float, motivo: str) -> None:
         nonlocal pos
+        riesgo = pos.entrada - pos.sl_inicial
+        coste = pos.datos.get("coste_entrada", 0.0) + spread(precio) / 2
+        regimen = ""
+        if regimenes is not None and pos.fecha_senal in regimenes.index:
+            regimen = str(regimenes.loc[pos.fecha_senal])
         ops.append(Operacion(
             activo=activo, clase=clase, estrategia=estrategia.nombre,
             fecha_senal=pos.fecha_senal, fecha_entrada=pos.fecha_entrada,
             fecha_salida=fechas[t], precio_entrada=pos.entrada,
             sl_inicial=pos.sl_inicial, tp=pos.tp, precio_salida=precio,
-            motivo=motivo, dias=t - pos.indice_entrada))
+            motivo=motivo, dias=t - pos.indice_entrada,
+            coste_r=coste / riesgo if riesgo > 0 else 0.0, regimen=regimen))
         pos = None
 
     for t in range(inicio, n):
@@ -130,7 +139,8 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             if venta(o[t]) > ent.sl and (ent.tp is None or venta(o[t]) < ent.tp) and precio > ent.sl:
                 pos = Posicion(entrada=precio, sl=ent.sl, sl_inicial=ent.sl, tp=ent.tp,
                                fecha_senal=fechas[t_senal], fecha_entrada=fechas[t],
-                               indice_entrada=t, mejor_cierre=c[t])
+                               indice_entrada=t, mejor_cierre=c[t],
+                               datos={"coste_entrada": spread(o[t]) / 2})
                 entra_hoy = True
             else:
                 entra_hoy = False

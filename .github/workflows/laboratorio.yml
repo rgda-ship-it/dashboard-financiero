@@ -19,7 +19,7 @@ on:
         default: laboratorio
       estrategias:
         description: 'Estrategias, separadas por comas (en robustez, solo la primera)'
-        default: 'actual,tendencia,reversion'
+        default: 'actual,tendencia,reversion,retroceso,ruptura_volumen,ruptura_2r,reversion_bollinger'
       periodo:
         description: 'Histórico de Yahoo (2y, 5y, 10y, max)'
         default: '5y'

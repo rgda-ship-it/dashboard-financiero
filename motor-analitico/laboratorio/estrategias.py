@@ -128,4 +128,142 @@ class Reversion:
         return pos.sl, bool(salir)
 
 
-ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion}
+# ─────────────────────────────────────────────────────────────────────
+# Segunda ronda (doc 06 §3.8): las estrategias del «Manual práctico de
+# estrategias de trading» que se pueden probar con velas diarias.
+# ─────────────────────────────────────────────────────────────────────
+
+def _adx(df: pd.DataFrame, n: int = 14) -> pd.Series:
+    serie = ta.adx(df["High"], df["Low"], df["Close"], length=n)
+    if serie is None:
+        return pd.Series(np.nan, index=df.index)
+    return serie[f"ADX_{n}"]
+
+
+class Retroceso:
+    """Manual §2.1 y §3: swing tendencial, comprando el RETROCESO y no la
+    ruptura. Contexto: cierre sobre la media de 50, con pendiente positiva
+    (más alta que hace 10 días) y la de 20 sobre la de 50. Retroceso: en los
+    últimos 3 días el mínimo tocó la media de 20. Confirmación: el cierre
+    supera el máximo del día anterior. Stop bajo el mínimo de 5 días (y al
+    menos a 1 ATR); objetivo a 2R (§3.4). Sale también si cierra bajo la
+    media de 50 (la estructura se rompió)."""
+
+    nombre = "retroceso"
+
+    def __init__(self, objetivo_r: float = 2.0):
+        self.objetivo_r = objetivo_r
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df["SMA_20"] = df["Close"].rolling(20).mean()
+        df["SMA_50"] = df["Close"].rolling(50).mean()
+        df["ATR_14"] = _atr(df)
+        df["TOCO_20"] = (df["Low"] <= df["SMA_20"]).astype(float).rolling(3).max()
+        df["MIN_5"] = df["Low"].rolling(5).min()
+        return df
+
+    def entrada(self, df, t):
+        if t < 60:
+            return None
+        f, ayer = df.iloc[t], df.iloc[t - 1]
+        if any(pd.isna(f[k]) for k in ("SMA_20", "SMA_50", "ATR_14", "TOCO_20", "MIN_5")):
+            return None
+        tendencia = (f["Close"] > f["SMA_50"] and f["SMA_50"] > df["SMA_50"].iloc[t - 10]
+                     and f["SMA_20"] > f["SMA_50"])
+        if not (tendencia and f["TOCO_20"] >= 1 and f["Close"] > ayer["High"]):
+            return None
+        sl = float(min(f["MIN_5"] - 0.25 * f["ATR_14"], f["Close"] - f["ATR_14"]))
+        return Entrada(sl=sl, tp=float(f["Close"] + self.objetivo_r * (f["Close"] - sl)))
+
+    def actualizar(self, df, t, pos: Posicion):
+        f = df.iloc[t]
+        return pos.sl, bool(not pd.isna(f["SMA_50"]) and f["Close"] < f["SMA_50"])
+
+
+class RupturaVolumen(Tendencia):
+    """Manual §2.2: la ruptura de Tendencia, pero solo si el volumen del día
+    de la ruptura supera 1,5 veces su media de 20 días."""
+
+    nombre = "ruptura_volumen"
+
+    def __init__(self, factor_volumen: float = 1.5, **kw):
+        super().__init__(**kw)
+        self.factor_volumen = factor_volumen
+
+    def preparar(self, df):
+        df = super().preparar(df)
+        df["VOL_MEDIO"] = df["Volume"].rolling(20).mean().shift(1)
+        return df
+
+    def entrada(self, df, t):
+        ent = super().entrada(df, t)
+        f = df.iloc[t]
+        if ent is None or pd.isna(f["VOL_MEDIO"]) or f["VOL_MEDIO"] <= 0:
+            return None
+        return ent if f["Volume"] > self.factor_volumen * f["VOL_MEDIO"] else None
+
+
+class Ruptura2R(Tendencia):
+    """Manual §2.2 y §3.4: la misma ruptura, con el objetivo fijado de
+    antemano a 2R y el stop quieto. Mide el consejo del manual frente a lo
+    que hace Tendencia (sin objetivo, stop que sigue)."""
+
+    nombre = "ruptura_2r"
+
+    def __init__(self, objetivo_r: float = 2.0, **kw):
+        super().__init__(**kw)
+        self.objetivo_r = objetivo_r
+
+    def entrada(self, df, t):
+        ent = super().entrada(df, t)
+        if ent is None:
+            return None
+        c = float(df["Close"].iloc[t])
+        return Entrada(sl=ent.sl, tp=c + self.objetivo_r * (c - ent.sl))
+
+    def actualizar(self, df, t, pos: Posicion):
+        return pos.sl, False
+
+
+class ReversionBollinger:
+    """Manual §2.3, con lo que le faltaba a «reversion»: solo en mercado
+    lateral (ADX 14 < 20), y no basta con estar en el extremo: ayer cerró
+    bajo la banda inferior de Bollinger (20, 2) y hoy vuelve a cerrar dentro
+    (rechazo del extremo). Stop bajo el mínimo de 3 días; objetivo en la
+    media (la banda central). Sale a los 10 días si no llegó."""
+
+    nombre = "reversion_bollinger"
+
+    def __init__(self, adx_max: float = 20, dias_max: int = 10):
+        self.adx_max, self.dias_max = adx_max, dias_max
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        media = df["Close"].rolling(20).mean()
+        desv = df["Close"].rolling(20).std(ddof=0)
+        df["BB_MEDIA"], df["BB_INF"] = media, media - 2 * desv
+        df["ADX_14"] = _adx(df)
+        df["ATR_14"] = _atr(df)
+        df["MIN_3"] = df["Low"].rolling(3).min()
+        return df
+
+    def entrada(self, df, t):
+        if t < 1:
+            return None
+        f, ayer = df.iloc[t], df.iloc[t - 1]
+        if any(pd.isna(x) for x in (f["BB_INF"], ayer["BB_INF"], f["ADX_14"], f["ATR_14"], f["MIN_3"])):
+            return None
+        if not (f["ADX_14"] < self.adx_max and ayer["Close"] < ayer["BB_INF"] and f["Close"] > f["BB_INF"]):
+            return None
+        if f["BB_MEDIA"] <= f["Close"]:
+            return None
+        return Entrada(sl=float(f["MIN_3"] - 0.25 * f["ATR_14"]), tp=float(f["BB_MEDIA"]))
+
+    def actualizar(self, df, t, pos: Posicion):
+        return pos.sl, (t - pos.indice_entrada + 1) >= self.dias_max
+
+
+ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
+               "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
+               "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger}

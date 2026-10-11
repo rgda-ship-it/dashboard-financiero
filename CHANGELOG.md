@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Laboratorio: segunda ronda con las estrategias del manual
+
+### Añadido
+**Cuatro estrategias nuevas** del «Manual práctico de estrategias de trading» que aportó el dueño (doc 06 §3.8):
+- **retroceso**: swing tendencial que compra el retroceso, con objetivo a 2R;
+- **ruptura_volumen**: la ruptura de tendencia, exigiendo volumen > 1,5 × su media;
+- **ruptura_2r**: la misma ruptura, con objetivo fijo y stop quieto;
+- **reversion_bollinger**: solo en mercado lateral, con rechazo del extremo.
+
+**Métricas nuevas en todas las estrategias**:
+- la peor racha de pérdidas;
+- el spread como porcentaje del beneficio bruto;
+- la expectativa por régimen al dar la señal (ADX).
+
+**Rejillas de robustez** para las estrategias nuevas.
+
+VWAP intradía y derivados no se prueban; el motivo está en el doc 06 §3.8. Python pasa de 204 a 215 tests (la causalidad cubre las siete estrategias).
+
 ## [Sin publicar] - 2026-10-11 — 0040: panel comparativo
 
 ### Añadido

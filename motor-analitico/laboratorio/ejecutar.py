@@ -27,13 +27,32 @@ from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
 
+# Columnas de _fmt, en el mismo orden.
+CABECERA = ["Ops", "Aciertos", "Expectativa (R)", "IC 90 %", "Media %", "F. beneficio", "Caída máx.",
+            "Días", "Racha −", "Costes"]
+
+
 def _fmt(m: metricas.Medidas | None) -> list[str]:
     if m is None:
-        return ["0"] + ["—"] * 7
+        return ["0"] + ["—"] * (len(CABECERA) - 1)
     fb = "∞" if math.isinf(m.factor_beneficio) else f"{m.factor_beneficio:.2f}"
     return [str(m.operaciones), f"{m.aciertos_pct:.0f} %", f"{m.expectativa_r:+.3f}",
             f"[{m.ic90[0]:+.2f}, {m.ic90[1]:+.2f}]", f"{m.expectativa_pct:+.2f} %", fb,
-            f"{m.caida_maxima_pct:.1f} %", f"{m.dias_medios:.1f}"]
+            f"{m.caida_maxima_pct:.1f} %", f"{m.dias_medios:.1f}", str(m.racha_perdidas),
+            f"{m.coste_pct:.0f} %"]
+
+
+def con_regimen(df: pd.DataFrame) -> pd.DataFrame:
+    """Añade REGIMEN (manual §1.4): «tendencia» con ADX 14 ≥ 25, «rango» si
+    no. Causal: el ADX de cada día solo usa ese día y los anteriores."""
+    import pandas_ta as ta
+    adx = ta.adx(df["High"], df["Low"], df["Close"], length=14)
+    df = df.copy()
+    df["REGIMEN"] = "sin_dato"
+    if adx is not None:
+        df.loc[adx["ADX_14"] >= 25, "REGIMEN"] = "tendencia"
+        df.loc[adx["ADX_14"] < 25, "REGIMEN"] = "rango"
+    return df
 
 
 def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activos: int, sin_datos: list) -> str:
@@ -48,7 +67,7 @@ def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activ
         "intervalo del 90 % por encima de cero, factor de beneficio > 1,2 y sin desplome frente al diseño.",
         "",
     ]
-    cab = ["Tramo", "Ops", "Aciertos", "Expectativa (R)", "IC 90 %", "Media %", "F. beneficio", "Caída máx.", "Días"]
+    cab = ["Tramo"] + CABECERA
     for nombre, ops in ops_por_estrategia.items():
         lineas += [f"## {nombre}", ""]
         for clase in ("todas", "accion", "cripto"):
@@ -61,6 +80,12 @@ def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activ
             lineas += ["| " + " | ".join(cab) + " |", "|" + "---|" * len(cab)]
             lineas += ["| Diseño | " + " | ".join(_fmt(md)) + " |",
                        "| **Validación** | " + " | ".join(_fmt(mv)) + " |", ""]
+            if clase == "todas":
+                partes = []
+                for reg in ("tendencia", "rango"):
+                    m = metricas.medir([o for o in validacion if o.regimen == reg])
+                    partes.append(f"{reg}: {m.operaciones} ops, {m.expectativa_r:+.3f} R" if m else f"{reg}: 0 ops")
+                lineas += ["Validación por régimen al dar la señal (ADX 14 ≥ 25 = tendencia): " + "; ".join(partes) + ".", ""]
     if sin_datos:
         lineas += [f"Sin datos de Yahoo: {', '.join(sin_datos)}.", ""]
     return "\n".join(lineas)
@@ -68,7 +93,7 @@ def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activ
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--estrategias", default="actual,tendencia,reversion")
+    p.add_argument("--estrategias", default=",".join(ESTRATEGIAS))
     p.add_argument("--periodo", default="5y")
     p.add_argument("--salida", default="laboratorio_salida")
     p.add_argument("--activos", default="", help="simbolo:clase separados por comas (por defecto, el universo)")
@@ -84,6 +109,7 @@ def main() -> int:
         if df is None or len(df) < 260:
             sin_datos.append(simbolo)
             continue
+        df = con_regimen(df)
         n += 1
         desde = df.index[0] if desde is None else min(desde, df.index[0])
         hasta = df.index[-1] if hasta is None else max(hasta, df.index[-1])
@@ -103,13 +129,14 @@ def main() -> int:
     with open(salida / "operaciones.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["estrategia", "activo", "clase", "fecha_senal", "fecha_entrada", "fecha_salida",
-                    "precio_entrada", "sl_inicial", "tp", "precio_salida", "motivo", "dias", "r", "pct", "tramo"])
+                    "precio_entrada", "sl_inicial", "tp", "precio_salida", "motivo", "dias", "r", "pct", "coste_r",
+                    "regimen", "tramo"])
         for nombre, ops in ops_por_estrategia.items():
             for o in ops:
                 w.writerow([nombre, o.activo, o.clase, o.fecha_senal.date(), o.fecha_entrada.date(),
                             o.fecha_salida.date(), round(o.precio_entrada, 6), round(o.sl_inicial, 6),
                             "" if o.tp is None else round(o.tp, 6), round(o.precio_salida, 6), o.motivo,
-                            o.dias, round(o.r, 4), round(o.pct, 4),
+                            o.dias, round(o.r, 4), round(o.pct, 4), round(o.coste_r, 4), o.regimen,
                             "diseno" if o.fecha_entrada < corte else "validacion"])
     print(texto)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
