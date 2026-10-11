@@ -4,6 +4,30 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Laboratorio de estrategias (doc 06)
+
+### Añadido
+Un laboratorio que reproduce años de velas diarias, día a día y sin mirar
+el futuro, con las reglas de ejecución del simulador: entrada en la apertura
+siguiente al precio de compra, stop y objetivo con el precio de venta,
+empate al stop (M2), huecos a la apertura (M3') y el spread pesimista de la
+0034. Mide por estrategia y clase de activo la expectativa por operación en
+R, su intervalo de confianza por bootstrap, el factor de beneficio, la caída
+máxima y los días medios, en un tramo de diseño (70 %) y otro de validación
+(30 %). Una estrategia «tiene ventaja» si en validación supera ≥ 30
+operaciones, +0,10 R, intervalo por encima de cero, factor > 1,2 y no se
+desploma frente al diseño.
+
+Tres estrategias en la primera ronda: **actual** (la de los agentes, como
+referencia), **tendencia** (ruptura de 20 días con stop que sigue al precio)
+y **reversión** (RSI de 2 días bajo 10 dentro de tendencia alcista). Corre en
+GitHub Actions (`laboratorio.yml`, a mano) con datos de Yahoo; el informe
+sale en el resumen del job. No toca la base de datos ni a los agentes. La
+propuesta, con la decisión del dueño de crear agentes nuevos y dejar a los
+actuales como grupo de control, está en `docs/fase-2/06-laboratorio-y-agentes-con-ventaja.md`.
+
+Python 183 → 199 tests (causalidad: ninguna estrategia mira el futuro).
+
 ## [Sin publicar] - 2026-10-11 — «Ampliar el universo» sin falsos positivos de fin de semana (0036)
 
 ### Corregido

@@ -1,0 +1,61 @@
+# Laboratorio de estrategias (doc 06).
+#
+# Reproduce años de velas diarias con las reglas del simulador (spread,
+# huecos, empate al stop) y dice qué estrategia tiene ventaja después de
+# costes en un tramo de validación que no se usó para diseñarla. Se lanza a
+# mano: no toca la base de datos (solo LEE el universo activo) ni a los
+# agentes. El informe sale en el resumen del job y las operaciones, en un
+# CSV descargable.
+
+name: laboratorio
+
+on:
+  workflow_dispatch:
+    inputs:
+      estrategias:
+        description: 'Estrategias, separadas por comas'
+        default: 'actual,tendencia,reversion'
+      periodo:
+        description: 'Histórico de Yahoo (2y, 5y, 10y, max)'
+        default: '5y'
+      activos:
+        description: 'Opcional: simbolo:clase separados por comas (vacío = el universo activo)'
+        default: ''
+
+concurrency:
+  group: laboratorio
+  cancel-in-progress: false
+
+jobs:
+  laboratorio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - run: pip install -r motor-analitico/requirements.txt
+
+      - name: Ejecutar el laboratorio
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          python -m laboratorio.ejecutar \
+            --estrategias "${{ inputs.estrategias }}" \
+            --periodo "${{ inputs.periodo }}" \
+            --activos "${{ inputs.activos }}" \
+            --salida ../laboratorio_salida
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laboratorio
+          path: laboratorio_salida/
+          if-no-files-found: ignore
