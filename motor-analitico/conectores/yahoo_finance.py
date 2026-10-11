@@ -85,6 +85,28 @@ class ConectorAccionesYahoo:
             "market_cap": info.get("marketCap"),
         }
 
+    def obtener_cotizacion(self, ticker: str) -> dict | None:
+        """Precio de compra (ask) y de venta (bid) de ahora, o None.
+
+        Solo sirve para MEDIR el spread (migración 0035): es una llamada de
+        mejor esfuerzo. Si Yahoo no responde, limita la tasa o devuelve algo
+        sin sentido (precios a cero, ask por debajo del bid), se devuelve
+        None y la pasada sigue: un spread sin medir no es un activo roto.
+        """
+        try:
+            info = yf.Ticker(ticker).info
+        except Exception as exc:  # noqa: BLE001 — mejor esfuerzo
+            logger.warning("Sin cotización de compra y venta para %s: %s", ticker, exc)
+            return None
+        bid, ask = info.get("bid"), info.get("ask")
+        try:
+            bid, ask = float(bid), float(ask)
+        except (TypeError, ValueError):
+            return None
+        if not (bid > 0 and ask >= bid):
+            return None
+        return {"bid": bid, "ask": ask}
+
     def obtener_moneda(self, ticker: str) -> str | None:
         """Moneda en la que cotiza el ticker según Yahoo (p. ej. «USD»,
         «JPY», «GBp» para peniques de Londres). None si no la declara.

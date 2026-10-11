@@ -4130,6 +4130,63 @@ end
 $i83$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I84 · El spread medido (0035).
+--
+-- AMCR cobra 0,10 $. Una acción con spread configurado de 0,03 $: con 9
+-- observaciones de 0,05 $ todavía no hay spread observado (hacen falta 10);
+-- con la décima, el percentil 90 (0,05 $) manda porque es mayor. Otra con
+-- observaciones de 0,01 $ sigue cobrando 0,03 $: lo medido nunca baja lo
+-- configurado. Lo de más de 60 días se purga.
+-- ═════════════════════════════════════════════════════════════════════
+do $i84$
+declare
+    v_a bigint;
+    v_b bigint;
+begin
+    if (select spread_abs from public.activos where simbolo = 'AMCR') is distinct from 0.10 then
+        raise exception 'I84 FALLO: AMCR debía cobrar 0,10 $ de spread';
+    end if;
+
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('ZZSPA', 'accion', 'yahoo', 'ZZSPA', 'activo', 20, now()) returning id into v_a;
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('ZZSPB', 'accion', 'yahoo', 'ZZSPB', 'activo', 20, now()) returning id into v_b;
+
+    insert into public.spreads_observados (activo_id, bid, ask)
+    select v_a, 20, 20.05 from generate_series(1, 9);
+    if (select spread_observado from public.activos where id = v_a) is not null
+       or public.fn_spread(v_a, 20) <> 0.03 then
+        raise exception 'I84 FALLO: con 9 observaciones no debía haber spread observado';
+    end if;
+    insert into public.spreads_observados (activo_id, bid, ask) values (v_a, 20, 20.05);
+    if (select spread_observado from public.activos where id = v_a) <> 0.05
+       or public.fn_spread(v_a, 20) <> 0.05 or public.fn_precio_compra(v_a, 20) <> 20.025 then
+        raise exception 'I84 FALLO: con 10 observaciones de 0,05 $ debía cobrar 0,05 $ (cobra %)', public.fn_spread(v_a, 20);
+    end if;
+
+    insert into public.spreads_observados (activo_id, bid, ask)
+    select v_b, 20, 20.01 from generate_series(1, 12);
+    if (select spread_observado from public.activos where id = v_b) <> 0.01 or public.fn_spread(v_b, 20) <> 0.03 then
+        raise exception 'I84 FALLO: un spread medido menor que el configurado no debía bajarlo';
+    end if;
+
+    insert into public.spreads_observados (activo_id, observado_en, bid, ask)
+    values (v_b, now() - interval '70 days', 20, 21);
+    insert into public.spreads_observados (activo_id, bid, ask) values (v_b, 20, 20.01);
+    if exists (select 1 from public.spreads_observados where activo_id = v_b and observado_en < now() - interval '60 days') then
+        raise exception 'I84 FALLO: las observaciones de más de 60 días debían purgarse';
+    end if;
+
+    if (select spread_cobrado from public.v_spreads where activo_id = v_a) <> 0.05 then
+        raise exception 'I84 FALLO: v_spreads no muestra el spread que se cobra';
+    end if;
+
+    update public.activos set estado = 'suspendido' where id in (v_a, v_b);
+    raise notice 'PASS  I84 spread medido: AMCR a 0,10 $; con 10 observaciones el percentil 90 manda si es mayor; nunca baja lo configurado';
+end
+$i84$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

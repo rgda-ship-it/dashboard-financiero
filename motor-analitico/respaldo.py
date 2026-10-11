@@ -65,6 +65,8 @@ TABLAS = {
     # Calendario de mercados (0031): lo siembra la migración, pero los
     # festivos se actualizan a mano cada año y no deben perderse.
     "mercados": "clave",
+    # Spreads medidos en sesión (0035): no se pueden volver a pedir a Yahoo.
+    "spreads_observados": "id",
     # Experimento: simulador y agentes (desde 0018). `senales` aquí son
     # solo las que justifican una orden (ver FUENTES).
     "senales": "id",

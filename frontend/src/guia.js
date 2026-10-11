@@ -256,7 +256,7 @@ export const SECCIONES = [
         formula: "compra = precio + spread / 2   ·   venta = precio − spread / 2\n\nacciones: 0,03 $ por acción · BTC: 5 $ · ETH: 0,10 $ · resto de cripto: 0,10 %",
         lectura:
           "Los proveedores dan un único precio, el intermedio. En la plataforma de referencia (QuantFury) se compra algo por encima y se vende algo por debajo: esa diferencia es el spread, y es su único coste (sin comisiones ni financiación). El simulador lo cobra al ejecutar, con valores del lado pesimista: abre al precio de compra, dispara el stop y el objetivo con el precio de venta y vende a ese precio en un cierre a mano. Las posiciones abiertas se valoran al intermedio, así que una recién abierta ya muestra medio spread en contra.",
-        nota: "En una acción de 10 $, 0,03 $ es un 0,3 %: en operaciones de poco recorrido, el spread se come una parte visible del beneficio.",
+        nota: "En una acción de 10 $, 0,03 $ es un 0,3 %: en operaciones de poco recorrido, el spread se come una parte visible del beneficio. Además, en cada pasada con la bolsa abierta se mide el spread real de cada acción; con al menos 10 medidas en 30 días, si lo medido (su percentil 90) es mayor que lo supuesto, se cobra lo medido. Nunca menos de lo supuesto.",
       },
       {
         termino: "Un precio añejo no cierra nada",

@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — El spread real de cada acción, medido (0035)
+
+### Corregido — AMCR quedaba en el lado optimista
+El dueño contrastó tres acciones con su plataforma: AGNC (0,01 $) y F
+(0,01 $) quedaban pesimistas con los 0,03 $ supuestos, pero AMCR cotiza con
+0,10 $ y quedaba optimista. AMCR pasa a 0,10 $.
+
+### Añadido — el spread se mide
+El ETL de acciones guarda, en sesión regular (9:35–15:55 NY, sin subastas
+ni pre/post mercado), el precio de compra y de venta que da Yahoo
+(`spreads_observados`; mejor esfuerzo: si Yahoo no responde o la tabla aún
+no existe, la pasada sigue). Con al menos 10 observaciones en 30 días, el
+percentil 90 queda en `activos.spread_observado`, y se cobra el mayor entre
+lo medido y lo configurado: nunca menos de lo supuesto. `v_spreads` compara
+las tres cifras. La cripto no se mide (CoinGecko no da compra y venta).
+
+I84 nueva (84 invariantes). Python 175 → 183 tests.
+
 ## [Sin publicar] - 2026-10-11 — El spread (0034, D23)
 
 ### Cambiado — se compra al precio de compra y se vende al de venta
