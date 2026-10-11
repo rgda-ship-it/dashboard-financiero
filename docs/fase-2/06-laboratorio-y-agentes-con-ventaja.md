@@ -190,6 +190,39 @@ Métricas nuevas que pide el manual (§7.4), en todas las estrategias:
 - los costes (spread) como porcentaje del beneficio bruto;
 - la expectativa en validación según el régimen al dar la señal (ADX 14 ≥ 25 = tendencia; si no, rango).
 
+**Resultado (10 años, validación desde 2023-10)**:
+
+| Estrategia | Acciones | Cripto |
+|---|---|---|
+| tendencia | +0,11 R ❌ | +1,09 R ✅ |
+| **ruptura_volumen** | **+0,29 R, IC [+0,04, +0,57], 175 ops, factor 1,60 ✅** | +1,13 R ✅ |
+| ruptura_2r | +0,10 R ❌ | +0,30 R ✅ |
+| retroceso | +0,01 R ❌ | +0,28 R ✅ |
+| reversion_bollinger | −0,13 R ❌ | +0,09 R ❌ |
+
+Lecturas:
+- **El volumen es lo que le faltaba a la ruptura en acciones.** Es la primera candidata en acciones.
+- **Fijar el objetivo a 2R (consejo del manual) hunde la ruptura en cripto**: pasa de +1,09 R a +0,30 R. Confirma el stop que sigue sin objetivo.
+- **En cripto, el volumen no mejora a tendencia**: +1,13 R frente a +1,09 R, con menos operaciones. Tendencia cripto no se toca.
+- **La reversión falla también con el contexto del manual.**
+- **Régimen**: las rupturas rinden más cuando la señal llega con ADX bajo (en ruptura_volumen, +0,89 R frente a +0,34 R). Romper una consolidación da más recorrido que sumarse a una tendencia ya extendida.
+- **Costes**: entre el 1 % y el 5 % del beneficio bruto en las estrategias lentas, y entre el 7 % y el 12 % en las reversiones.
+
+**Robustez de ruptura_volumen en acciones** (10 años; [informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38163452436)):
+
+| Prueba | Resultado |
+|---|---|
+| Intervalo por meses | [+0,02, +0,57] ✅ |
+| Concentración por activo | Sin TSLA, sigue pasando ✅ (+0,27 R); sin TSLA y NVDA, el intervalo incluye el cero. **Solo 12 de 29 acciones con expectativa positiva**: gana en las de crecimiento o *momentum* (TSLA, NVDA, PBR, QFIN, AAPL…) y pierde en las defensivas (AMCR, O, HRL, KMB, CLX…) |
+| Por año | 6 de 10 años positivos; alterna |
+| Parámetros | 9 de 9 positivas y 5 de 9 pasan ✅ (el volumen a 2× deja pocas operaciones) |
+| Spread × 3 | ✅ +0,26 R |
+| Supervivencia | No se puede medir igual que en cripto. El universo de acciones también se eligió hoy |
+
+Lectura: **pasa los criterios formales, pero con márgenes justos y poca amplitud**.
+Gana en un subconjunto de acciones, lo que puede ser una ventaja real (las
+rupturas funcionan en valores con tendencia) o una selección afortunada.
+
 **Advertencia de método** (el mismo manual, §7.2, «selección oportunista»):
 con siete estrategias, alguna puede pasar por suerte. Una ganadora nueva no
 recibe agente sin superar antes la prueba de robustez (§3.7).
