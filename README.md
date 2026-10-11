@@ -81,7 +81,8 @@ dashboard-financiero/
 │       ├── 0031_medir_tiempo_y_autodiagnostico.sql # Calendario de mercados, estimación de cada orden y autodiagnóstico semanal
 │       ├── 0032_cripto_prudente.sql # Los tres operan cripto: riesgo escalado por volatilidad y tope por mercado (D22)
 │       ├── 0033_huecos_reales.sql # M3': un stop saltado por un hueco de apertura sale al precio del hueco
-│       └── 0034_spread.sql # Se compra al precio de compra y se vende al de venta (D23)
+│       ├── 0034_spread.sql # Se compra al precio de compra y se vende al de venta (D23)
+│       └── 0035_spread_observado.sql # El spread real de cada acción, medido; se cobra el mayor entre lo medido y lo supuesto
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

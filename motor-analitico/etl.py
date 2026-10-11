@@ -45,7 +45,7 @@ from escritor_supabase import (  # noqa: E402
 )
 from indicadores.tecnicos import calcular_indicadores  # noqa: E402
 from seleccion_universo import Seleccion, seleccionar  # noqa: E402
-from ventana_mercado import mercado_abierto  # noqa: E402
+from ventana_mercado import en_sesion_regular, mercado_abierto  # noqa: E402
 
 # Tras 3 fallos seguidos, el activo pasa a 'suspendido' y deja de
 # consumir cuota en cada pasada.
@@ -223,6 +223,9 @@ def procesar_activo(
 
         cliente.actualizar("activos", {"id": f"eq.{activo_id}"}, cambios)
 
+        if activo.get("clase") == "accion":
+            registrar_spread(cliente, activo)
+
         con_rango = sum(1 for f in precios if f["rango_real"])
         detalle = (
             f"{len(precios)} velas ({con_rango} con rango real), "
@@ -243,6 +246,39 @@ def procesar_activo(
 
     except Exception as exc:  # fallo de red o del proveedor
         return _marcar_fallo(cliente, activo, f"fallo de datos: {exc}")
+
+
+# Un spread de más de esto sobre el precio intermedio no es una cotización
+# de sesión: es un dato roto (o un valor sin liquidez, que no debería estar
+# en el universo). No se guarda.
+SPREAD_MAXIMO_PCT = 5.0
+
+
+def registrar_spread(cliente: ClienteSupabase, activo: dict, ahora: datetime | None = None) -> bool:
+    """Mide el spread real de una acción y lo guarda en `spreads_observados`
+    (0035). Devuelve si se guardó.
+
+    Mejor esfuerzo de principio a fin: fuera de la sesión regular no mide;
+    si Yahoo no da compra y venta, o da algo sin sentido, no guarda; y si
+    la tabla aún no existe (el código llega a master antes de que se
+    aplique la migración) no tumba la pasada, igual que `ordenes` en
+    `_ids_con_posicion_abierta`. Nunca marca el activo como fallido.
+    """
+    if not en_sesion_regular(ahora):
+        return False
+    cotizacion = servicio_interno.conector_acciones.obtener_cotizacion(activo["simbolo"])
+    if not cotizacion:
+        return False
+    bid, ask = cotizacion["bid"], cotizacion["ask"]
+    medio = (bid + ask) / 2
+    if medio <= 0 or (ask - bid) / medio * 100 > SPREAD_MAXIMO_PCT:
+        return False
+    try:
+        cliente.insertar("spreads_observados", [{"activo_id": activo["id"], "bid": bid, "ask": ask}])
+    except ErrorEscritura as exc:
+        print(f"  [spread] {activo['simbolo']}: no se pudo guardar ({exc})")
+        return False
+    return True
 
 
 def _marcar_fallo(

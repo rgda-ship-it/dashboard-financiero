@@ -22,6 +22,26 @@ APERTURA_NY = time(9, 30)
 CIERRE_NY = time(16, 30)
 
 
+# Sesión regular para medir el spread (0035): sin los primeros ni los
+# últimos minutos, que son las subastas de apertura y cierre, ni la media
+# hora posterior que `mercado_abierto` añade para capturar la vela cerrada.
+# Fuera de esa franja Yahoo da cotizaciones de pre y post mercado, con
+# spreads mucho más anchos que no son los de la sesión.
+INICIO_MEDIR_SPREAD_NY = time(9, 35)
+FIN_MEDIR_SPREAD_NY = time(15, 55)
+
+
+def en_sesion_regular(ahora: datetime | None = None) -> bool:
+    """¿Es buen momento para medir el spread de una acción?"""
+    ahora = ahora or datetime.now(timezone.utc)
+    if ahora.tzinfo is None:
+        ahora = ahora.replace(tzinfo=timezone.utc)
+    local = ahora.astimezone(BOLSA_NY)
+    if local.weekday() >= 5:
+        return False
+    return INICIO_MEDIR_SPREAD_NY <= local.time() <= FIN_MEDIR_SPREAD_NY
+
+
 def mercado_abierto(ahora: datetime | None = None) -> bool:
     """¿Se puede escanear acciones ahora mismo?
 
