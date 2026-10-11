@@ -98,6 +98,7 @@ punto ⏭️ de la lista de control»*.
 | 🗓️ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con 500 $ de saldo y un 1 % de riesgo |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
 | ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
+| ⏭️ 👤 | Antes de la primera decisión: ensayo de solo lectura con `scripts/ensayo_tendencia.sql` | Muestra qué haría hoy con cada cripto (entrar, sin señal, sin datos) y con qué stop. Sirve para detectar a tiempo las criptos sin velas suficientes |
 | ⏭️ 👤 | Al día siguiente de activarlo, comprobar que decidió | `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 15 %, se pausa y se revisa |
