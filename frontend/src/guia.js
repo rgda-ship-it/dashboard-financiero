@@ -252,6 +252,13 @@ export const SECCIONES = [
           "Si el precio se desploma un 3 % por debajo de tu stop entre dos pasadas con el mercado abierto, la operación se registra AL STOP: el mercado cotizaba sin pausa y una orden de stop se habría ejecutado cerca de su nivel. Pero si entre medias el mercado estuvo CERRADO (una noche, un fin de semana, un festivo) y la acción abre ya por debajo del stop, no había a quién venderle al nivel: la operación sale al precio de apertura, como en un bróker, y el histórico lo marca como hueco. El precio que disparó el cierre se guarda siempre en la columna «observado».",
       },
       {
+        termino: "El spread se paga al comprar y al vender",
+        formula: "compra = precio + spread / 2   ·   venta = precio − spread / 2\n\nacciones: 0,03 $ por acción · BTC: 5 $ · ETH: 0,10 $ · resto de cripto: 0,10 %",
+        lectura:
+          "Los proveedores dan un único precio, el intermedio. En la plataforma de referencia (QuantFury) se compra algo por encima y se vende algo por debajo: esa diferencia es el spread, y es su único coste (sin comisiones ni financiación). El simulador lo cobra al ejecutar, con valores del lado pesimista: abre al precio de compra, dispara el stop y el objetivo con el precio de venta y vende a ese precio en un cierre a mano. Las posiciones abiertas se valoran al intermedio, así que una recién abierta ya muestra medio spread en contra.",
+        nota: "En una acción de 10 $, 0,03 $ es un 0,3 %: en operaciones de poco recorrido, el spread se come una parte visible del beneficio.",
+      },
+      {
         termino: "Un precio añejo no cierra nada",
         formula: "cripto: > 15 min · acción: > 35 min o bolsa cerrada",
         lectura:
