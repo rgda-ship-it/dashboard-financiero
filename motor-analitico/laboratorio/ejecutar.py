@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import cargar, spread_de, universo  # noqa: E402
+from laboratorio.datos import cargar, spread_de, universo, universo_nombrado  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
@@ -55,7 +55,8 @@ def con_regimen(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activos: int, sin_datos: list) -> str:
+def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activos: int, sin_datos: list,
+            sectores: dict | None = None) -> str:
     lineas = [
         "# Laboratorio de estrategias",
         "",
@@ -86,9 +87,37 @@ def informe(ops_por_estrategia: dict, corte: pd.Timestamp, desde, hasta, n_activ
                     m = metricas.medir([o for o in validacion if o.regimen == reg])
                     partes.append(f"{reg}: {m.operaciones} ops, {m.expectativa_r:+.3f} R" if m else f"{reg}: 0 ops")
                 lineas += ["Validación por régimen al dar la señal (ADX 14 ≥ 25 = tendencia): " + "; ".join(partes) + ".", ""]
+        if sectores:
+            lineas += por_sector(ops, sectores, corte)
     if sin_datos:
         lineas += [f"Sin datos de Yahoo: {', '.join(sin_datos)}.", ""]
     return "\n".join(lineas)
+
+
+def por_sector(ops: list, sectores: dict, corte: pd.Timestamp) -> list[str]:
+    """Amplitud (doc 06 §3.9): expectativa por sector y cuántos valores de
+    cada uno ganan."""
+    lineas = ["Por sector (todo el histórico y validación):", "",
+              "| Sector | Valores | Valores con E > 0 | Ops | Expectativa (R) | Ops validación | Expectativa validación (R) |",
+              "|---|---|---|---|---|---|---|"]
+    for sector in sorted(set(sectores.values())):
+        sel = [o for o in ops if sectores.get(o.activo) == sector]
+        if not sel:
+            continue
+        por_activo: dict = {}
+        for o in sel:
+            por_activo.setdefault(o.activo, []).append(o.r)
+        positivos = sum(1 for r in por_activo.values() if sum(r) > 0)
+        val = [o for o in sel if o.fecha_entrada >= corte]
+        e = sum(o.r for o in sel) / len(sel)
+        ev = f"{sum(o.r for o in val) / len(val):+.3f}" if val else "—"
+        lineas.append(f"| {sector} | {len(por_activo)} | {positivos} | {len(sel)} | {e:+.3f} | {len(val)} | {ev} |")
+    por_activo = {}
+    for o in ops:
+        por_activo.setdefault(o.activo, []).append(o.r)
+    positivos = sum(1 for r in por_activo.values() if sum(r) > 0)
+    lineas += ["", f"**{positivos} de {len(por_activo)} valores con expectativa positiva en todo el histórico.**", ""]
+    return lineas
 
 
 def main() -> int:
@@ -97,9 +126,12 @@ def main() -> int:
     p.add_argument("--periodo", default="5y")
     p.add_argument("--salida", default="laboratorio_salida")
     p.add_argument("--activos", default="", help="simbolo:clase separados por comas (por defecto, el universo)")
+    p.add_argument("--universo", default="activo", choices=("activo", "sp100"))
     a = p.parse_args()
 
-    activos = ([tuple(x.split(":")) for x in a.activos.split(",") if x] if a.activos else universo())
+    activos, sectores = universo_nombrado(a.universo)
+    if a.activos:
+        activos = [tuple(x.split(":")) for x in a.activos.split(",") if x]
     estrategias = [ESTRATEGIAS[n]() for n in a.estrategias.split(",") if n]
     ops_por_estrategia = {e.nombre: [] for e in estrategias}
     desde, hasta, sin_datos, n = None, None, [], 0
@@ -121,7 +153,7 @@ def main() -> int:
         print("Sin datos: nada que medir.")
         return 1
     corte = desde + (hasta - desde) * metricas.TRAMO_DISENO
-    texto = informe(ops_por_estrategia, corte, desde, hasta, n, sin_datos)
+    texto = informe(ops_por_estrategia, corte, desde, hasta, n, sin_datos, sectores)
 
     salida = Path(a.salida)
     salida.mkdir(parents=True, exist_ok=True)

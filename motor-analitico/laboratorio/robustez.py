@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import CRIPTO_TOP_2021, cargar, spread_de, universo  # noqa: E402
+from laboratorio.datos import CRIPTO_TOP_2021, cargar, spread_de, universo, universo_nombrado  # noqa: E402
 from laboratorio.ejecutar import _fmt  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
 from laboratorio.motor import Operacion, simular  # noqa: E402
@@ -202,9 +202,11 @@ def main() -> int:
     p.add_argument("--clase", default="cripto", choices=("cripto", "accion"))
     p.add_argument("--periodo", default="5y")
     p.add_argument("--salida", default="laboratorio_salida")
+    p.add_argument("--universo", default="activo", choices=("activo", "sp100"))
     a = p.parse_args()
 
-    datos, sin_datos = _cargar_todos([x for x in universo() if x[1] == a.clase], a.periodo)
+    activos, _ = universo_nombrado(a.universo)
+    datos, sin_datos = _cargar_todos([x for x in activos if x[1] == a.clase], a.periodo)
     if not datos:
         print("Sin datos: nada que medir.")
         return 1

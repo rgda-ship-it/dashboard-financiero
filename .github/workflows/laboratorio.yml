@@ -29,6 +29,11 @@ on:
       clase:
         description: 'Solo robustez y cartera: clase de activo (cripto o accion)'
         default: 'cripto'
+      universo:
+        description: 'activo = el catálogo de producción; sp100 = el S&P 100 con sectores (amplitud)'
+        type: choice
+        options: [activo, sp100]
+        default: activo
 
 concurrency:
   group: laboratorio
@@ -59,6 +64,7 @@ jobs:
             python -m laboratorio.robustez \
               --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --clase "${{ inputs.clase }}" \
+              --universo "${{ inputs.universo }}" \
               --periodo "${{ inputs.periodo }}" \
               --salida ../laboratorio_salida
             exit
@@ -73,6 +79,7 @@ jobs:
           fi
           python -m laboratorio.ejecutar \
             --estrategias "${{ inputs.estrategias }}" \
+            --universo "${{ inputs.universo }}" \
             --periodo "${{ inputs.periodo }}" \
             --activos "${{ inputs.activos }}" \
             --salida ../laboratorio_salida

@@ -256,3 +256,16 @@ def test_el_informe_incluye_las_estrategias_nuevas_y_el_regimen():
     for n in ESTRATEGIAS:
         assert f"## {n}" in texto
     assert "por régimen" in texto and "Racha" in texto
+
+
+def test_el_informe_desglosa_por_sector_y_cuenta_valores_ganadores():
+    from laboratorio.datos import universo_nombrado
+    from laboratorio.ejecutar import por_sector
+    activos, sectores = universo_nombrado("sp100")
+    assert len(activos) >= 100 and sectores["NVDA"] == "Tecnología" and sectores["KO"] == "Consumo defensivo"
+    ops = [_op(2, 0), _op(-1, 1), _op(1, 2)]
+    ops[0].activo, ops[1].activo, ops[2].activo = "NVDA", "KO", "KO"
+    texto = "\n".join(por_sector(ops, sectores, pd.Timestamp("2025-01-02")))
+    assert "| Tecnología | 1 | 1 | 1 | +2.000 |" in texto
+    assert "| Consumo defensivo | 1 | 0 | 2 | +0.000 |" in texto
+    assert "1 de 2 valores" in texto

@@ -67,6 +67,32 @@ CRIPTO_TOP_2021 = (
 )
 
 
+# Universo amplio para medir la AMPLITUD de una estrategia de acciones
+# (doc 06 §3.9): el S&P 100, con su sector. Ojo: es la composición de hoy,
+# así que el sesgo de supervivencia sigue ahí; lo que mide es si la
+# ventaja aparece en muchos valores y sectores o solo en unos pocos.
+SP100_SECTOR = {
+    **{t: "Tecnología" for t in "AAPL ACN ADBE AMD AVGO CRM CSCO IBM INTC INTU MSFT NOW NVDA ORCL PLTR QCOM TXN".split()},
+    **{t: "Comunicación" for t in "CHTR CMCSA DIS GOOGL META NFLX T TMUS VZ".split()},
+    **{t: "Consumo cíclico" for t in "AMZN BKNG F GM HD LOW MCD NKE SBUX TGT TSLA".split()},
+    **{t: "Consumo defensivo" for t in "CL COST KO MDLZ MO PEP PG PM WMT".split()},
+    **{t: "Salud" for t in "ABBV ABT AMGN BMY CVS DHR GILD ISRG JNJ LLY MDT MRK PFE TMO UNH".split()},
+    **{t: "Financiero" for t in "AIG AXP BAC BK BLK BRK-B C COF GS JPM MA MET MS PYPL SCHW USB V WFC".split()},
+    **{t: "Industrial" for t in "BA CAT DE EMR FDX GD GE HON LMT MMM RTX UBER UNP UPS".split()},
+    **{t: "Energía" for t in "COP CVX XOM".split()},
+    **{t: "Servicios públicos" for t in "DUK NEE SO".split()},
+    **{t: "Inmobiliario" for t in "AMT SPG".split()},
+    **{t: "Materiales" for t in "LIN".split()},
+}
+
+
+def universo_nombrado(nombre: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
+    """(activos, sector por símbolo) de un universo con nombre."""
+    if nombre == "sp100":
+        return [(t, "accion") for t in SP100_SECTOR], dict(SP100_SECTOR)
+    return universo(), {}
+
+
 def ticker_yahoo(simbolo: str, clase: str) -> str | None:
     if clase == "accion" or simbolo.endswith("-USD"):
         return simbolo
