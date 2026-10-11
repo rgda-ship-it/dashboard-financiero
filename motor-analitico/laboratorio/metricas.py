@@ -72,6 +72,26 @@ def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
     )
 
 
+def ic90_por_meses(ops: list[Operacion], semilla: int = 7) -> tuple[float, float] | None:
+    """Intervalo del 90 % de la expectativa en R remuestreando MESES enteros
+    en vez de operaciones sueltas. Las operaciones de un mismo mes (sobre
+    todo en cripto, que se mueve en bloque) no son apuestas independientes:
+    remuestrear meses respeta esa correlación y da un intervalo más honesto."""
+    if not ops:
+        return None
+    meses: dict = {}
+    for o in ops:
+        clave = (o.fecha_salida.year, o.fecha_salida.month)
+        suma, n = meses.get(clave, (0.0, 0))
+        meses[clave] = (suma + o.r, n + 1)
+    sumas = np.array([v[0] for v in meses.values()])
+    cuentas = np.array([v[1] for v in meses.values()])
+    rng = np.random.default_rng(semilla)
+    idx = rng.integers(0, len(sumas), size=(2000, len(sumas)))
+    medias = sumas[idx].sum(axis=1) / cuentas[idx].sum(axis=1)
+    return float(np.quantile(medias, 0.05)), float(np.quantile(medias, 0.95))
+
+
 def partir(ops: list[Operacion], corte) -> tuple[list[Operacion], list[Operacion]]:
     """(diseño, validación) según la fecha de entrada."""
     return ([o for o in ops if o.fecha_entrada < corte],

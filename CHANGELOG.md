@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Prueba de robustez del laboratorio (doc 06 §3.7)
+
+### Añadido
+Primera ronda del laboratorio: solo **tendencia en cripto** tiene ventaja
+(+0,69 R en validación, aprobado justo). Antes de crear un agente,
+`laboratorio/robustez.py` (modo `robustez` del workflow) la pone a prueba:
+intervalo remuestreando meses (correlación), resultado por activo y por año
+y quitando los mejores (concentración), rejilla de parámetros (ajuste),
+spread ×3 (costes) y las criptos del top de 2021 fuera del universo, con las
+que se hundieron (supervivencia). Python 199 → 202 tests.
+
 ## [Sin publicar] - 2026-10-11 — Laboratorio de estrategias (doc 06)
 
 ### Añadido
