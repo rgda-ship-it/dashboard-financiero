@@ -2,8 +2,10 @@
 
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-11
-> **Estado**: **Aprobada por el dueño** (rumbo y agentes nuevos). El
-> laboratorio se construye ya; los agentes nuevos esperan a sus resultados.
+> **Estado**: **Aprobada por el dueño** y ejecutada. Laboratorio, primera
+> ronda y prueba de robustez hechos (§3.7). Resultado: un agente
+> experimental, «Tendencia cripto» (D24, doc 07). Pendientes en
+> [`../ESTADO.md`](../ESTADO.md) §3.2.
 > **Contexto**: doc 05 y la conclusión del dueño tras D21–D23: las
 > correcciones hacen el sistema más honesto, pero no lo acercan a sus metas.
 
@@ -138,12 +140,28 @@ Se crea el agente si la referencia sigue en pie con el intervalo por meses,
 no depende de un activo, la mayoría de variantes tiene expectativa positiva
 y en el universo de 2021 la expectativa es positiva.
 
+**Resultado (2026-10-11)**: cumple 3 de 4.
+
+| Prueba | Resultado |
+|---|---|
+| Intervalo por meses | [+0,02, +1,49] R ✅ |
+| Concentración por activo | ❌ zcash da ~46 de los ~54 R de la validación; sin ella, +0,13 R con el intervalo incluyendo el cero. 13 de 14 criptos con expectativa positiva |
+| Concentración por año | 2024 aporta 169 de 216 R; 2022, −7 R con solo 10 operaciones (el filtro de la media de 200 la mantuvo fuera) |
+| Parámetros | 45 de 45 variantes positivas en validación; 18 pasan el criterio completo, todas con ruptura ≥ 20 días ✅ |
+| Spread × 3 | +0,63 R, intervalo [−0,02, +1,43] |
+| Criptos del top de 2021 | +0,65 R en 5 años ✅; +0,09 R en el tramo de validación |
+
+Lectura: ventaja real pero no demostrada, con forma de «pocas ganancias
+enormes». El dueño eligió la opción A, un **agente experimental** con
+criterio de retirada fijado de antemano (D24, doc 07), en lugar de seguir
+solo en el laboratorio.
+
 ---
 
 ## 4. Lo que viene después
 
-1. **Laboratorio** con las tres estrategias (esta entrega).
-2. **Un agente por cada estrategia que pase** el §3.5, de un tipo nuevo:
+1. **Laboratorio** con las tres estrategias. ✅ Hecho, con la prueba de robustez (§3.7).
+2. **Un agente por cada estrategia que pase** el §3.5 (el primero, experimental: «Tendencia cripto», doc 07), de un tipo nuevo:
    comparte simulador, monitor, spread y guardarraíles, pero decide con su
    propia función (ganancia esperada con límite de riesgo, tamaño según la
    ventaja medida) y sin meta diaria que perseguir.

@@ -3,7 +3,7 @@
 > **Autor**: Equipo virtual de Fase 2 (ver `00-equipo-y-alcance.md` §1)
 > **Fecha**: 2026-09-20
 > **Estado**: **Ejecutada** — aprobada por el dueño y entregada en seis
-> sprints (2026-09-20 → 2026-09-29), con las decisiones D1–D23 que se
+> sprints (2026-09-20 → 2026-09-29), con las decisiones D1–D24 que se
 > tomaron por el camino. El detalle de cada sprint, en `04-sprint-backlog.md`;
 > la bitácora, en el `CHANGELOG.md` de la raíz.
 > **Alcance**: convertir el dashboard de un instrumento local monousuario
@@ -26,6 +26,11 @@ autónomo y tiene un destinatario distinto:
 | D | [`04-sprint-backlog.md`](04-sprint-backlog.md) | Devs / QA | 34 historias con tareas técnicas y criterios de aceptación |
 | R | [`RUNBOOK-sprint-1.md`](RUNBOOK-sprint-1.md) | Dueño | Los 11 pasos con credenciales del Sprint 1 y su lista de verificación |
 | R6 | [`RUNBOOK-sprint-6.md`](RUNBOOK-sprint-6.md) | Dueño | Comprobar la programación de los agentes y ponerlos en marcha desde /admin |
+| E | [`05-agentes-conscientes-del-tiempo.md`](05-agentes-conscientes-del-tiempo.md) | Quant / Dueño | Diagnóstico de 11 días y mejoras a los agentes con metas (A, D y M3' hechas; B, C y E en espera) |
+| F | [`06-laboratorio-y-agentes-con-ventaja.md`](06-laboratorio-y-agentes-con-ventaja.md) | Quant / Dueño | Laboratorio de estrategias, criterio de ventaja, resultados y prueba de robustez |
+| G | [`07-agente-tendencia-cripto.md`](07-agente-tendencia-cripto.md) | Backend / Quant | Agente experimental «Tendencia cripto» (D24): reglas, implementación y criterio de retirada |
+
+**Estado actual y lista de control**: [`../ESTADO.md`](../ESTADO.md).
 
 ---
 
