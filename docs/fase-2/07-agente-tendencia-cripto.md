@@ -179,7 +179,7 @@ Fijado **antes** de empezar, para no moverlo según el resultado.
 | Primeras 5 operaciones | Que entra, sube el stop y sale como en el laboratorio (comparando con `laboratorio` sobre las mismas fechas) | Corregir errores; **no** juzgar la ventaja |
 | Cada lunes | Expectativa en R, operaciones, caída máxima, comparada con el grupo de control | Solo informar |
 | **30 operaciones cerradas** | Expectativa en R y su intervalo | **Expectativa < 0 → se pausa y se retira.** Entre 0 y +0,10 R → sigue en observación hasta 60. > +0,10 R → pasa a «validado en vivo» |
-| Caída máxima > 15 % del equity | — | Se pausa y se revisa (en el laboratorio la peor fue del 6,8 % en validación y del 16,8 % en diseño) |
+| Caída máxima > 35 % del equity (0039; era 15 % en la 0037) | — | Se pausa sola y se revisa. El laboratorio de cartera, con las restricciones del agente, cae hasta un 26 % ganando, así que el umbral queda por encima con margen |
 
 **Laboratorio de cartera (2026-10-11)**: la estrategia simulada con las
 restricciones de este agente (una cuenta de 500 $, 1 %, G6, a 1× con caja y
@@ -196,10 +196,11 @@ Dos lecturas:
 - G6 no le quita ventaja; se la sube un poco, porque al no caber todas entra
   primero en las rupturas más fuertes. Sin G6, la expectativa es menor
   (+0,95 R a 10 años) y la caída, mayor (−30,8 %).
-- **El umbral de pausa por caída (15 %) está mal calibrado.** La estrategia
-  que funciona cae habitualmente un 25 %, y en la validación a 5 años cayó un
-  15,1 %. Con este umbral se habría pausado sola estando en racha ganadora.
-  Pendiente de decisión del dueño (ESTADO §3.1).
+- **El umbral de pausa por caída de la 0037 (15 %) estaba mal calibrado.**
+  La estrategia que funciona cae habitualmente un 25 %, y en la validación a
+  5 años cayó un 15,1 %: con ese umbral se habría pausado sola estando en
+  racha ganadora. **Decisión del dueño (2026-10-11), antes de la primera
+  operación: 35 %** (migración 0039, parámetro `caida_max_pct`).
 
 **Cuánto tarda**: el laboratorio dio unas 79 operaciones en 18 meses
 sobre 14 criptos, unas **4–5 al mes**. Las 30 operaciones llegarán en

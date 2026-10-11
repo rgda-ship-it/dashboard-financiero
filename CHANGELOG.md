@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — 0039: pausa por caída al 35 %
+
+### Cambiado
+**0039**: la pausa automática por caída de «Tendencia cripto» pasa del 15 % al 35 %, por decisión del dueño antes de la primera operación.
+- **Motivo**: el laboratorio de cartera, con las restricciones del agente, cae hasta un 26 % en una estrategia que gana +1,0–1,1 R por operación. Con el 15 % se habría pausado sola en plena racha.
+- **Implementación**: el umbral pasa a ser un parámetro de la estrategia (`caida_max_pct`) e incluye la invariante I88.
+- **Sin cambios**: el criterio de expectativa a las 30 operaciones no cambia.
+
 ## [Sin publicar] - 2026-10-11 — 0038, laboratorio a 10 años y laboratorio de cartera
 
 ### Corregido
