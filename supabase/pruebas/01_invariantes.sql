@@ -4422,6 +4422,39 @@ end
 $i86$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I87 · Precio fresco para la decisión diaria (0038).
+--
+-- De 01:00 a 07:59 UTC el monitor pide también el precio del universo de
+-- los agentes de estrategia ACTIVOS; fuera de esa ventana, o con el agente
+-- en pausa, solo el de las criptos con posición abierta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i87$
+declare
+    v_ag  bigint;
+    v_act bigint;
+begin
+    select id into v_ag from public.agentes where nombre = 'Tendencia cripto';
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+    values ('zz-ids', 'cripto', 'coingecko', 'zz-ids', 'activo') returning id into v_act;
+
+    update public.agentes set estado = 'activo' where id = v_ag;
+    if coalesce(public.fn_monitor_ids_cripto('2026-10-12 03:00+00'), '') not like '%zz-ids%' then
+        raise exception 'I87 FALLO: en la ventana de decisión debía pedir el precio del universo del agente';
+    end if;
+    if coalesce(public.fn_monitor_ids_cripto('2026-10-12 12:00+00'), '') like '%zz-ids%' then
+        raise exception 'I87 FALLO: fuera de la ventana solo debía pedir las criptos con posición';
+    end if;
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    if coalesce(public.fn_monitor_ids_cripto('2026-10-12 03:00+00'), '') like '%zz-ids%' then
+        raise exception 'I87 FALLO: con el agente en pausa no debía pedir su universo';
+    end if;
+
+    update public.activos set estado = 'suspendido' where id = v_act;
+    raise notice 'PASS  I87 el monitor pide el precio del universo de Tendencia cripto de 01:00 a 07:59 UTC, solo con el agente activo';
+end
+$i87$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

@@ -152,7 +152,21 @@ y en el universo de 2021 la expectativa es positiva.
 | Criptos del top de 2021 | +0,65 R en 5 años ✅; +0,09 R en el tramo de validación |
 
 Lectura: ventaja real pero no demostrada, con forma de «pocas ganancias
-enormes». El dueño eligió la opción A, un **agente experimental** con
+enormes».
+
+**Con 10 años de histórico (2026-10-11)**, validación desde 2023-10, tres años:
+
+| Estrategia | Acciones (validación) | Cripto (validación) |
+|---|---|---|
+| Actual | +0,13 R, IC [−0,04, +0,30] ❌ | −0,11 R ❌ |
+| **Tendencia** | +0,12 R, IC [−0,03, +0,29], factor 1,24 ❌ (por poco; en diseño +0,17 R con IC > 0) | **+1,09 R, IC [+0,57, +1,70], 203 operaciones, factor 3,11 ✅** |
+| Reversión | +0,01 R ❌ | +0,01 R ❌ |
+
+Tendencia en cripto sale reforzada: más operaciones y un intervalo muy por
+encima de cero. Ojo: el universo cripto se eligió hoy, así que a 10 años el
+sesgo de supervivencia pesa más que a 5 (solana o avalanche no existían en
+2016). En acciones, tendencia ronda +0,12–0,17 R de forma estable, pero no
+llega al criterio: sigue sin agente. El dueño eligió la opción A, un **agente experimental** con
 criterio de retirada fijado de antemano (D24, doc 07), en lugar de seguir
 solo en el laboratorio.
 
