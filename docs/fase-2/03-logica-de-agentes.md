@@ -721,6 +721,7 @@ la DoD nº5):
 | N3 | El R:R mínimo filtra candidatos; la Fase 1 emitía niveles sin comprobar que mereciera la pena | `senales.ratio_rr` + filtro del agente |
 | N15 | SL y TP se anclan al soporte y la resistencia pero se acotan en ATR: stop entre 1 y 2 ATR del precio, objetivo como mucho a 2 ATR. El R:R va de 0,25 a 2 (D21) | `indicadores/tecnicos.py` · `calcular_niveles_operativos` |
 | N16 | Un RSI extremo solo vota si el MACD no lo contradice (D21) | `indicadores/tecnicos.py` · `evaluar_confluencia` |
+| N17 | Se compra al precio de compra y se vende al de venta (intermedio ± medio spread); el monitor dispara los niveles con el precio de venta (D23) | `fn_precio_compra`, `fn_precio_venta`, tabla `mercados` (0034) |
 | N4 | La liquidación se evalúa antes que el stop, y si queda por encima del SL se **baja** el apalancamiento | §5.3 paso 6, §5.4 regla M1 |
 | N5 | Ante ambigüedad TP/SL en el mismo intervalo, gana el SL | §5.4 regla M2 |
 | N6 | El cierre se registra al nivel, no al precio observado; salvo un stop saltado por un hueco de apertura tras un cierre de mercado, que sale al precio del hueco (M3', 0033) | §5.4 regla M3 |

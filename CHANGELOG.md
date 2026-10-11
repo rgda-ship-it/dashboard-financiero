@@ -4,6 +4,34 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — El spread (0034, D23)
+
+### Cambiado — se compra al precio de compra y se vende al de venta
+El simulador usaba un único precio por activo y entraba y salía a ese
+precio: el spread no existía y todo resultado era optimista, sobre todo en
+las operaciones de poco recorrido y en las salidas a mercado (deterioro,
+rotación), que lo pagan dos veces.
+
+Referencia: QuantFury, que no cobra comisiones ni financiación, solo el
+spread. Valores del lado pesimista, en la tabla `mercados` (por mercado) y
+en `activos` (por activo), que se cambian con un UPDATE:
+
+- acciones: 0,03 $ por acción (QuantFury: 0,01–0,03 $);
+- BTC: 5 $ (1–5 $); ETH: 0,10 $ («unos centavos»);
+- resto de cripto: 0,10 % del precio, supuesto pesimista sin dato.
+
+Con el precio intermedio p y el spread s: compra = p + s/2 y venta = p − s/2.
+Se abre a la compra (agentes y recomendaciones; un precio a mano se
+respeta); el monitor dispara stop, objetivo y liquidación con el precio de
+venta, y un hueco sale a la venta; los cierres a mercado y la toma parcial a
+mano venden a la venta. El agente dimensiona a la compra y descarta lo que
+con el spread ya no llega a su R:R mínimo (`rr_con_spread`). Las posiciones
+abiertas se siguen valorando al intermedio. `v_coste_spread` mide cuánto
+costó en cada orden. La guía de lectura lo explica.
+
+I83 nueva (83 invariantes). Las invariantes anteriores corren sin spread
+(razonan con un único precio) y I83 restaura los valores y lo prueba.
+
 ## [Sin publicar] - 2026-10-10 — Huecos reales en el simulador: M3' (0033)
 
 ### Cambiado — un stop saltado por un hueco de apertura sale al precio del hueco

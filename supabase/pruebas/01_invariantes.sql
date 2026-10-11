@@ -31,6 +31,20 @@ select g, 'prueba-' || g, 2, '{}'::jsonb
   from unnest(array[9001, 9101, 9102, 9103]) g
 on conflict do nothing;
 
+-- Desde la 0034 se compra y se vende con spread. Las invariantes escritas
+-- antes razonan con un único precio (y usan «bitcoin» a 100 $, donde su
+-- spread de 5 $ sería un 5 %), así que corren sin spread: se guardan los
+-- valores de la migración y se ponen a cero. I83, al final, los restaura y
+-- prueba el spread.
+create temp table spreads_0034 as
+    select 'mercado' as tipo, clave as id, spread_abs, spread_pct from public.mercados
+    union all
+    select 'activo', simbolo, spread_abs, spread_pct from public.activos
+     where spread_abs is not null or spread_pct is not null;
+update public.mercados set spread_abs = 0, spread_pct = 0;
+update public.activos set spread_abs = null, spread_pct = null
+ where spread_abs is not null or spread_pct is not null;
+
 do $inv$
 declare
     v_id_ibm  bigint;
@@ -4009,6 +4023,111 @@ begin
     raise notice 'PASS  I82 huecos reales: con el mercado cerrado entre medias, el stop sale al precio del hueco; si no, al nivel';
 end
 $i82$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I83 · El spread (0034).
+--
+-- Los valores de la migración (pesimistas, QuantFury): acciones 0,03 $,
+-- cripto 0,10 %, BTC 5 $, ETH 0,10 $. Una cripto a 100 $ con 0,10 % de
+-- spread: se compra a 100,05 y se vende a 99,95. El monitor dispara el
+-- stop con el precio de venta (el intermedio 98,04 aún no lo toca, la venta
+-- 97,99 sí); un cierre a mano vende al precio de venta; y el agente
+-- descarta lo que con el spread no llega a su R:R.
+-- ═════════════════════════════════════════════════════════════════════
+do $i83$
+declare
+    v_act    bigint;
+    v_act2   bigint;
+    v_senal  bigint;
+    v_cuenta bigint;
+    v_r      jsonb;
+    v_o      public.ordenes;
+    v_ag     bigint;
+    v_json   jsonb;
+begin
+    -- Restaurar los valores de la migración y comprobarlos.
+    update public.mercados m set spread_abs = t.spread_abs, spread_pct = t.spread_pct
+      from spreads_0034 t where t.tipo = 'mercado' and t.id = m.clave;
+    update public.activos a set spread_abs = t.spread_abs, spread_pct = t.spread_pct
+      from spreads_0034 t where t.tipo = 'activo' and t.id = a.simbolo;
+    if (select string_agg(clave || ':' || spread_abs::numeric(10,2) || '/' || spread_pct::numeric(10,2), ' ' order by clave)
+          from public.mercados) <> 'cripto:0.00/0.10 nyse:0.03/0.00'
+       or (select spread_abs from public.activos where simbolo = 'bitcoin') <> 5
+       or (select spread_abs from public.activos where simbolo = 'ethereum') <> 0.10 then
+        raise exception 'I83 FALLO: los spreads de la migración no son los acordados';
+    end if;
+
+    -- Precios de compra y de venta.
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzspread', 'cripto', 'coingecko', 'zzspread', 'activo', 100, now()) returning id into v_act;
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('ZZSPR', 'accion', 'yahoo', 'ZZSPR', 'activo', 10, now()) returning id into v_act2;
+    if public.fn_precio_compra(v_act, 100) <> 100.05 or public.fn_precio_venta(v_act, 100) <> 99.95
+       or public.fn_precio_compra(v_act2, 10) <> 10.015 or public.fn_precio_venta(v_act2, 10) <> 9.985
+       or public.fn_spread((select id from public.activos where simbolo = 'bitcoin'), 100000) <> 5 then
+        raise exception 'I83 FALLO: precios de compra y venta inesperados';
+    end if;
+
+    -- Abrir: al precio de compra.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_act, true, 5, 2, 's9', 100, 98, 104, 2, 'alcista', 'largo', 'alta', 'estructura', 2, 3, 0, now())
+    returning id into v_senal;
+    select c.id into v_cuenta from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id
+     where a.nombre = 'Prudencia' and c.estado <> 'game_over';
+    v_r := public.rpc_abrir_orden(v_cuenta, v_senal, null, null, 2, 1, 'agente', null, 1);
+    if (v_r ->> 'precio_entrada')::numeric <> 100.05 then
+        raise exception 'I83 FALLO: debía comprar a 100,05: %', v_r;
+    end if;
+
+    -- El monitor dispara con el precio de venta: 98,04 de intermedio son
+    -- 97,99 de venta, por debajo del stop de 98. Sale al stop.
+    update public.activos set ultimo_precio = 98.04, ultimo_precio_en = now() where id = v_act;
+    perform public.fn_monitorear_ordenes();
+    select * into v_o from public.ordenes where id = (v_r ->> 'orden_id')::bigint;
+    if v_o.estado <> 'cerrada' or v_o.precio_salida <> 98 or v_o.precio_observado_cierre <> 98.04 then
+        raise exception 'I83 FALLO: el monitor debía disparar el stop con el precio de venta: % % %',
+              v_o.estado, v_o.precio_salida, v_o.precio_observado_cierre;
+    end if;
+
+    -- Un cierre a mercado vende al precio de venta.
+    update public.activos set ultimo_precio = 101, ultimo_precio_en = now() where id = v_act;
+    update public.senales set precio_actual = 101, tp = 110, calculado_en = now() where id = v_senal;
+    v_r := public.rpc_abrir_orden(v_cuenta, v_senal, null, null, 2, 1, 'agente', null, 1);
+    perform public.rpc_cerrar_orden((v_r ->> 'orden_id')::bigint, 101, 'deterioro', 101);
+    select * into v_o from public.ordenes where id = (v_r ->> 'orden_id')::bigint;
+    if v_o.precio_entrada <> 101.0505 or v_o.precio_salida <> 100.9495 or v_o.pnl_bruto <> -0.10 then
+        raise exception 'I83 FALLO: entrar y salir a mercado debía costar el spread entero: % → % (% $)',
+              v_o.precio_entrada, v_o.precio_salida, v_o.pnl_bruto;
+    end if;
+
+    -- El agente descarta lo que con el spread no llega a su R:R mínimo:
+    -- acción a 10 $ con stop a 9,80 y objetivo a 10,30 (R:R 1,5 al
+    -- intermedio, 1,32 a la compra de 10,015) para un agente que exige 1,5.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_act2, true, 5, 3, 's9', 10, 9.80, 10.30, 3, 'alcista', 'largo', 'alta', 'estructura', 2.05, 3, 0, now());
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-spread', 2, 'activo',
+         '{"clases_admitidas": ["accion"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "rr_minimo": 1.5, "atr_pct_min": 2.04, "atr_pct_max": 2.06}')
+    returning id into v_ag;
+    perform public.fn_crear_cuenta_agente(v_ag);
+    v_json := public.fn_decidir_agente(v_ag);
+    if (select c ->> 'descarte' from jsonb_array_elements(v_json -> 'candidatos') c
+         where c ->> 'simbolo' = 'ZZSPR') is distinct from 'rr_con_spread' then
+        raise exception 'I83 FALLO: con el spread, ZZSPR no llega al R:R 1,5 y debía descartarse: %', v_json -> 'candidatos';
+    end if;
+
+    update public.activos set estado = 'suspendido' where id in (v_act, v_act2);
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I83 spread: se compra a la compra, se vende a la venta, el monitor dispara con la venta y el agente descarta lo que el spread deja sin R:R';
+end
+$i83$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
