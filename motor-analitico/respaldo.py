@@ -85,6 +85,8 @@ TABLAS = {
     "agente_backlog_ocurrencias": "backlog_id,agente_id,fecha",
     "agente_decisiones": "id",
     "agente_ajustes": "id",
+    # Decisión diaria de los agentes de estrategia (0037).
+    "agente_decisiones_diarias": "agente_id,activo_id,fecha_vela",
     # Al final: apunta a agentes y a usuarios.
     "eventos_sistema": "id",
 }

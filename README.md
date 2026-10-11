@@ -87,7 +87,8 @@ dashboard-financiero/
 │       ├── 0033_huecos_reales.sql # M3': un stop saltado por un hueco de apertura sale al precio del hueco
 │       ├── 0034_spread.sql # Se compra al precio de compra y se vende al de venta (D23)
 │       ├── 0035_spread_observado.sql # El spread real de cada acción, medido; se cobra el mayor entre lo medido y lo supuesto
-│       └── 0036_universo_solo_con_alcistas.sql # «Ampliar el universo» solo cuenta ciclos con alcistas descartadas
+│       ├── 0036_universo_solo_con_alcistas.sql # «Ampliar el universo» solo cuenta ciclos con alcistas descartadas
+│       └── 0037_agente_tendencia_cripto.sql # Agente experimental «Tendencia cripto»: sin meta, stop que sigue, decisión diaria (D24)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

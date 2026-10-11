@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-11
+> **Última actualización**: 2026-10-11 (0037 implementada)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -31,7 +31,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Dueño | Pega el SQL en el editor SQL de Supabase y sube el CSV al chat. Claude no tiene acceso directo a producción. Para copiar SQL largo, usar la URL *raw* de GitHub (las copias parciales dieron errores de sintaxis) |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I85), en la CI de migraciones |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I86), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -67,7 +67,7 @@ punto ⏭️ de la lista de control»*.
   zcash, el intervalo incluye el cero.
 - **Decisión D24 (2026-10-11)**: se crea el **agente experimental
   «Tendencia cripto»**, con criterio de retirada fijado de antemano (doc 07
-  §6). **Es lo siguiente que se construye.**
+  §6). **Implementado en la 0037; falta aplicarlo y activarlo.**
 
 ---
 
@@ -91,13 +91,14 @@ punto ⏭️ de la lista de control»*.
 |---|---|---|
 | ✅ | Decisión D24: crearlo como experimental (opción A) | Dueño, 2026-10-11 |
 | ✅ | Diseño: reglas, traducción al simulador, tamaño, criterio de retirada | Doc 07 |
-| ⏭️ | **Migración 0037** | Lo que incluye (doc 07 §4): <br>• `agentes.tipo` (metas / estrategia), con `objetivo_diario_pct` opcional; <br>• `ordenes.tp` opcional; <br>• `fn_subir_stop`; <br>• motivo de cierre `regla`; <br>• `fn_decidir_tendencia`; <br>• cron horario de 00:20 a 06:20 UTC; <br>• alta del agente en `pausado`. <br>Antes de empezar: revisar todo lo que lee `tp` (monitor, tomas parciales, rotación, deterioro, horizonte de la 0031, `v_coste_spread`, frontend) |
-| ⏭️ | Invariantes nuevas de la 0037 | Que el stop nunca baje, que no haya cierre por `tp` si no hay objetivo, la entrada, el cierre por regla, el 1 % de riesgo y G6 |
-| ✅ | Hora del ETL de cripto | Corre a los :07 de cada hora y rota las criptos sin posición. Por eso la decisión corre cada hora de 00:20 a 06:20 UTC, y cada activo se decide una vez, cuando ya tiene la vela de ayer (doc 07 §4.6) |
+| ✅ | **Migración 0037** (detalle en doc 07 §4.10) | Lo que incluye (doc 07 §4): <br>• `agentes.tipo` (metas / estrategia), con `objetivo_diario_pct` opcional; <br>• `ordenes.tp` opcional; <br>• `fn_subir_stop`; <br>• motivo de cierre `regla`; <br>• `fn_decidir_tendencia`; <br>• cron horario de 01:20 a 07:20 UTC (el ETL de las 00:07 puede no traer aún el punto de las 00:00, por eso hay 60 min de margen); <br>• alta del agente en `pausado`. <br>Revisado todo lo que lee `tp`: el monitor y la estimación de la 0031 toleran el nulo, y las tomas parciales, la rotación y el deterioro solo corren en el ciclo de los agentes con metas |
+| ✅ | Invariante I86 de la 0037 | Cubre: <br>• la entrada a 2 ATR con el 1 % de riesgo y sin objetivo; <br>• una sola decisión por vela; <br>• que el stop solo sube y nunca supera el precio de venta; <br>• la salida por regla; <br>• que el monitor no cierra por objetivo, pero sí por stop; <br>• G6; <br>• que los bucles con metas no lo recorren; <br>• la pausa por caída. <br>Pasan las 86 invariantes, la concurrencia y el cuadre |
+| ✅ | Hora del ETL de cripto | Corre a los :07 de cada hora y rota las criptos sin posición. Por eso la decisión corre cada hora de 01:20 a 07:20 UTC, y cada activo se decide una vez, cuando ya tiene la vela de ayer (doc 07 §4.6) |
 | 🗓️ | Laboratorio: prioridad por fuerza de la ruptura cuando no caben todas | El agente prioriza así (doc 07 §5) y hay que medirlo con las mismas reglas. Hoy el laboratorio abre todas |
 | 🗓️ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con 500 $ de saldo y un 1 % de riesgo |
-| 🗓️ | Frontend: el agente sin meta diaria, con expectativa en R y el criterio de retirada | Después de la 0037 |
-| 🗓️ 👤 | Aplicar la 0037 y activar el agente desde /admin | Después del merge |
+| ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
+| ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
+| ⏭️ 👤 | Al día siguiente de activarlo, comprobar que decidió | `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 15 %, se pausa y se revisa |
 | 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
@@ -148,7 +149,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0036_universo_solo_con_alcistas.sql`. La siguiente es la 0037 |
+| Migración más reciente | `0037_agente_tendencia_cripto.sql`. La siguiente es la 0038 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

@@ -67,6 +67,9 @@
   --agente-1: #199eb0;   /* Prudencia */
   --agente-2: #d95926;   /* Cadencia  */
   --agente-3: #9085e9;   /* Audacia   */
+  /* 0037: el agente de estrategia. Rosa, lejos de los otros tres en tono;
+     pendiente de pasar por el comprobador de paletas con ellos. */
+  --agente-4: #e07ab8;   /* Tendencia cripto */
 
   /* ── Trazos ──────────────────────────────────────────────────────── */
   --line-1: rgba(255, 255, 255, 0.06);   /* separadores internos */

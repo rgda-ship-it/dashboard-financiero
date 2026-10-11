@@ -2,9 +2,9 @@
 
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-11
-> **Estado**: **Aprobado por el dueño (D24, opción A)**. Diseño cerrado;
-> implementación pendiente (migración 0037). La lista de control está en
-> [`../ESTADO.md`](../ESTADO.md).
+> **Estado**: **Aprobado por el dueño (D24, opción A) e implementado en la
+> migración 0037**. Falta aplicarla y activar el agente desde /admin. La
+> lista de control está en [`../ESTADO.md`](../ESTADO.md).
 > **Contexto**: el laboratorio (doc 06 §3.7) encontró una sola estrategia
 > con ventaja, tendencia en cripto, y la prueba de robustez la dejó en
 > «real pero no demostrada». Este documento dice cómo llevarla al
@@ -72,7 +72,7 @@ pocos minutos. La traducción:
 
 | Laboratorio | Simulador | Nota |
 |---|---|---|
-| Señal al cierre del día t | **Una decisión al día por activo**, después del cierre diario de cripto (00:00 UTC), en cuanto el ETL haya escrito la vela de ayer de ese activo en `precios_diarios` | Cron propio cada hora de 00:20 a 06:20 UTC; cada activo se decide una sola vez al día. No el ciclo de 5 min de los agentes con metas |
+| Señal al cierre del día t | **Una decisión al día por activo**, después del cierre diario de cripto (00:00 UTC), en cuanto el ETL haya escrito la vela de ayer de ese activo en `precios_diarios` | Cron propio cada hora de 01:20 a 07:20 UTC; cada activo se decide una sola vez al día. No el ciclo de 5 min de los agentes con metas |
 | Entrada en la apertura de t + 1 + medio spread | Orden a mercado en esa decisión, al precio de compra (`fn_precio_compra`, D23) | Mismo precio en la práctica: la apertura de t + 1 es el precio de las 00:00 |
 | Stop con el mínimo del día | El monitor (`fn_monitorear_ordenes`, cada minuto) con el precio de venta; huecos con M3' | Igual o más fino que en el laboratorio |
 | Stop que sigue, al cierre | La decisión diaria **sube** `sl` de cada orden abierta si el nuevo es mayor | Requiere una función nueva (§4) |
@@ -82,9 +82,10 @@ pocos minutos. La traducción:
 
 ---
 
-## 4. Lo que hay que construir (migración 0037)
+## 4. Lo que se construyó (migración 0037)
 
-Propuesta técnica para el siguiente chat. Los nombres son orientativos.
+> **Implementado** (2026-10-11). Al final de la sección, lo que cambió
+> respecto a la propuesta (§4.10).
 
 1. **Tipo de agente.** Columna `agentes.tipo` (`metas` | `estrategia`).
    Los agentes con metas no cambian. En `estrategia`,
@@ -108,14 +109,14 @@ Propuesta técnica para el siguiente chat. Los nombres son orientativos.
    - Para cada orden abierta: sube el stop (§2) o cierra por regla.
    - Para cada cripto sin posición que cumple la entrada: abre con el
      tamaño del §5.
-   - Registra la decisión en `agente_decisiones`, con los descartes y su
-     motivo, como los demás agentes.
-6. **Cron** `decision-tendencia` cada hora de 00:20 a 06:20 UTC
-   (`20 0-6 * * *`). El ETL de cripto corre a los :07 de cada hora, pero
+   - Registra la decisión, con los descartes y su motivo (en la 0037,
+     en `agente_decisiones_diarias`).
+6. **Cron** `decision-estrategias` cada hora de 01:20 a 07:20 UTC
+   (`20 1-7 * * *`). El ETL de cripto corre a los :07 de cada hora, pero
    **no refresca todas las criptos en cada pasada**: las que tienen una
    posición abierta van en todas y el resto rota por antigüedad
    (`etl-cripto.yml`). Por eso cada activo se decide en la primera pasada
-   en que ya tiene la vela de ayer, y una sola vez al día. Si a las 06:20
+   en que ya tiene la vela de ayer, y una sola vez al día. Si a las 07:20
    sigue sin ella, se registra como descarte `sin_vela`. Las posiciones
    abiertas, que son las urgentes (stop que sigue, salida por regla), se
    refrescan en la primera pasada.
@@ -127,6 +128,24 @@ Propuesta técnica para el siguiente chat. Los nombres son orientativos.
    respetado.
 9. **Frontend**: el agente aparece en la vista de agentes sin meta diaria;
    muestra expectativa en R, operaciones y el criterio de retirada (§6).
+
+### 4.10 Cómo quedó, respecto a la propuesta
+
+| Pieza | En la 0037 |
+|---|---|
+| Tipo de agente | `agentes.tipo` (`metas`, `estrategia`). `objetivo_diario_pct` es opcional, con un `check` que lo exige solo en `metas`. `fn_ciclo_agentes`, `fn_corte_semanal` y `fn_autodiagnostico_agentes` recorren solo `metas` |
+| Órdenes sin objetivo | `ordenes.tp` opcional. Con objetivo, la regla de siempre. Sin objetivo, el stop puede quedar por encima de la entrada. El monitor no necesitó cambios: con `tp` nulo nunca cierra por objetivo |
+| Abrir | `fn_abrir_orden_estrategia(cuenta, activo, sl, riesgo_pct, racional)`. No se usa `rpc_abrir_orden`, que toma el stop y el objetivo de la señal del motor. Precio de compra con spread, a 1×, `sl_original` = stop inicial, `precio_liquidacion` 0 (a 1× no hay liquidación). G2 y G3 en la función y G6 por el trigger. G5 pasa a ser «activo activo y precio fresco», porque la señal es la vela. Si el saldo libre no llega, compra lo que cabe, con menos riesgo y nunca más. Por debajo de 10 $ de posición no abre |
+| Subir el stop | `fn_subir_stop(orden, nuevo_sl, motivo)`: solo sube, nunca a la altura del precio de venta o por encima, y deja cada cambio en `racional.stops` |
+| Cierre por regla | Motivo `regla`. `rpc_cerrar_orden` vende a mercado al precio de venta, como en `deterioro` |
+| Indicadores | `fn_indicadores_tendencia(activo, fecha, parámetros)`: SMA 200, máximo de 20 y mínimo de 10 de los días anteriores (si falta un día con rango real, devuelve nulo), y ATR 14 de Wilder sembrado con los primeros 14 rangos reales de los últimos 60 días |
+| Decisión | `fn_decidir_tendencia(agente)`. Por cada cripto activa sin decisión para la vela de ayer: <br>• si la vela no está lista (`ultimo_etl_en` < medianoche + 60 min) o el precio no es fresco, espera a la pasada siguiente; <br>• en la última pasada (07:20) lo registra como `sin_vela` o `sin_precio`. <br>Con posición: `salir_regla`, `subir_stop`, `salir_stop` (el stop nuevo ya está por encima del precio; se marca `cierre_por_hueco`) o `mantener`. Sin posición: `sin_datos`, `sin_senal`, `descartada` (abre bajo el stop, G6 o saldo) o `entrar`. Las entradas se abren por orden de fuerza de la ruptura, medida en ATR |
+| Registro | `agente_decisiones_diarias`, con clave (agente, activo, vela): no se decide dos veces sobre la misma vela. También se respalda (`respaldo.py`) |
+| Ciclo | `fn_ciclo_estrategias()`, cron `decision-estrategias` a las `20 1-7 * * *` UTC |
+| Criterio de retirada | `v_agentes_estrategia.criterio`: `arranque`, `en_prueba`, `observacion`, `validado`, `retirar` o `caida`. Con `retirar` o `caida`, `fn_ciclo_estrategias` **lo pausa solo** y deja un evento. Si a las 60 operaciones sigue entre 0 y +0,10 R, también pasa a `retirar`. En pausa, sus posiciones abiertas conservan el stop y el monitor las cierra si lo tocan, pero el stop ya no sube ni se aplica la regla de salida (igual que con los agentes con metas en pausa) |
+| Alta | «Tendencia cripto», 500 $, en pausa, con los parámetros del laboratorio en `estrategia` |
+| Invariante | I86 (doc 07 completo sobre una cripto de prueba) |
+| Frontend | Tarjeta propia: expectativa en R, R total, operaciones sobre 30, criterio. Racional con la ruptura y la historia del stop. «sin objetivo» en la tabla. Motivo «regla de salida». Guía de ayuda. Se excluye de la gráfica de meta teórica. Color `--agente-4`, pendiente de validar con el comprobador de paletas |
 
 ---
 

@@ -4219,6 +4219,209 @@ end
 $i85$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I86 · Agente «Tendencia cripto» (0037, doc 07).
+--
+-- Una cripto de prueba con 260 velas diarias en tendencia y una ruptura
+-- ayer. Comprueba: los indicadores; que entra con el stop a 2 ATR, sin
+-- objetivo, a 1× y con el 1 % de riesgo; que no decide dos veces sobre la
+-- misma vela; que el stop solo sube y nunca por encima del precio de
+-- venta; la salida por regla al precio de venta; que el monitor no cierra
+-- por objetivo una orden sin él pero sí por stop; G6; y que los bucles de
+-- los agentes con metas no lo tocan.
+-- ═════════════════════════════════════════════════════════════════════
+do $i86$
+declare
+    v_ag      public.agentes;
+    v_cuenta  bigint;
+    v_act     bigint;
+    v_otros   bigint[] := '{}';
+    v_id      bigint;
+    v_ayer    date := (now() at time zone 'UTC')::date - 1;
+    v_ind     jsonb;
+    v_sma     numeric;
+    v_o       public.ordenes;
+    v_equity  numeric;
+    v_sl      numeric;
+    v_r       jsonb;
+    v_n       int;
+    v_err     text;
+    v_ciclo   jsonb;
+    i         int;
+begin
+    select * into v_ag from public.agentes where nombre = 'Tendencia cripto';
+    if v_ag.tipo <> 'estrategia' or v_ag.objetivo_diario_pct is not null or v_ag.estado <> 'pausado' then
+        raise exception 'I86 FALLO: el agente debía existir como estrategia, sin meta y en pausa';
+    end if;
+    v_cuenta := public.fn_cuenta_agente(v_ag.id);
+    if (select saldo_disponible from public.cuentas_simulacion where id = v_cuenta) <> 500 then
+        raise exception 'I86 FALLO: la cuenta del agente debía empezar con 500 $';
+    end if;
+
+    -- Un agente con metas sin meta no se puede crear.
+    begin
+        insert into public.agentes (nombre, tipo, objetivo_diario_pct, estrategia)
+        values ('zz sin meta', 'metas', null, '{}');
+        raise exception 'I86 FALLO: un agente con metas sin objetivo diario debía rechazarse';
+    exception when check_violation then null;
+    end;
+
+    -- Para la prueba: sin esperar al margen del ETL ni a la hora límite.
+    update public.agentes
+       set estado = 'activo',
+           estrategia = estrategia || '{"margen_etl_min": 0, "hora_limite_utc": 24}'::jsonb
+     where id = v_ag.id;
+
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en, ultimo_etl_en)
+    values ('zz-tendencia', 'cripto', 'coingecko', 'zz-tendencia', 'activo', 1, now(), now())
+    returning id into v_act;
+
+    -- 259 velas subiendo 0,2 $ al día (las 30 últimas con rango real del
+    -- ±1 %) y ayer una ruptura del 6 %.
+    insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, rango_real, origen)
+    select v_act, v_ayer - 259 + g, 100 + 0.2 * g,
+           case when g >= 229 then (100 + 0.2 * g) * 1.01 end,
+           case when g >= 229 then (100 + 0.2 * g) * 0.99 end,
+           100 + 0.2 * g, g >= 229, 'coingecko_ohlc'
+      from generate_series(0, 258) g;
+    insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, rango_real, origen)
+    values (v_act, v_ayer, 151.6, 161.0, 151.0, 160.0, true, 'coingecko_ohlc');
+    update public.activos set ultimo_precio = 160 where id = v_act;
+
+    -- ── Indicadores ──────────────────────────────────────────────────
+    v_ind := public.fn_indicadores_tendencia(v_act, v_ayer, v_ag.estrategia);
+    select avg(cierre) into v_sma from (select cierre from public.precios_diarios
+                                         where activo_id = v_act order by fecha desc limit 200) s;
+    if (v_ind ->> 'sma')::numeric <> round(v_sma, 8)
+       or (v_ind ->> 'max_ruptura')::numeric <> round((100 + 0.2 * 258) * 1.01, 8)
+       or (v_ind ->> 'min_salida')::numeric <> round((100 + 0.2 * 249) * 0.99, 8)
+       or (v_ind ->> 'cierre')::numeric <> 160
+       or not ((v_ind ->> 'atr')::numeric between 1.5 and 4) then
+        raise exception 'I86 FALLO: indicadores inesperados: %', v_ind;
+    end if;
+
+    -- ── Entrada ──────────────────────────────────────────────────────
+    v_equity := public.fn_equity(v_cuenta);
+    v_r := public.fn_decidir_tendencia(v_ag.id);
+    select * into v_o from public.ordenes where cuenta_id = v_cuenta and activo_id = v_act and estado = 'abierta';
+    if not found then
+        raise exception 'I86 FALLO: con la ruptura debía entrar (%; decisión: %)', v_r,
+              (select datos from public.agente_decisiones_diarias where agente_id = v_ag.id and activo_id = v_act);
+    end if;
+    v_sl := round(160 - 2 * (v_ind ->> 'atr')::numeric, 8);
+    if v_o.tp is not null or v_o.sl <> v_sl or v_o.sl_original <> v_sl or v_o.apalancamiento <> 1
+       or v_o.precio_entrada <> public.fn_precio_compra(v_act, 160)
+       or abs(v_o.cantidad * (v_o.precio_entrada - v_o.sl) - v_equity * 0.01) > 0.01
+       or v_o.racional ->> 'regla' <> 'tendencia' then
+        raise exception 'I86 FALLO: orden de entrada inesperada (tp %, sl % frente a %, riesgo % frente a %)',
+              v_o.tp, v_o.sl, v_sl, v_o.cantidad * (v_o.precio_entrada - v_o.sl), v_equity * 0.01;
+    end if;
+
+    -- Una sola decisión por vela.
+    perform public.fn_decidir_tendencia(v_ag.id);
+    select count(*) into v_n from public.agente_decisiones_diarias where agente_id = v_ag.id and activo_id = v_act;
+    if v_n <> 1 or (select count(*) from public.ordenes where cuenta_id = v_cuenta and activo_id = v_act) <> 1 then
+        raise exception 'I86 FALLO: decidió dos veces sobre la misma vela';
+    end if;
+
+    -- ── El stop solo sube, y nunca por encima de la venta ─────────────
+    if public.fn_subir_stop(v_o.id, v_o.sl - 1) then
+        raise exception 'I86 FALLO: el stop no debía bajar';
+    end if;
+    begin
+        perform public.fn_subir_stop(v_o.id, 165);
+        raise exception 'I86 FALLO: un stop por encima del precio de venta debía rechazarse';
+    exception when sqlstate 'P0001' then null;
+    end;
+
+    -- Al día siguiente (simulado: la orden entró hace 5 días y su stop
+    -- quedó bajo), el stop sube a mejor cierre − 3 ATR.
+    update public.ordenes set fecha_entrada = now() - interval '5 days', sl = 100, sl_original = 100 where id = v_o.id;
+    delete from public.agente_decisiones_diarias where agente_id = v_ag.id and activo_id = v_act;
+    perform public.fn_decidir_tendencia(v_ag.id);
+    select * into v_o from public.ordenes where id = v_o.id;
+    if v_o.sl <> round(160 - 3 * (v_ind ->> 'atr')::numeric, 8)
+       or jsonb_array_length(v_o.racional -> 'stops') <> 1
+       or (select accion from public.agente_decisiones_diarias where agente_id = v_ag.id and activo_id = v_act) <> 'subir_stop' then
+        raise exception 'I86 FALLO: el stop debía subir a mejor cierre − 3 ATR (está en %)', v_o.sl;
+    end if;
+
+    -- ── El monitor: sin objetivo no cierra por arriba ─────────────────
+    update public.activos set ultimo_precio = 10000, ultimo_precio_en = now() where id = v_act;
+    perform public.fn_monitorear_ordenes();
+    if (select estado from public.ordenes where id = v_o.id) <> 'abierta' then
+        raise exception 'I86 FALLO: el monitor cerró por objetivo una orden sin objetivo';
+    end if;
+    update public.activos set ultimo_precio = 160, ultimo_precio_en = now() where id = v_act;
+
+    -- ── Salida por regla: ayer cerró bajo el mínimo de 10 días ────────
+    update public.precios_diarios set cierre = 140, minimo = 139, maximo = 152
+     where activo_id = v_act and fecha = v_ayer;
+    delete from public.agente_decisiones_diarias where agente_id = v_ag.id and activo_id = v_act;
+    perform public.fn_decidir_tendencia(v_ag.id);
+    select * into v_o from public.ordenes where id = v_o.id;
+    if v_o.estado <> 'cerrada' or v_o.motivo_cierre <> 'regla'
+       or v_o.precio_salida <> public.fn_precio_venta(v_act, 160) then
+        raise exception 'I86 FALLO: debía salir por regla al precio de venta (estado %, motivo %, salida %)',
+              v_o.estado, v_o.motivo_cierre, v_o.precio_salida;
+    end if;
+    -- Y ese día no vuelve a entrar.
+    if exists (select 1 from public.ordenes where cuenta_id = v_cuenta and activo_id = v_act and estado = 'abierta') then
+        raise exception 'I86 FALLO: no debía volver a entrar el mismo día de la salida';
+    end if;
+
+    -- ── G6 y el monitor por stop ─────────────────────────────────────
+    for i in 1..5 loop
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('zz-g6-' || i, 'cripto', 'coingecko', 'zz-g6-' || i, 'activo', 100, now())
+        returning id into v_id;
+        v_otros := v_otros || v_id;
+    end loop;
+    for i in 1..4 loop
+        perform public.fn_abrir_orden_estrategia(v_cuenta, v_otros[i], 90, 1, '{}');
+    end loop;
+    begin
+        perform public.fn_abrir_orden_estrategia(v_cuenta, v_otros[5], 90, 1, '{}');
+        raise exception 'I86 FALLO: la quinta posición al 1 %% debía chocar con G6 (4 × riesgo)';
+    exception when sqlstate 'P0001' then
+        get stacked diagnostics v_err = message_text;
+        if v_err not like 'G6%' then
+            raise exception 'I86 FALLO: la quinta debía rechazarla G6, no: %', v_err;
+        end if;
+    end;
+    -- Con el stop por encima de la entrada, la posición deja de consumir
+    -- riesgo y cabe otra.
+    update public.activos set ultimo_precio = 120, ultimo_precio_en = now() where id = v_otros[1];
+    perform public.fn_subir_stop((select id from public.ordenes where cuenta_id = v_cuenta and activo_id = v_otros[1] and estado = 'abierta'), 105);
+    perform public.fn_abrir_orden_estrategia(v_cuenta, v_otros[5], 90, 1, '{}');
+
+    update public.activos set ultimo_precio = 85, ultimo_precio_en = now() where id = v_otros[2];
+    perform public.fn_monitorear_ordenes();
+    if (select motivo_cierre from public.ordenes where cuenta_id = v_cuenta and activo_id = v_otros[2]) <> 'sl' then
+        raise exception 'I86 FALLO: el monitor debía cerrar por stop una orden sin objetivo';
+    end if;
+
+    -- ── Los bucles con metas no lo recorren ──────────────────────────
+    v_ciclo := public.fn_ciclo_agentes();
+    if v_ciclo::text like '%Tendencia cripto%' then
+        raise exception 'I86 FALLO: el ciclo de los agentes con metas recorrió al agente de estrategia';
+    end if;
+
+    -- ── Criterio de retirada: caída > 15 % → pausa sola ──────────────
+    if (select criterio from public.v_agentes_estrategia where agente_id = v_ag.id) <> 'arranque' then
+        raise exception 'I86 FALLO: con menos de 5 cerradas el criterio debía ser «arranque»';
+    end if;
+    update public.cuentas_simulacion set capital_maximo_alcanzado = 1000 where id = v_cuenta;
+    perform public.fn_ciclo_estrategias();
+    if (select estado from public.agentes where id = v_ag.id) <> 'pausado' then
+        raise exception 'I86 FALLO: con una caída de más del 15 %% el agente debía quedar en pausa';
+    end if;
+
+    update public.activos set estado = 'suspendido' where id = v_act or id = any(v_otros);
+    raise notice 'PASS  I86 Tendencia cripto: entra con la ruptura a 2 ATR y 1 %% de riesgo, sin objetivo; una decisión por vela; el stop solo sube; sale por regla; G6; pausa por caída';
+end
+$i86$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
