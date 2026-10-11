@@ -162,6 +162,9 @@ export const MOTIVOS_CIERRE = {
   rotacion: "rotación",
   // 0024: un agente cerró porque la señal de ese activo empeoró.
   deterioro: "señal deteriorada",
+  // 0037: la estrategia de tendencia salió por su regla (cierre bajo el
+  // mínimo de 10 días).
+  regla: "regla de salida",
 };
 
 /** Las acciones no se compran por fracciones; las criptos sí. */

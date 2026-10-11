@@ -59,7 +59,8 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
       <div className="admin__quien">
         <p className="admin__email">
           <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
-          {a.nombre} · {Number(a.objetivo_diario_pct)} % diario
+          {a.nombre} ·{" "}
+          {a.objetivo_diario_pct != null ? `${Number(a.objetivo_diario_pct)} % diario` : "sin meta diaria (estrategia)"}
         </p>
         <p className="admin__meta">
           {estado.texto}

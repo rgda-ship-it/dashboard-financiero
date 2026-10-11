@@ -24,6 +24,10 @@ async function llamar(consulta) {
 export const leerRanking = () =>
   llamar(supabase.from("v_ranking_agentes").select("*").order("agente_id"));
 
+/** Agentes de estrategia (0037): expectativa en R y criterio de retirada. */
+export const leerEstrategias = () =>
+  llamar(supabase.from("v_agentes_estrategia").select("*").order("agente_id"));
+
 export const leerCurvas = () =>
   llamar(
     supabase
@@ -110,6 +114,7 @@ export const COLOR_AGENTE = {
   Prudencia: "var(--agente-1)",
   Cadencia: "var(--agente-2)",
   Audacia: "var(--agente-3)",
+  "Tendencia cripto": "var(--agente-4)",
 };
 export const colorDe = (nombre) => COLOR_AGENTE[nombre] ?? "var(--tx-3)";
 
@@ -118,6 +123,16 @@ export const ESTADOS_AGENTE = {
   cuarentena: { texto: "cuarentena", tono: "warn" },
   pausado: { texto: "en pausa", tono: "neutro" },
   game_over: { texto: "game over", tono: "neg" },
+};
+
+/** Criterio del doc 07 §6 para un agente de estrategia (v_agentes_estrategia). */
+export const CRITERIOS_ESTRATEGIA = {
+  arranque: { texto: "arranque", tono: "neutro", nota: "menos de 5 operaciones: se revisa que opere como en el laboratorio" },
+  en_prueba: { texto: "en prueba", tono: "neutro", nota: "se juzga a las 30 operaciones cerradas" },
+  observacion: { texto: "en observación", tono: "warn", nota: "entre 0 y +0,10 R: sigue hasta 60 operaciones" },
+  validado: { texto: "validado en vivo", tono: "ok", nota: "más de +0,10 R por operación" },
+  retirar: { texto: "retirada", tono: "neg", nota: "expectativa por debajo del criterio: queda en pausa" },
+  caida: { texto: "pausa por caída", tono: "neg", nota: "más de un 15 % por debajo de su máximo" },
 };
 
 export const VEREDICTOS = {

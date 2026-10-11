@@ -4,6 +4,32 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — 0037: agente experimental «Tendencia cripto»
+
+### Añadido
+- **Agente de un tipo nuevo** (`agentes.tipo = 'estrategia'`), sin meta diaria. Aplica la estrategia de tendencia del laboratorio con sus parámetros exactos:
+  - entrada al cerrar sobre el máximo de 20 días y la media de 200;
+  - stop inicial a 2 ATR que sube a 3 ATR del mejor cierre;
+  - salida bajo el mínimo de 10 días;
+  - sin objetivo;
+  - riesgo del 1 % a 1×.
+- **Decisión diaria por cripto** (`fn_decidir_tendencia`), cada hora de 01:20 a 07:20 UTC, en cuanto el ETL ha escrito la vela de ayer. Cada decisión queda en `agente_decisiones_diarias`, una por vela.
+- **Piezas nuevas**:
+  - `fn_abrir_orden_estrategia`;
+  - `fn_subir_stop` (solo sube);
+  - `fn_indicadores_tendencia`;
+  - motivo de cierre `regla`;
+  - órdenes con `tp` opcional;
+  - `v_agentes_estrategia`, con la expectativa en R y el criterio del doc 07 §6. Al cumplirse el criterio de retirada o con una caída de más del 15 %, el agente queda en pausa solo.
+- **Grupo de control intacto**: los tres agentes con metas no cambian, y su ciclo, su corte semanal y su autodiagnóstico solo los recorren a ellos.
+- **Frontend**: tarjeta propia, racional de la ruptura con la historia del stop, guía de ayuda, «sin objetivo» y «regla de salida».
+- **Pruebas**:
+  - invariante I86 (86 en total);
+  - respaldo de la tabla nueva.
+
+### Para el dueño
+Aplicar la 0037 y activar «Tendencia cripto» desde /admin. La primera decisión llega la mañana siguiente.
+
 ## [Sin publicar] - 2026-10-11 — Agente experimental «Tendencia cripto» (D24) y estado del proyecto
 
 ### Decidido

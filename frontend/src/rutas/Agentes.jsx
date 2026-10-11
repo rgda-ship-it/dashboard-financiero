@@ -9,6 +9,7 @@ import { IconoCaret, IconoRefrescar } from "../components/ui/Iconos.jsx";
 import { supabase } from "../supabase.js";
 import {
   ACCIONES_CICLO,
+  CRITERIOS_ESTRATEGIA,
   ESTADOS_AGENTE,
   ESTADOS_BACKLOG,
   MOTIVOS_DESCARTE,
@@ -22,6 +23,7 @@ import {
   leerBacklog,
   leerCurvas,
   leerDecisiones,
+  leerEstrategias,
   leerOperaciones,
   leerPracticas,
   leerRanking,
@@ -175,9 +177,125 @@ function TarjetaAgente({ a }) {
   );
 }
 
+// ── Agente de estrategia (0037, doc 07) ──────────────────────────────
+// Sin meta diaria: se mide por su expectativa en R (resultado ÷ riesgo
+// inicial) y se juzga con un criterio fijado antes de empezar.
+function TarjetaEstrategia({ a, e }) {
+  const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado, tono: "neutro" };
+  const criterio = e ? CRITERIOS_ESTRATEGIA[e.criterio] : null;
+  const p = a.estrategia ?? {};
+  const r = (v, d = 2) => (v != null ? `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(d)} R` : "—");
+  return (
+    <article className="ag__tarjeta" style={{ "--color-agente": colorDe(a.nombre) }}>
+      <header className="ag__tarjeta-cabecera">
+        <span className="ag__nombre">{a.nombre}</span>
+        <span className="ag__meta">sin meta · experimento</span>
+        <Tono tono={estado.tono}>{estado.texto}</Tono>
+      </header>
+
+      <p className="ag__equity num">{a.equity != null ? formatearPrecio(Number(a.equity)) : "—"}</p>
+      <p className="ag__sub">
+        {criterio ? (
+          <>
+            <Tono tono={criterio.tono}>{criterio.texto}</Tono> · {criterio.nota}
+          </>
+        ) : (
+          "sin datos todavía"
+        )}
+      </p>
+
+      <dl className="ag__cifras">
+        <div>
+          <dt>Expectativa</dt>
+          <dd className={`num ${claseSigno(Number(e?.expectativa_r ?? 0))}`}>{r(e?.expectativa_r, 3)}</dd>
+        </div>
+        <div>
+          <dt>R total</dt>
+          <dd className={`num ${claseSigno(Number(e?.r_total ?? 0))}`}>{r(e?.r_total, 1)}</dd>
+        </div>
+        <div>
+          <dt>Operaciones</dt>
+          <dd className="num">
+            {e?.cerradas ?? 0} de 30
+            <span className="ag__de"> · {e?.en_regla ?? 0} regla / {e?.en_sl ?? 0} stop</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Aciertos</dt>
+          <dd className="num">{e?.aciertos_pct != null ? `${Number(e.aciertos_pct)} %` : "—"}</dd>
+        </div>
+        <div>
+          <dt>Abiertas</dt>
+          <dd className="num">{a.posiciones_abiertas ?? 0}</dd>
+        </div>
+        <div>
+          <dt>Desde el máximo</dt>
+          <dd className={`num ${claseSigno(Number(a.drawdown_pct ?? 0))}`}>
+            {formatearPorcentaje(Number(a.drawdown_pct ?? 0))}
+          </dd>
+        </div>
+      </dl>
+
+      <footer className="ag__pie">
+        <span>riesgo {Number(p.riesgo_pct_operacion ?? a.riesgo_pct_operacion)} % por operación · 1x</span>
+        <span>
+          entra al cerrar sobre el máximo de {p.ruptura} días y la media de {p.sma_fondo} · stop a{" "}
+          {p.stop_atr} ATR que sigue a {p.sigue_atr} ATR del mejor cierre · sale bajo el mínimo de {p.salida} días ·
+          sin objetivo
+        </span>
+        {e?.ultima_vela && <span>última vela decidida: {e.ultima_vela}</span>}
+      </footer>
+    </article>
+  );
+}
+
+// ── Racional de una orden de estrategia ──────────────────────────────
+function RacionalTendencia({ r, o }) {
+  const ind = r.indicadores ?? {};
+  const stops = r.stops ?? [];
+  const riesgo = Number(o?.cantidad) * (Number(o?.precio_entrada) - Number(o?.sl_original ?? o?.sl));
+  return (
+    <div className="detail__box">
+      <div className="detail__col">
+        <p className="label">Por qué entró</p>
+        <p className="detail__motivo">
+          La vela del {r.vela} cerró en <strong>{formatearPrecio(Number(ind.cierre))}</strong>, por encima del
+          máximo de los {r.parametros?.ruptura} días anteriores ({formatearPrecio(Number(ind.max_ruptura))}) y de
+          su media de {r.parametros?.sma_fondo} ({formatearPrecio(Number(ind.sma))}). Ruptura de{" "}
+          {Number(r.fuerza).toFixed(2)} ATR.
+        </p>
+        <p className="detail__motivo">
+          Stop inicial a {r.parametros?.stop_atr} ATR (ATR {formatearPrecio(Number(ind.atr))}), sin objetivo.
+          {Number.isFinite(riesgo) && Number(r.equity) > 0 &&
+            ` Riesgo hasta el stop al abrir: ${formatearPrecio(riesgo)} (${((riesgo / Number(r.equity)) * 100).toFixed(1)} % del equity).`}{" "}
+          Estrategia v{r.version_estrategia}.
+        </p>
+      </div>
+      <div className="detail__col">
+        <p className="label">Cómo ha subido el stop</p>
+        {stops.length > 0 ? (
+          <ul className="ag__descartes">
+            {stops.map((s) => (
+              <li key={s.en}>
+                <span className="num">
+                  {formatearPrecio(Number(s.de))} → {formatearPrecio(Number(s.a))}
+                </span>
+                <span className="ag__de"> {tiempoRelativo(s.en)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="detail__motivo">Todavía en el stop inicial.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Racional de una orden ────────────────────────────────────────────
 function Racional({ r, o }) {
   if (!r) return <p className="detail__motivo">Esta orden no guarda racional.</p>;
+  if (r.regla === "tendencia") return <RacionalTendencia r={r} o={o} />;
   // Riesgo con el que se abrió frente al que declara la estrategia. Solo
   // supera lo declarado por el mínimo de una acción entera (0017), y nunca
   // el 10 % del equity (G2).
@@ -309,7 +427,11 @@ function FilaOperacion({ o, abierta, alAbrir }) {
         <td className="num">
           <span className="neg">{formatearPrecio(Number(o.sl))}</span>
           {" / "}
-          <span className="pos">{formatearPrecio(Number(o.tp))}</span>
+          {o.tp != null ? (
+            <span className="pos">{formatearPrecio(Number(o.tp))}</span>
+          ) : (
+            <span className="ag__de">sin objetivo</span>
+          )}
         </td>
         <td>
           {o.estado === "abierta" ? (
@@ -540,6 +662,7 @@ function TablaDecisiones({ decisiones, ajustes }) {
 // ── Pantalla ─────────────────────────────────────────────────────────
 export default function Agentes() {
   const [ranking, setRanking] = useState([]);
+  const [estrategias, setEstrategias] = useState([]);
   const [curvas, setCurvas] = useState([]);
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
@@ -560,7 +683,7 @@ export default function Agentes() {
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p, d, j] = await Promise.all([
+      const [r, c, o, b, p, d, j, e] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
@@ -568,8 +691,10 @@ export default function Agentes() {
         leerPracticas(),
         leerDecisiones(),
         leerAjustes(),
+        leerEstrategias(),
       ]);
       setRanking(r ?? []);
+      setEstrategias(e ?? []);
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
@@ -611,7 +736,12 @@ export default function Agentes() {
     };
   }, [cargar]);
 
-  const series = useMemo(() => construirSeries(curvas, ranking), [curvas, ranking]);
+  // La curva teórica es la de una meta diaria: los agentes de estrategia
+  // no tienen y no se dibujan aquí.
+  const series = useMemo(
+    () => construirSeries(curvas, ranking.filter((a) => a.tipo !== "estrategia")),
+    [curvas, ranking]
+  );
 
   const motivos = useMemo(
     () => [...new Set(operaciones.map((o) => o.motivo_cierre).filter(Boolean))],
@@ -663,8 +793,8 @@ export default function Agentes() {
               cargando
                 ? "cargando…"
                 : pausados === ranking.length && ranking.length > 0
-                  ? "los tres en pausa: los pone en marcha un administrador"
-                  : "500 $ ficticios cada uno, hacia 1.000.000 $"
+                  ? "todos en pausa: los pone en marcha un administrador"
+                  : "500 $ ficticios cada uno · tres con meta diaria y uno de estrategia"
             }
             alPedirAyuda={() => setSeccionGuia("agentes")}
             acciones={
@@ -680,9 +810,17 @@ export default function Agentes() {
             }
           >
             <div className="ag__marcador">
-              {ranking.map((a) => (
-                <TarjetaAgente key={a.agente_id} a={a} />
-              ))}
+              {ranking.map((a) =>
+                a.tipo === "estrategia" ? (
+                  <TarjetaEstrategia
+                    key={a.agente_id}
+                    a={a}
+                    e={estrategias.find((x) => x.agente_id === a.agente_id)}
+                  />
+                ) : (
+                  <TarjetaAgente key={a.agente_id} a={a} />
+                )
+              )}
             </div>
           </Panel>
 
