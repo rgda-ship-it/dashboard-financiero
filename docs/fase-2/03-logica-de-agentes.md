@@ -686,7 +686,7 @@ sistema. Esto es lo que hace que la tabla merezca revisarse.
 | Disparador | Condición | Tipo | `clave_deduplicacion` |
 |------------|-----------|------|----------------------|
 | **Sin candidatos por dirección** | ≥ 3 días seguidos en que todos los descartes fueron por `direccion = 'bajista'` | `sesgo_corto` | `sesgo_corto:global` |
-| **Universo insuficiente** | ≥ 5 ciclos sin ningún candidato porque la cartera del agente no tiene activos que pasen el filtro | `nuevo_activo` | `nuevo_activo:universo` |
+| **Universo insuficiente** | ≥ 5 ciclos sin ningún candidato porque la cartera del agente no tiene activos que pasen el filtro (desde la 0036, solo ciclos con alguna señal alcista que el perfil descartó) | `nuevo_activo` | `nuevo_activo:universo` |
 | **Tope de fase estrangulando** | La cuenta está en `fase_2_consolidacion` y el objetivo diario exige un movimiento > 3 % del subyacente (§1.4) | `reversion_fase` | `reversion_fase:cuenta_{id}` |
 | **Volatilidad no disponible** | El mismo activo devuelve `operable = false` por falta de ATR ≥ 5 veces | `nuevo_dato` | `nuevo_dato:atr:{simbolo}` |
 | **Cierre parcial** | ≥ 3 operaciones que tocaron el 80 % del recorrido al TP y después retrocedieron al SL | `nueva_herramienta` | `nueva_herramienta:cierre_parcial` |
