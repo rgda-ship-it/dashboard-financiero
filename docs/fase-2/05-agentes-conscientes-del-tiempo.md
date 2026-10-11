@@ -2,7 +2,7 @@
 
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-10
-> **Estado**: **Propuesta revisada con las respuestas del dueño**. Entregas A (0031) y D (0032) hechas; el resto, sin implementar.
+> **Estado**: **Propuesta revisada con las respuestas del dueño**. Entregas A (0031), D (0032) y M3' (0033) hechas; B, C y E **en espera** mientras los agentes con metas sirven de grupo de control (D24). Motivos y condiciones para retomarlas en [`../ESTADO.md`](../ESTADO.md) §3.3.
 > Las decisiones del dueño están en el §8.
 > **Contexto**: diagnóstico de 11 días en producción
 > (`scripts/diagnostico_agentes.sql`) y D21 (0030), que deja el stop y el

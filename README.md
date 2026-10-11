@@ -17,6 +17,9 @@ PostgreSQL, y el navegador lee de ahí. El análisis completo está en
 [`docs/fase-2/`](docs/fase-2/); el arranque paso a paso, en
 [`docs/fase-2/RUNBOOK-sprint-1.md`](docs/fase-2/RUNBOOK-sprint-1.md).
 
+> **¿Retomas el trabajo?** Empieza por [`docs/ESTADO.md`](docs/ESTADO.md):
+> qué está hecho, en curso, previsto y en espera, con la lista de control.
+
 ---
 
 ## Estructura del proyecto
@@ -92,8 +95,9 @@ dashboard-financiero/
 │   └── verificar_paso_7.sql   # Verificación del ETL para el SQL Editor
 │
 ├── docs/                      # Análisis y propuestas técnicas (no código)
+│   ├── ESTADO.md              # Estado del proyecto y lista de control (empezar aquí)
 │   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
-│   └── fase-2/                # Análisis completo de la Fase 2 (6 documentos)
+│   └── fase-2/                # Análisis completo de la Fase 2 (docs 00–07 y runbooks)
 │
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt

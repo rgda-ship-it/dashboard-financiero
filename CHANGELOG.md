@@ -4,6 +4,27 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Agente experimental «Tendencia cripto» (D24) y estado del proyecto
+
+### Decidido
+Tras la prueba de robustez (3 de 4 criterios: la ventaja de tendencia en
+cripto depende de zcash), el dueño elige crear un **agente experimental**
+en el simulador en lugar de seguir solo en el laboratorio (D24). Reglas
+idénticas a las probadas, riesgo del 1 % por operación, sin meta diaria y
+retirada si a las 30 operaciones la expectativa es negativa. Los tres
+agentes con metas quedan como grupo de control y no se tocan; por eso las
+entregas B, C y E del doc 05 pasan a «en espera».
+
+### Documentado
+- `docs/ESTADO.md`: punto de entrada para retomar en otro chat; cómo
+  trabajamos y **lista de control** (hecho, en curso, siguiente, previsto,
+  en espera con motivo, tareas del dueño).
+- `docs/fase-2/07-agente-tendencia-cripto.md`: diseño del agente, cómo
+  pasar del laboratorio al simulador, lo que incluye la migración 0037,
+  tamaño y guardarraíles, evaluación, retirada y riesgos.
+- Doc 06 §3.7 con el resultado de la robustez; D24 en el doc 04; estados
+  de los docs 05 y 06.
+
 ## [Sin publicar] - 2026-10-11 — Prueba de robustez del laboratorio (doc 06 §3.7)
 
 ### Añadido
