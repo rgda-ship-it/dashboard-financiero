@@ -227,6 +227,16 @@ rupturas funcionan en valores con tendencia) o una selección afortunada.
 con siete estrategias, alguna puede pasar por suerte. Una ganadora nueva no
 recibe agente sin superar antes la prueba de robustez (§3.7).
 
+### 3.9 Amplitud en acciones: el S&P 100
+
+Para decidir si `ruptura_volumen` en acciones es una ventaja real o una
+selección afortunada de 29 valores, se prueba en el S&P 100 (`--universo
+sp100`, 102 valores con su sector). El informe añade la expectativa por
+sector y cuántos valores ganan.
+
+El sesgo de supervivencia sigue ahí, porque es la composición de hoy. Lo
+que mide es la amplitud de la ventaja.
+
 ---
 
 ## 4. Lo que viene después

@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Laboratorio: universo S&P 100 y desglose por sector
+
+### Añadido
+- `--universo sp100` en el laboratorio y en la robustez: 102 valores con su sector. El workflow tiene una entrada nueva, `universo`.
+- El informe incluye ahora una tabla por sector con los valores que ganan, la expectativa en todo el histórico y la expectativa en validación.
+- Sirve para medir si `ruptura_volumen` en acciones gana de forma amplia o solo en unos pocos valores (doc 06 §3.9).
+
 ## [Sin publicar] - 2026-10-11 — Laboratorio: segunda ronda con las estrategias del manual
 
 ### Añadido
