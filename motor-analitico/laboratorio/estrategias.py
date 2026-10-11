@@ -8,6 +8,8 @@ recalculando sobre el histórico truncado.
 
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
@@ -264,6 +266,34 @@ class ReversionBollinger:
         return pos.sl, (t - pos.indice_entrada + 1) >= self.dias_max
 
 
+class Azar(Tendencia):
+    """Referencia (doc 06 §3.10): las MISMAS salidas y el mismo filtro de
+    fondo que tendencia (cierre sobre la media de 200, stop a 2 ATR que
+    sigue a 3 ATR, salida bajo el mínimo de 10), pero entrando en días al
+    azar (un 5 % de los días). Si esto también «tiene ventaja», lo que gana
+    no es la señal, sino estar comprado en tendencia alcista con un buen
+    stop, y el viento a favor del mercado.
+
+    El azar es determinista y causal: depende solo de la fecha y del cierre
+    de ese día, así que no cambia al truncar el histórico."""
+
+    nombre = "azar"
+
+    def __init__(self, probabilidad: float = 0.05, **kw):
+        super().__init__(**kw)
+        self.probabilidad = probabilidad
+
+    def entrada(self, df, t):
+        fila = df.iloc[t]
+        if any(pd.isna(fila[k]) for k in ("SMA_200", "ATR_14")) or fila["Close"] <= fila["SMA_200"]:
+            return None
+        semilla = f"{df.index[t].value}-{float(fila['Close']):.6f}".encode()
+        if int(hashlib.md5(semilla).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return Entrada(sl=float(fila["Close"] - self.stop_atr * fila["ATR_14"]))
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
-               "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger}
+               "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
+               "azar": Azar}

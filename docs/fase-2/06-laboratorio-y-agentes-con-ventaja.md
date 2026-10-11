@@ -237,6 +237,15 @@ sector y cuántos valores ganan.
 El sesgo de supervivencia sigue ahí, porque es la composición de hoy. Lo
 que mide es la amplitud de la ventaja.
 
+### 3.10 Referencia al azar: ¿señal o viento a favor?
+
+**azar** usa las mismas salidas y el mismo filtro de fondo que tendencia,
+pero entra en días al azar (un 5 %). Responde a una pregunta que el
+criterio del §3.5 no hace: si comprar **cualquier** día de tendencia
+alcista, con un buen stop, ya «tiene ventaja», lo que gana no es la señal.
+Una estrategia solo aporta si supera claramente a su referencia al azar
+en el mismo universo.
+
 ---
 
 ## 4. Lo que viene después

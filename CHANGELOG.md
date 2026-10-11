@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Laboratorio: referencia al azar
+
+### Añadido
+Nueva estrategia **azar**: las salidas y el filtro de tendencia, con entradas en días al azar. El azar es determinista y causal. Separa la ventaja de la señal de la del mercado alcista con un buen stop (doc 06 §3.10).
+
 ## [Sin publicar] - 2026-10-11 — Laboratorio: universo S&P 100 y desglose por sector
 
 ### Añadido
