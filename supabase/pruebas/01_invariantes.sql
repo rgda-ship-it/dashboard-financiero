@@ -4187,6 +4187,38 @@ end
 $i84$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I85 · «Ampliar el universo» no cuenta los ciclos sin nada alcista (0036).
+-- ═════════════════════════════════════════════════════════════════════
+do $i85$
+declare
+    v_dia public.agente_dias;
+begin
+    select * into v_dia from public.agente_dias limit 1;
+
+    -- Sin candidatas y sin ninguna alcista: es el mercado, no cuenta.
+    update public.agente_dias
+       set ciclos = ciclos + 1, ciclos_con_universo = ciclos_con_universo + 1,
+           ciclos_sin_candidatos = ciclos_sin_candidatos + 1, ciclos_sin_alcistas = ciclos_sin_alcistas + 1
+     where agente_id = v_dia.agente_id and fecha = v_dia.fecha;
+    if (select ciclos_universo_sin_candidatos from public.agente_dias
+         where agente_id = v_dia.agente_id and fecha = v_dia.fecha) <> v_dia.ciclos_universo_sin_candidatos then
+        raise exception 'I85 FALLO: un ciclo sin ninguna señal alcista contó para «Ampliar el universo»';
+    end if;
+
+    -- Sin candidatas pero con alguna alcista descartada por el perfil: cuenta.
+    update public.agente_dias
+       set ciclos = ciclos + 1, ciclos_con_universo = ciclos_con_universo + 1,
+           ciclos_sin_candidatos = ciclos_sin_candidatos + 1
+     where agente_id = v_dia.agente_id and fecha = v_dia.fecha;
+    if (select ciclos_universo_sin_candidatos from public.agente_dias
+         where agente_id = v_dia.agente_id and fecha = v_dia.fecha) <> v_dia.ciclos_universo_sin_candidatos + 1 then
+        raise exception 'I85 FALLO: un ciclo con alcistas descartadas por el perfil debía contar';
+    end if;
+    raise notice 'PASS  I85 «Ampliar el universo» solo cuenta los ciclos con señales alcistas que el perfil descartó';
+end
+$i85$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

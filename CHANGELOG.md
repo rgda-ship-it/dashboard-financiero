@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — «Ampliar el universo» sin falsos positivos de fin de semana (0036)
+
+### Corregido
+El domingo Prudencia reabrió «Ampliar el universo de activos». Desde la
+0032 admite cripto y los fines de semana ya tiene señales frescas que mirar,
+pero ninguna cripto era alcista: el contador sumaba cualquier ciclo sin
+candidatas, también los que no tenían nada alcista. Eso es el mercado, no
+el universo, y ya lo mide «Operar en corto». Ahora solo cuenta los ciclos
+con alguna señal alcista que el perfil descartó. La petición reabierta queda
+rechazada con el motivo.
+
+I85 nueva (85 invariantes).
+
 ## [Sin publicar] - 2026-10-11 — El spread real de cada acción, medido (0035)
 
 ### Corregido — AMCR quedaba en el lado optimista
