@@ -21,6 +21,7 @@ import {
   LIMITE_OPERACIONES,
   leerAjustes,
   leerBacklog,
+  leerComparativa,
   leerCurvas,
   leerDecisiones,
   leerEstrategias,
@@ -246,6 +247,70 @@ function TarjetaEstrategia({ a, e }) {
         {e?.ultima_vela && <span>última vela decidida: {e.ultima_vela}</span>}
       </footer>
     </article>
+  );
+}
+
+// ── Comparativa (0040) ───────────────────────────────────────────────
+// La pregunta del experimento: ¿gana más por cada dólar arriesgado el
+// agente de estrategia que los que persiguen una meta? Por eso la columna
+// que manda es la expectativa en R, no el porcentaje ganado.
+function TablaComparativa({ filas }) {
+  const r = (v, d = 2) => (v != null ? `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(d)}` : "—");
+  const desde = filas.find((f) => f.experimento_desde)?.experimento_desde;
+  return (
+    <>
+      <table className="sim__tabla">
+        <thead>
+          <tr>
+            <th>Agente</th>
+            <th className="num">Equity</th>
+            <th className="num">Rentab.</th>
+            <th className="num">Caída</th>
+            <th className="num">Cerradas</th>
+            <th className="num">Expectativa (R)</th>
+            <th className="num">R total</th>
+            <th className="num">Aciertos</th>
+            <th className="num">F. benef.</th>
+            <th className="num">Desde el experimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f) => (
+            <tr key={f.agente_id}>
+              <td>
+                <span className="ag__punto" style={{ background: colorDe(f.nombre) }} aria-hidden="true" />
+                {f.nombre}
+                <span className="sim__sub">
+                  {f.tipo === "estrategia" ? "estrategia, sin meta" : `meta ${Number(f.objetivo_diario_pct)} % diario`}
+                </span>
+              </td>
+              <td className="num">{f.equity != null ? formatearPrecio(Number(f.equity)) : "—"}</td>
+              <td className={`num ${claseSigno(Number(f.rentabilidad_pct ?? 0))}`}>
+                {f.rentabilidad_pct != null ? formatearPorcentaje(Number(f.rentabilidad_pct)) : "—"}
+              </td>
+              <td className={`num ${claseSigno(Number(f.drawdown_pct ?? 0))}`}>
+                {f.drawdown_pct != null ? formatearPorcentaje(Number(f.drawdown_pct)) : "—"}
+              </td>
+              <td className="num">{f.cerradas}</td>
+              <td className={`num ${claseSigno(Number(f.expectativa_r ?? 0))}`}>{r(f.expectativa_r, 3)}</td>
+              <td className={`num ${claseSigno(Number(f.r_total ?? 0))}`}>{r(f.r_total, 1)}</td>
+              <td className="num">{f.aciertos_pct != null ? `${Number(f.aciertos_pct)} %` : "—"}</td>
+              <td className="num">{f.factor_beneficio != null ? Number(f.factor_beneficio).toFixed(2) : "—"}</td>
+              <td className="num">
+                {f.cerradas_exp} ops · {r(f.expectativa_r_exp, 3)} R
+                <span className="sim__sub">{f.pnl_exp != null ? formatearImporte(Number(f.pnl_exp)) : "—"}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="sim__nota">
+        R = resultado de la operación ÷ lo que arriesgaba hasta el stop al abrirla (con los cierres parciales). Es la
+        única medida comparable entre agentes con apalancamientos y riesgos distintos.
+        {desde && ` «Desde el experimento» cuenta las operaciones abiertas desde el ${new Date(desde).toLocaleDateString("es-ES")}.`}{" "}
+        Con pocas operaciones, la diferencia es ruido: el veredicto de Tendencia cripto llega a las 30.
+      </p>
+    </>
   );
 }
 
@@ -663,6 +728,7 @@ function TablaDecisiones({ decisiones, ajustes }) {
 export default function Agentes() {
   const [ranking, setRanking] = useState([]);
   const [estrategias, setEstrategias] = useState([]);
+  const [comparativa, setComparativa] = useState([]);
   const [curvas, setCurvas] = useState([]);
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
@@ -683,7 +749,7 @@ export default function Agentes() {
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p, d, j, e] = await Promise.all([
+      const [r, c, o, b, p, d, j, e, k] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
@@ -692,9 +758,11 @@ export default function Agentes() {
         leerDecisiones(),
         leerAjustes(),
         leerEstrategias(),
+        leerComparativa(),
       ]);
       setRanking(r ?? []);
       setEstrategias(e ?? []);
+      setComparativa(k ?? []);
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
@@ -822,6 +890,14 @@ export default function Agentes() {
                 )
               )}
             </div>
+          </Panel>
+
+          <Panel
+            titulo="Comparativa"
+            meta="las mismas medidas para los cuatro · el experimento"
+            alPedirAyuda={() => setSeccionGuia("agentes")}
+          >
+            <TablaComparativa filas={comparativa} />
           </Panel>
 
           <Panel

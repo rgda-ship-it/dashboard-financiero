@@ -31,7 +31,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Dueño | Pega el SQL en el editor SQL de Supabase y sube el CSV al chat. Claude no tiene acceso directo a producción. Para copiar SQL largo, usar la URL *raw* de GitHub (las copias parciales dieron errores de sintaxis) |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I88), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I89), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -145,7 +145,8 @@ punto ⏭️ de la lista de control»*.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| 🗓️ | Panel comparativo: agentes nuevos frente al grupo de control, con las mismas medidas (expectativa en R, caída, operaciones, R por activo) | Tiene sentido cuando el agente nuevo tenga operaciones. Se puede preparar en paralelo con la 0037 |
+| ✅ | Panel comparativo (0040, `v_comparativa_agentes`) | Los cuatro agentes con las mismas medidas: <br>• expectativa en R, con los cierres parciales; <br>• R total; <br>• aciertos; <br>• factor de beneficio; <br>• rentabilidad y caída. <br>Se miden en todo el histórico y «desde el experimento» (el alta de Tendencia cripto). Panel «Comparativa» en Agentes. Invariante I89 |
+| 👤 | **Aplicar la 0040** | Solo añade una vista; no cambia ninguna decisión |
 | ⏸️ | Agente de cartera que combine estrategias con ventaja | **Esperamos** a tener al menos dos estrategias con ventaja. Hoy hay media |
 | ⏸️ | Capa narrativa con LLM para el informe semanal (doc 05 §10.2) | **Esperamos** porque tiene un coste por uso que hoy el proyecto no tiene. Decide el dueño |
 
@@ -155,7 +156,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0039_caida_maxima_35.sql`. La siguiente es la 0040 |
+| Migración más reciente | `0040_comparativa_agentes.sql`. La siguiente es la 0041 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

@@ -4486,6 +4486,53 @@ end
 $i88$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I89 · Panel comparativo (0040).
+--
+-- Una fila por agente; para el de estrategia, las mismas operaciones y la
+-- misma expectativa en R que su propia vista; y la R de una orden con un
+-- cierre parcial cuenta el riesgo de la cantidad INICIAL y el resultado
+-- de las dos partes.
+-- ═════════════════════════════════════════════════════════════════════
+do $i89$
+declare
+    v_ag  bigint;
+    v_c   record;
+    v_e   record;
+begin
+    if (select count(*) from public.v_comparativa_agentes) <> (select count(*) from public.agentes) then
+        raise exception 'I89 FALLO: debía haber una fila por agente';
+    end if;
+    select id into v_ag from public.agentes where nombre = 'Tendencia cripto';
+    select * into v_c from public.v_comparativa_agentes where agente_id = v_ag;
+    select * into v_e from public.v_agentes_estrategia where agente_id = v_ag;
+    if v_c.cerradas <> v_e.cerradas or v_c.cerradas = 0
+       or round(v_c.expectativa_r, 3) <> round(v_e.expectativa_r, 3) then
+        raise exception 'I89 FALLO: la comparativa (% ops, % R) no cuadra con v_agentes_estrategia (% ops, % R)',
+              v_c.cerradas, v_c.expectativa_r, v_e.cerradas, v_e.expectativa_r;
+    end if;
+    -- (I86 adelanta 5 días la entrada de una orden: queda antes del alta.)
+    if v_c.experimento_desde is null or v_c.cerradas_exp <> v_c.cerradas - 1 then
+        raise exception 'I89 FALLO: «desde el experimento» debía contar las entradas posteriores al alta (% de %)',
+              v_c.cerradas_exp, v_c.cerradas;
+    end if;
+
+    -- R con un parcial: 2 unidades a 100 con stop en 90 (riesgo 20 $); se
+    -- cierra 1 a 110 (+10) y la otra a 120 (+20): R = 30 / 20 = 1,5.
+    if exists (
+        select 1
+          from (select (o.pnl_bruto + o.pnl_parciales)
+                         / ((o.cantidad + p.cantidad) * (o.precio_entrada - coalesce(o.sl_original, o.sl))) as r
+                  from (values (1.0::numeric, 100.0::numeric, 90.0::numeric, null::numeric, 20.0::numeric, 10.0::numeric)) as
+                       o(cantidad, precio_entrada, sl, sl_original, pnl_bruto, pnl_parciales),
+                       (values (1.0::numeric)) as p(cantidad)) t
+         where t.r <> 1.5) then
+        raise exception 'I89 FALLO: la R con un parcial debía ser 1,5';
+    end if;
+    raise notice 'PASS  I89 comparativa: una fila por agente; la R de Tendencia cripto cuadra con su vista; los parciales cuentan';
+end
+$i89$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

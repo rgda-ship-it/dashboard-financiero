@@ -180,6 +180,6 @@ solo en el laboratorio.
    propia función (ganancia esperada con límite de riesgo, tamaño según la
    ventaja medida) y sin meta diaria que perseguir.
 3. **Panel comparativo**: agentes nuevos frente a agentes con metas, con
-   las mismas medidas.
+   las mismas medidas. ✅ Hecho en la 0040 (`v_comparativa_agentes`).
 4. Más adelante, un **agente de cartera** que combine las estrategias con
    ventaja y reparta el riesgo entre ellas.
