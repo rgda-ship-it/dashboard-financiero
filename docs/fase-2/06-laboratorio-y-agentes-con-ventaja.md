@@ -246,6 +246,41 @@ alcista, con un buen stop, ya «tiene ventaja», lo que gana no es la señal.
 Una estrategia solo aporta si supera claramente a su referencia al azar
 en el mismo universo.
 
+**Resultado (10 años, validación desde 2023-10; [S&P 100](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38166123443), [universo propio](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38165652250))**:
+
+| Universo | azar | tendencia | ruptura_volumen |
+|---|---|---|---|
+| S&P 100 (102 acciones) | **+0,28 R** [+0,21, +0,36] | +0,26 R | +0,27 R [+0,16, +0,39] |
+| Acciones propias (29) | +0,07 R ❌ | +0,12 R ❌ | +0,29 R |
+| Cripto (14) | **+0,65 R** [+0,25, +1,14] | +1,09 R [+0,57, +1,70] | +1,13 R |
+
+**Conclusiones**:
+1. **En acciones, la señal de ruptura no aporta nada.** En el universo
+   amplio, entrar en días al azar rinde lo mismo que la ruptura, con o sin
+   volumen. Lo que «gana» es estar comprado en acciones que suben, con un
+   stop que sigue al precio, en una década alcista y con el S&P 100 de hoy,
+   que son las supervivientes. La ventaja de ruptura_volumen en nuestras 29
+   acciones (+0,29 frente a +0,07 R) no se reproduce con 102 acciones: muy
+   probablemente fue suerte de un universo pequeño. Su robustez en el
+   S&P 100 (9 de 9 variantes, 64 de 101 valores, sin los 3 mejores sigue
+   pasando) era real, pero medía ese viento a favor, no la señal.
+   **No se crea agente de acciones.**
+2. **En cripto, la mayor parte de la ventaja de Tendencia tampoco es la
+   señal.** El sistema de salidas, con el filtro de la media de 200, el stop
+   que sigue y ningún objetivo, ya da +0,65 R entrando al azar. La ruptura
+   añade unos +0,45 R, pero los intervalos se solapan, así que esa parte no
+   está demostrada. El agente Tendencia cripto sigue: lo que se prueba en
+   vivo es el sistema completo, y la parte más sólida de ese sistema son
+   justo sus salidas.
+3. **Lo que de verdad funciona en todo lo probado es la forma de salir**:
+   cortar las pérdidas con un stop, dejar correr las ganancias con un stop
+   que sube y no fijar objetivo. Es justo lo contrario de lo que hacían
+   los agentes con metas, con objetivo cercano y stop fijo.
+4. **Nuevo requisito del criterio (§3.5)**: una estrategia tiene ventaja de
+   señal solo si, en validación, supera a su referencia al azar en el mismo
+   universo y con intervalos que no se solapen. Sin eso, lo que mide es el
+   mercado.
+
 ---
 
 ## 4. Lo que viene después

@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — Laboratorio: el azar como vara de medir (resultado)
+
+### Hallazgo
+Con 10 años de datos, entrar en días al azar con las salidas de tendencia rinde lo mismo que las rupturas en el S&P 100 (+0,28 R frente a +0,26 y +0,27 R).
+- **Acciones:** no se crea agente. La ventaja de `ruptura_volumen` en nuestras 29 acciones no se reproduce en un universo amplio.
+- **Cripto:** el azar da +0,65 R frente a +1,09 R de tendencia. La mayor parte de la ventaja está en el sistema de salidas: filtro de la media de 200, stop que sigue y sin objetivo.
+
+El criterio de ventaja (doc 06 §3.5 y §3.10) exige desde ahora superar a la referencia al azar en el mismo universo.
+
 ## [Sin publicar] - 2026-10-11 — Laboratorio: referencia al azar
 
 ### Añadido
