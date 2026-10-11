@@ -111,6 +111,33 @@ pierde con buena cara.
 
 La «Actual» es la referencia: dice cuánto vale lo que ya tenemos.
 
+### 3.7 Primera ronda y prueba de robustez
+
+Resultado de la primera ronda (5 años, 43 activos): solo **tendencia en
+cripto** pasa el §3.5 (validación: 79 operaciones, +0,69 R, IC 90 %
+[+0,06, +1,44], factor 2,39, sin desplome frente al diseño). Ninguna pasa en
+acciones; la actual queda en +0,14 R con el intervalo incluyendo el cero.
+
+Un aprobado justo puede ser suerte, así que antes de crear un agente se
+somete a una prueba de robustez (`laboratorio/robustez.py`, modo
+`robustez` del workflow):
+
+1. **Correlación**: intervalo remuestreando meses enteros, no operaciones.
+2. **Concentración por activo**: R de cada uno y veredicto quitando los 1,
+   2 y 3 mejores.
+3. **Concentración por año.**
+4. **Parámetros**: rejilla de variantes (en tendencia, ruptura 10–55 días,
+   stop que sigue a 2,5–4 ATR y stop inicial a 1,5–3 ATR); una ventaja real
+   aparece en la mayoría, no solo en la elegida.
+5. **Costes**: spread tres veces peor.
+6. **Supervivencia**: las criptos del top de octubre de 2021 que no están en
+   el universo, incluidas las que se hundieron (Terra, FTX…); para la
+   estrategia son datos nunca vistos.
+
+Se crea el agente si la referencia sigue en pie con el intervalo por meses,
+no depende de un activo, la mayoría de variantes tiene expectativa positiva
+y en el universo de 2021 la expectativa es positiva.
+
 ---
 
 ## 4. Lo que viene después

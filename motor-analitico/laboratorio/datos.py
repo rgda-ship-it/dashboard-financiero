@@ -55,8 +55,22 @@ def universo() -> list[tuple[str, str]]:
     return [(s, "accion") for s in acciones] + [(c, "cripto") for c in CRIPTO_YAHOO]
 
 
+# Criptos del top de capitalización de octubre de 2021 que NO están en el
+# universo: un grupo elegido con la información de entonces, con las que
+# luego se hundieron o desaparecieron (Terra, FTX…). Sirve para medir el
+# sesgo de supervivencia de un universo elegido hoy (robustez.py).
+CRIPTO_TOP_2021 = (
+    "SHIB-USD", "LUNA1-USD", "LUNC-USD", "UNI7083-USD", "ALGO-USD", "MATIC-USD",
+    "XLM-USD", "AXS-USD", "ATOM-USD", "VET-USD", "ICP-USD", "FIL-USD",
+    "ETC-USD", "FTT-USD", "THETA-USD", "XTZ-USD", "EGLD-USD", "HBAR-USD",
+    "MANA-USD", "SAND-USD", "EOS-USD", "AAVE-USD", "CRO-USD", "NEAR-USD", "KSM-USD",
+)
+
+
 def ticker_yahoo(simbolo: str, clase: str) -> str | None:
-    return simbolo if clase == "accion" else CRIPTO_YAHOO.get(simbolo)
+    if clase == "accion" or simbolo.endswith("-USD"):
+        return simbolo
+    return CRIPTO_YAHOO.get(simbolo)
 
 
 def cargar(simbolo: str, clase: str, periodo: str = "5y") -> pd.DataFrame | None:

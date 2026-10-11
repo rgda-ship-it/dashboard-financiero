@@ -166,3 +166,37 @@ def test_veredicto_detecta_el_desplome_frente_al_diseno():
     validacion = metricas.medir([_op(r, i) for i, r in enumerate(rng.choice([1.3, -1.0], 400, p=[0.5, 0.5]))])
     ok, motivos = metricas.veredicto(diseno, validacion)
     assert not ok and any("tercio" in m for m in motivos)
+
+
+# ---------------------------------------------------------------------------
+# Robustez (doc 06 §3.7)
+# ---------------------------------------------------------------------------
+
+def test_ic_por_meses_es_mas_ancho_si_las_operaciones_van_en_bloque():
+    # Mismas 120 operaciones: en bloques de 10 por mes del mismo signo, o
+    # repartidas. Remuestrear meses debe dar un intervalo más ancho en bloque.
+    rng = np.random.default_rng(4)
+    signos = rng.choice([2.0, -1.0], 12)
+    en_bloque = [_op(s, dia=30 * m + i) for m, s in enumerate(signos) for i in range(10)]
+    repartidas = [_op(r, dia=3 * i) for i, r in enumerate(np.repeat(signos, 10)[rng.permutation(120)])]
+    a, b = metricas.ic90_por_meses(en_bloque), metricas.ic90_por_meses(repartidas)
+    assert (a[1] - a[0]) > (b[1] - b[0])
+    assert metricas.ic90_por_meses([]) is None
+
+
+def test_el_informe_de_robustez_cubre_todas_las_pruebas():
+    from laboratorio import robustez
+    datos = {(f"S{i}", "cripto"): _serie_aleatoria(n=500, semilla=i) for i in range(3)}
+    extra = {("X-USD", "cripto"): _serie_aleatoria(n=500, semilla=9)}
+    indice = datos[("S0", "cripto")].index
+    corte = indice[0] + (indice[-1] - indice[0]) * 0.7
+    texto = robustez.informe("reversion", "cripto", datos, extra, corte)
+    for seccion in ("## 1.", "## 2.", "## 3.", "## 4.", "## 5.", "## 6.", "27 variantes", "X-USD"):
+        assert seccion in texto, seccion
+
+
+def test_las_criptos_de_2021_se_piden_tal_cual_a_yahoo():
+    from laboratorio.datos import ticker_yahoo
+    assert ticker_yahoo("FTT-USD", "cripto") == "FTT-USD"
+    assert ticker_yahoo("bitcoin", "cripto") == "BTC-USD"
+    assert ticker_yahoo("desconocida", "cripto") is None
