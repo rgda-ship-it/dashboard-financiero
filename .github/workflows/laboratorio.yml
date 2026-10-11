@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó'
+        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente'
         type: choice
-        options: [laboratorio, robustez]
+        options: [laboratorio, robustez, cartera]
         default: laboratorio
       estrategias:
         description: 'Estrategias, separadas por comas (en robustez, solo la primera)'
@@ -27,7 +27,7 @@ on:
         description: 'Opcional: simbolo:clase separados por comas (vacío = el universo activo)'
         default: ''
       clase:
-        description: 'Solo robustez: clase de activo (cripto o accion)'
+        description: 'Solo robustez y cartera: clase de activo (cripto o accion)'
         default: 'cripto'
 
 concurrency:
@@ -57,6 +57,14 @@ jobs:
         run: |
           if [ "${{ inputs.modo }}" = "robustez" ]; then
             python -m laboratorio.robustez \
+              --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
+              --clase "${{ inputs.clase }}" \
+              --periodo "${{ inputs.periodo }}" \
+              --salida ../laboratorio_salida
+            exit
+          fi
+          if [ "${{ inputs.modo }}" = "cartera" ]; then
+            python -m laboratorio.cartera \
               --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --clase "${{ inputs.clase }}" \
               --periodo "${{ inputs.periodo }}" \

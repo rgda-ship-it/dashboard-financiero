@@ -31,7 +31,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Dueño | Pega el SQL en el editor SQL de Supabase y sube el CSV al chat. Claude no tiene acceso directo a producción. Para copiar SQL largo, usar la URL *raw* de GitHub (las copias parciales dieron errores de sintaxis) |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I86), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I87), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -91,10 +91,13 @@ punto ⏭️ de la lista de control»*.
 |---|---|---|
 | ✅ | Decisión D24: crearlo como experimental (opción A) | Dueño, 2026-10-11 |
 | ✅ | Diseño: reglas, traducción al simulador, tamaño, criterio de retirada | Doc 07 |
-| ✅ | **Migración 0037** (detalle en doc 07 §4.10) | Lo que incluye (doc 07 §4): <br>• `agentes.tipo` (metas / estrategia), con `objetivo_diario_pct` opcional; <br>• `ordenes.tp` opcional; <br>• `fn_subir_stop`; <br>• motivo de cierre `regla`; <br>• `fn_decidir_tendencia`; <br>• cron horario de 01:20 a 07:20 UTC (el ETL de las 00:07 puede no traer aún el punto de las 00:00, por eso hay 60 min de margen); <br>• alta del agente en `pausado`. <br>Revisado todo lo que lee `tp`: el monitor y la estimación de la 0031 toleran el nulo, y las tomas parciales, la rotación y el deterioro solo corren en el ciclo de los agentes con metas |
+| ✅ 👤 | **Migración 0037** (detalle en doc 07 §4.10), aplicada y agente activado el 2026-10-11 | Lo que incluye (doc 07 §4): <br>• `agentes.tipo` (metas / estrategia), con `objetivo_diario_pct` opcional; <br>• `ordenes.tp` opcional; <br>• `fn_subir_stop`; <br>• motivo de cierre `regla`; <br>• `fn_decidir_tendencia`; <br>• cron horario de 01:20 a 07:20 UTC (el ETL de las 00:07 puede no traer aún el punto de las 00:00, por eso hay 60 min de margen); <br>• alta del agente en `pausado`. <br>Revisado todo lo que lee `tp`: el monitor y la estimación de la 0031 toleran el nulo, y las tomas parciales, la rotación y el deterioro solo corren en el ciclo de los agentes con metas |
 | ✅ | Invariante I86 de la 0037 | Cubre: <br>• la entrada a 2 ATR con el 1 % de riesgo y sin objetivo; <br>• una sola decisión por vela; <br>• que el stop solo sube y nunca supera el precio de venta; <br>• la salida por regla; <br>• que el monitor no cierra por objetivo, pero sí por stop; <br>• G6; <br>• que los bucles con metas no lo recorren; <br>• la pausa por caída. <br>Pasan las 86 invariantes, la concurrencia y el cuadre |
 | ✅ | Hora del ETL de cripto | Corre a los :07 de cada hora y rota las criptos sin posición. Por eso la decisión corre cada hora de 01:20 a 07:20 UTC, y cada activo se decide una vez, cuando ya tiene la vela de ayer (doc 07 §4.6) |
-| 🗓️ | Laboratorio: prioridad por fuerza de la ruptura cuando no caben todas | El agente prioriza así (doc 07 §5) y hay que medirlo con las mismas reglas. Hoy el laboratorio abre todas |
+| ✅ | Laboratorio de cartera (`laboratorio/cartera.py`, modo `cartera`) | Una sola cuenta con el 1 %, G6, a 1×, con caja y prioridad por fuerza de la ruptura, igual que el agente. Con un activo y sin G6 reproduce las operaciones del motor (prueba de paridad) |
+| ✅ | Ensayo sobre producción (`scripts/ensayo_tendencia.sql`), 2026-10-11 | Las 14 criptos tienen 29 días con rango real y 200 cierres. El token de maxlinear no tiene 200 cierres. Hoy no entraría en ninguna: 3 están bajo su media de 200 y 11 sin ruptura |
+| ✅ | 0038: precio fresco para la decisión diaria | Sin posición, una cripto solo recibía precio del ETL horario. Si el ETL tardaba, la decisión de las :20 lo encontraba viejo y el agente podía pasar el día sin entrar. Ahora el monitor pide también el universo del agente de 01:00 a 07:59 UTC (I87) |
+| ⏭️ 👤 | **Aplicar la 0038 antes de las 01:20 UTC** | Si no da tiempo, el agente decide igual. Solo corre el riesgo de registrar `sin_precio` si el ETL se retrasa |
 | 🗓️ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con 500 $ de saldo y un 1 % de riesgo |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
 | ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
@@ -111,7 +114,7 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Motor causal, métricas, veredicto, workflow `laboratorio.yml` | PR #40 |
 | ✅ | Primera ronda: actual, tendencia, reversión (5 años, 43 activos) | Solo pasa tendencia en cripto. [Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38132253307) |
 | ✅ | Prueba de robustez (`robustez.py`, modo `robustez` del workflow) | PR #41. Cumple 3 de 4 criterios. [Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38132842239) |
-| 🗓️ | Tendencia en acciones con 10 años de histórico | Con 5 años da +0,19 R y el intervalo incluye el cero. Más histórico puede resolverlo. Basta lanzar el workflow con `periodo=10y` |
+| ✅ | Laboratorio a 10 años | Tendencia en cripto, reforzada: +1,09 R, IC [+0,57, +1,70], 203 operaciones en validación. En acciones, +0,12 R con el intervalo incluyendo el cero: sigue sin agente (doc 06 §3.7). [Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38135711624) |
 | 🗓️ | Ideas nuevas para acciones (ninguna pasa hoy) | Candidatas: <br>• momento relativo (comprar los más fuertes del universo y rotar cada mes); <br>• tendencia con filtro de régimen del S&P 500. <br>Cada idea se escribe como estrategia nueva en `estrategias.py`, con su prueba de causalidad |
 | 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
 | ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
@@ -150,7 +153,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0037_agente_tendencia_cripto.sql`. La siguiente es la 0038 |
+| Migración más reciente | `0038_precios_para_la_decision_diaria.sql`. La siguiente es la 0039 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

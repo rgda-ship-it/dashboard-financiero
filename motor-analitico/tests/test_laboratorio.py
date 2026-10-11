@@ -200,3 +200,27 @@ def test_las_criptos_de_2021_se_piden_tal_cual_a_yahoo():
     assert ticker_yahoo("FTT-USD", "cripto") == "FTT-USD"
     assert ticker_yahoo("bitcoin", "cripto") == "BTC-USD"
     assert ticker_yahoo("desconocida", "cripto") is None
+
+
+# ---------------------------------------------------------------------------
+# Cartera con las restricciones del agente (doc 07 §5)
+# ---------------------------------------------------------------------------
+
+def test_la_cartera_con_un_activo_y_sin_g6_opera_igual_que_el_motor():
+    from laboratorio.cartera import simular_cartera
+    df = _serie_aleatoria(n=900, semilla=5)
+    estrategia = ESTRATEGIAS["tendencia"]()
+    sueltas = simular(df, estrategia, lambda p: p * 0.001, "S", "cripto")
+    res = simular_cartera({("S", "cripto"): df}, ESTRATEGIAS["tendencia"](), saldo=1e6, multiplo_g6=None)
+    clave = lambda o: (o.fecha_entrada, o.fecha_salida, o.motivo, round(o.precio_salida, 6))  # noqa: E731
+    assert [clave(o) for o in res.operaciones] == [clave(o) for o in sueltas]
+
+
+def test_g6_deja_fuera_senales_y_la_curva_cuadra():
+    from laboratorio.cartera import simular_cartera
+    datos = {(f"S{i}", "cripto"): _serie_aleatoria(n=900, semilla=10 + i) for i in range(6)}
+    libre = simular_cartera(datos, ESTRATEGIAS["tendencia"](), multiplo_g6=None)
+    apretado = simular_cartera(datos, ESTRATEGIAS["tendencia"](), multiplo_g6=1.0)
+    assert apretado.descartadas > 0
+    assert len(apretado.operaciones) < len(libre.operaciones)
+    assert (apretado.equity > 0).all()

@@ -4,6 +4,22 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-11 — 0038, laboratorio a 10 años y laboratorio de cartera
+
+### Corregido
+- **0038**: precio fresco para la decisión diaria.
+  - El problema lo dejó a la vista el ensayo sobre producción. Una cripto sin posición solo recibía precio del ETL horario. Si el ETL tardaba más de 13 minutos, la decisión de las :20 encontraba el precio viejo y el agente podía pasar el día sin entrar.
+  - Ahora el monitor añade el universo de los agentes de estrategia activos a su petición de cada minuto, de 01:00 a 07:59 UTC (`fn_monitor_ids_cripto`, I87).
+
+### Añadido
+- **Laboratorio de cartera** (`laboratorio/cartera.py`, modo `cartera` del workflow): la estrategia con las restricciones del agente. Usa una sola cuenta con el 1 % de riesgo, G6, 1× con caja y prioridad por fuerza de la ruptura.
+  - Prueba de paridad: con un activo y sin G6 reproduce el motor.
+  - Python 202 → 204 tests.
+- **Laboratorio a 10 años**:
+  - Tendencia en cripto sale reforzada: +1,09 R, IC [+0,57, +1,70], 203 operaciones en validación.
+  - En acciones, tendencia sigue sin pasar el criterio: +0,12 R.
+- **`scripts/ensayo_tendencia.sql`**: ensayo de solo lectura de la decisión diaria sobre producción.
+
 ## [Sin publicar] - 2026-10-11 — 0037: agente experimental «Tendencia cripto»
 
 ### Añadido
