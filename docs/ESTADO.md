@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-11 (0037 implementada)
+> **Última actualización**: 2026-10-13 (revisión de las primeras decisiones, del autodiagnóstico y de los spreads; 0041)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -100,11 +100,11 @@ punto ⏭️ de la lista de control»*.
 | ✅ 👤 | Umbral de pausa por caída: **35 %** (decidido el 2026-10-11) | Migración 0039 e invariante I88. El laboratorio de cartera cae hasta un 26 % ganando; con el 15 % de la 0037 se habría pausado en plena racha |
 | ⏭️ 👤 | **Aplicar la 0039 junto con la 0038** | Las dos antes de las 01:20 UTC si es posible |
 | ⏭️ 👤 | **Aplicar la 0038 antes de las 01:20 UTC** | Si no da tiempo, el agente decide igual. Solo corre el riesgo de registrar `sin_precio` si el ETL se retrasa |
-| 🗓️ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con 500 $ de saldo y un 1 % de riesgo |
+| ✅ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con los ATR del 2026-10-12, a 2 ATR, todas pasan el mínimo de 10 $: de 25 $ (zcash, stop al 20 %) a 235 $ (tron, stop al 2 %) |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
 | ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
 | ⏭️ 👤 | Antes de la primera decisión: ensayo de solo lectura con `scripts/ensayo_tendencia.sql` | Muestra qué haría hoy con cada cripto (entrar, sin señal, sin datos) y con qué stop. Sirve para detectar a tiempo las criptos sin velas suficientes |
-| ⏭️ 👤 | Al día siguiente de activarlo, comprobar que decidió | `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
+| ✅ | Al día siguiente de activarlo, comprobar que decidió (revisado el 2026-10-13) | Dos mañanas (velas del 11 y del 12): las 14 criptos con datos, `sin_senal`, de forma coherente (3 bajo su media de 200 y 11 sin ruptura). maxlinear, `sin_vela` y luego `sin_datos` (no tiene 200 cierres). Ningún `sin_precio`. Consultas: `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
 | 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
@@ -135,8 +135,10 @@ punto ⏭️ de la lista de control»*.
 | ✅ | M3': huecos reales en el simulador | 0033 |
 | ✅ | Spread (D23) y spread observado | 0034 y 0035 |
 | ✅ | «Ampliar el universo» solo cuenta los ciclos con alcistas descartadas | 0036 |
-| ⏭️ 👤 | **Lunes 12-10, a partir de las 00:17 UTC: revisar el primer autodiagnóstico semanal** | El dueño pasa el resultado de `select * from agente_backlog order by creado_en desc limit 20`. Hay que ver si las peticiones tienen sentido |
-| ⏭️ 👤 | **Tras el primer día de bolsa: revisar `v_spreads`** | `select * from v_spreads`. Comprueba que se registra el spread observado y que el percentil 90 no queda por debajo del configurado |
+| ✅ | Revisar el primer autodiagnóstico semanal (2026-10-13) | Las peticiones tienen sentido: los tres agentes dicen que su meta no es alcanzable (0 días cumplidos; mejor día 0,44 %, 1,75 % y 2,47 % frente a metas del 2, 5 y 7 %). Es la conclusión del doc 05. W40 y W41 fueron deficientes: por la regla del doc 03 §6.2, los tres pasan a cuarentena (es el comportamiento previsto del grupo de control). Dos detalles: el «ATR mediano de mis entradas» sale «sin dato» en los tres, y al reabrirse una entrada se actualiza la evidencia (W41) pero no la descripción (W40) |
+| ⏭️ 👤 | Averiguar por qué el ATR mediano sale «sin dato» | Consulta de las órdenes recientes con el `atr_pct` de su señal (en el chat del 2026-10-13) |
+| ✅ | Revisar `v_spreads` tras el primer día de bolsa (2026-10-13) | En NYSE (19 valores), las medidas son coherentes. En Nasdaq (13 valores), Yahoo da una cotización congelada: spreads del 1–2,7 % en AAPL, AMZN, MSFT, NVDA y SPCX, y casi ninguna medida en el resto. Se cobraban a los agentes con metas. Arreglo en la 0041 |
+| ⏭️ 👤 | **Aplicar la 0041** | Borra las medidas de Nasdaq y deja de cobrarlas. El ETL ya no mide en Nasdaq desde el merge del PR |
 | 🗓️ 👤 | Comprobar que los agentes operan cripto el fin de semana | Con `scripts/diagnostico_agentes_editor.sql` tras un fin de semana completo con la 0032 aplicada |
 | ⏸️ | Entrega C: noches y fines de semana caso a caso (§5.4) | **Esperamos** por tres razones: <br>• los agentes con metas son el grupo de control, y cambiarlos a mitad del experimento ensucia la comparación; <br>• sin ventaja demostrada, afinar *cuándo* operar solo cambia la velocidad a la que se pierde; <br>• necesita semanas de datos en `v_huecos_activos`. <br>Se retoma si el dueño lo decide o cuando acabe el experimento |
 | ⏸️ | Entrega B: aporte por sesión, horizonte máximo (10, 5 y 3 sesiones, ya decidido) y revisión al cumplirse el horizonte | **Esperamos** por las mismas razones que la C. Además, es el cambio más profundo y gana con horizontes ya medidos (lleva la 0031 desde el 10-10) |

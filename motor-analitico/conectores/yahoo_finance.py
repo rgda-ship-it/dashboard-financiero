@@ -24,6 +24,15 @@ logger = logging.getLogger(__name__)
 # de forma ruidosa en vez de dejar pasar datos incorrectos en silencio.
 COLUMNAS_ESPERADAS = {"Open", "High", "Low", "Close", "Volume"}
 
+# Bolsas cuyo precio de compra y de venta en Yahoo no es el libro real
+# (0041). En los valores que cotizan en Nasdaq, `info` da una cotización
+# congelada de pocas acciones: AMZN dio 260,78 / 267,77 en las 12 medidas
+# de la sesión del 2026-10-12 y otra vez en el premercado del día
+# siguiente, y AAPL, MSFT, NVDA y SPCX dieron spreads del 1–2,7 % cuando
+# el real es de céntimos. En NYSE los datos son coherentes y cambian en
+# cada medida. En Nasdaq el spread no se mide: se cobra el configurado.
+BOLSAS_SIN_LIBRO_FIABLE = {"NMS", "NGM", "NCM", "NAS"}
+
 
 @dataclass
 class DatosOHLCV:
@@ -90,13 +99,15 @@ class ConectorAccionesYahoo:
 
         Solo sirve para MEDIR el spread (migración 0035): es una llamada de
         mejor esfuerzo. Si Yahoo no responde, limita la tasa o devuelve algo
-        sin sentido (precios a cero, ask por debajo del bid), se devuelve
-        None y la pasada sigue: un spread sin medir no es un activo roto.
+        sin sentido (precios a cero, ask por debajo del bid), o el valor
+        cotiza en Nasdaq (`BOLSAS_SIN_LIBRO_FIABLE`), se devuelve None y la pasada sigue: un spread sin medir no es un activo roto.
         """
         try:
             info = yf.Ticker(ticker).info
         except Exception as exc:  # noqa: BLE001 — mejor esfuerzo
             logger.warning("Sin cotización de compra y venta para %s: %s", ticker, exc)
+            return None
+        if info.get("exchange") in BOLSAS_SIN_LIBRO_FIABLE:
             return None
         bid, ask = info.get("bid"), info.get("ask")
         try:
