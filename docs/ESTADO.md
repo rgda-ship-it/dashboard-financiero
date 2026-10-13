@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-13 (revisión de las primeras decisiones, del autodiagnóstico y de los spreads; 0041)
+> **Última actualización**: 2026-10-13 (spreads de Nasdaq, 0041; fuera de la cuarentena, 0042; momento relativo, doc 06 §3.11)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -98,12 +98,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Ensayo sobre producción (`scripts/ensayo_tendencia.sql`), 2026-10-11 | Las 14 criptos tienen 29 días con rango real y 200 cierres. El token de maxlinear no tiene 200 cierres. Hoy no entraría en ninguna: 3 están bajo su media de 200 y 11 sin ruptura |
 | ✅ | 0038: precio fresco para la decisión diaria | Sin posición, una cripto solo recibía precio del ETL horario. Si el ETL tardaba, la decisión de las :20 lo encontraba viejo y el agente podía pasar el día sin entrar. Ahora el monitor pide también el universo del agente de 01:00 a 07:59 UTC (I87) |
 | ✅ 👤 | Umbral de pausa por caída: **35 %** (decidido el 2026-10-11) | Migración 0039 e invariante I88. El laboratorio de cartera cae hasta un 26 % ganando; con el 15 % de la 0037 se habría pausado en plena racha |
-| ⏭️ 👤 | **Aplicar la 0039 junto con la 0038** | Las dos antes de las 01:20 UTC si es posible |
-| ⏭️ 👤 | **Aplicar la 0038 antes de las 01:20 UTC** | Si no da tiempo, el agente decide igual. Solo corre el riesgo de registrar `sin_precio` si el ETL se retrasa |
 | ✅ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con los ATR del 2026-10-12, a 2 ATR, todas pasan el mínimo de 10 $: de 25 $ (zcash, stop al 20 %) a 235 $ (tron, stop al 2 %) |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
-| ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
-| ⏭️ 👤 | Antes de la primera decisión: ensayo de solo lectura con `scripts/ensayo_tendencia.sql` | Muestra qué haría hoy con cada cripto (entrar, sin señal, sin datos) y con qué stop. Sirve para detectar a tiempo las criptos sin velas suficientes |
+| ✅ 👤 | Aplicar las 0037–0040 y activar «Tendencia cripto» | Aplicadas con `scripts/aplicar-migraciones.cmd`, que aplica todas las pendientes; el agente decide desde el 2026-10-12 |
 | ✅ | Al día siguiente de activarlo, comprobar que decidió (revisado el 2026-10-13) | Dos mañanas (velas del 11 y del 12): las 14 criptos con datos, `sin_senal`, de forma coherente (3 bajo su media de 200 y 11 sin ruptura). maxlinear, `sin_vela` y luego `sin_datos` (no tiene 200 cierres). Ningún `sin_precio`. Consultas: `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
@@ -119,8 +116,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Laboratorio a 10 años | Tendencia en cripto, reforzada: +1,09 R, IC [+0,57, +1,70], 203 operaciones en validación. En acciones, +0,12 R con el intervalo incluyendo el cero: sigue sin agente (doc 06 §3.7). [Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38135711624) |
 | ✅ | Segunda ronda: estrategias del manual del dueño (doc 06 §3.8) | **ruptura_volumen en acciones** pasa: +0,29 R en validación. También pasa la robustez formal, pero con márgenes justos y solo 12 de 29 acciones positivas. El resto no aporta: <br>• el objetivo a 2R empeora la ruptura en cripto; <br>• la reversión con Bollinger falla. <br>[Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38163243913) |
 | ✅ | Ruptura con volumen en acciones: amplitud (S&P 100) y referencia al azar (doc 06 §3.9–3.10) | **No se crea agente de acciones.** En el S&P 100, entrar al azar con las mismas salidas rinde lo mismo que la ruptura (+0,28 frente a +0,27 R): la «ventaja» es el mercado alcista con supervivientes, no la señal. En cripto, el azar da +0,65 R frente a +1,09 R de tendencia: la mayor parte de la ventaja de Tendencia cripto está en sus salidas. Desde ahora el criterio exige superar a la referencia al azar |
-| 🗓️ | Ideas que sí podrían aportar señal en acciones | Haría falta algo que el azar no tenga: <br>• momento relativo entre acciones (comprar las más fuertes frente a las demás, no frente a su pasado); <br>• datos fundamentales. <br>Siempre comparando con `azar` |
-| 🗓️ | Ideas nuevas para acciones (ninguna pasa hoy) | Candidatas: <br>• momento relativo (comprar los más fuertes del universo y rotar cada mes); <br>• tendencia con filtro de régimen del S&P 500. <br>Cada idea se escribe como estrategia nueva en `estrategias.py`, con su prueba de causalidad |
+| ✅ | Momento relativo en acciones (doc 06 §3.11), 2026-10-13 | **No aporta selección frente al azar** con la configuración fijada de antemano (las 4 o 10 primeras, 12-1), en ningún universo. En los 19 ETF sin sesgo de supervivencia, la validación queda en el percentil 33 de 30 tiradas al azar. Solo las carteras muy concentradas (2 o 5) pasan, pero se eligieron tras ver los datos. **No se crea agente de acciones.** Herramientas nuevas: el modo `contra_azar`, la medida «% / mes» y `--universo etf` |
+| 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
+| 🗓️ | Otras ideas para acciones | Solo datos fundamentales (calidad, valor), siempre contra la distribución de tiradas al azar. El momento ya se probó (§3.11) |
 | 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
 | ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
 
@@ -155,7 +153,6 @@ punto ⏭️ de la lista de control»*.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | ✅ | Panel comparativo (0040, `v_comparativa_agentes`) | Los cuatro agentes con las mismas medidas: <br>• expectativa en R, con los cierres parciales; <br>• R total; <br>• aciertos; <br>• factor de beneficio; <br>• rentabilidad y caída. <br>Se miden en todo el histórico y «desde el experimento» (el alta de Tendencia cripto). Panel «Comparativa» en Agentes. Invariante I89 |
-| 👤 | **Aplicar la 0040** | Solo añade una vista; no cambia ninguna decisión |
 | ⏸️ | Agente de cartera que combine estrategias con ventaja | **Esperamos** a tener al menos dos estrategias con ventaja. Hoy hay media |
 | ⏸️ | Capa narrativa con LLM para el informe semanal (doc 05 §10.2) | **Esperamos** porque tiene un coste por uso que hoy el proyecto no tiene. Decide el dueño |
 

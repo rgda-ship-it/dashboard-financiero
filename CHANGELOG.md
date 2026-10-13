@@ -4,6 +4,23 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-13 — Laboratorio: momento relativo (resultado)
+
+### Hallazgo
+El momento relativo (cada mes, comprar las acciones más fuertes de 12-1 meses y rotar) **no aporta selección frente al azar** con la configuración fijada de antemano (doc 06 §3.11).
+- En los 19 ETF de sectores y países, desde 1996, sin sesgo de supervivencia, rinde +0,65 % al mes en cartera en validación. La mediana de 30 tiradas al azar con las mismas reglas da +0,73 %.
+- En el S&P 100 y en las 29 acciones propias falla en uno de los dos tramos.
+- Solo las carteras muy concentradas (las 2 o las 5 primeras) pasan en los dos tramos, pero se eligieron después de ver los resultados.
+
+No se crea agente de acciones.
+
+### Añadido
+- Estrategias cruzadas: **momento** y **azar_momento** (con semilla), y `anadir_rangos`, que calcula la clasificación entre activos de forma causal para el motor, la robustez y la cartera.
+- Medida **«% / mes»** (rendimiento por mes en cartera) en todos los informes: la R por operación favorece a la estrategia que mantiene más tiempo.
+- Modo **`contra_azar`** del workflow: una estrategia cruzada frente a 30 tiradas de su azar.
+- `--universo etf` y `--parametros nombre=valor` en el laboratorio y en la robustez.
+- Python pasa de 218 a 233 tests.
+
 ## [Sin publicar] - 2026-10-13 — 0042: fuera de la cuarentena durante el experimento
 
 ### Cambiado

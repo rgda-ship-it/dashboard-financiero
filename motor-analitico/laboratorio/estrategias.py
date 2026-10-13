@@ -293,7 +293,108 @@ class Azar(Tendencia):
         return Entrada(sl=float(fila["Close"] - self.stop_atr * fila["ATR_14"]))
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Momento relativo (doc 06 §3.11): la ventaja, si la hay, está en QUÉ
+# acción se elige frente a las demás, no en CUÁNDO se entra. Es lo que la
+# referencia al azar de §3.10 no puede imitar.
+#
+# Estas estrategias son CRUZADAS: su entrada depende de la clasificación
+# del activo frente al resto del universo en cada fecha. El motor opera
+# un activo cada vez, así que la clasificación se calcula antes, para
+# todos a la vez (`anadir_rangos`), y llega a cada activo como una columna.
+# ─────────────────────────────────────────────────────────────────────
+
+class Momento:
+    """Cada mes (primera sesión), clasifica el universo de su clase por la
+    rentabilidad de los últimos 12 meses sin el último (12-1, el momento
+    clásico: el último mes tiende a revertir). Entra en las `top` primeras y
+    las mantiene mientras sigan entre las `mantener` primeras; si caen más
+    abajo, sale al mes siguiente. Stop de catástrofe a `stop_atr` ATR, fijo:
+    la salida normal es la rotación, no el stop. Sin objetivo."""
+
+    nombre = "momento"
+    cruzada = True
+
+    def __init__(self, mirar: int = 252, saltar: int = 21, top: int = 10, mantener: int = 20,
+                 stop_atr: float = 5.0):
+        self.mirar, self.saltar = mirar, saltar
+        self.top, self.mantener, self.stop_atr = top, mantener, stop_atr
+
+    @property
+    def columna(self) -> str:
+        return f"RANGO_{self.nombre}"
+
+    def puntuar(self, df: pd.DataFrame) -> pd.Series:
+        """Puntuación causal de cada día; mayor es mejor. NaN = no compite."""
+        return df["Close"].shift(self.saltar) / df["Close"].shift(self.mirar) - 1
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df["ATR_14"] = _atr(df)
+        meses = df.index.to_period("M")
+        df["REBALANCEO"] = np.r_[False, meses[1:] != meses[:-1]]
+        if self.columna not in df.columns:
+            df[self.columna] = np.nan
+        return df
+
+    def entrada(self, df, t):
+        f = df.iloc[t]
+        if not f["REBALANCEO"] or pd.isna(f[self.columna]) or pd.isna(f["ATR_14"]) or f["ATR_14"] <= 0:
+            return None
+        if f[self.columna] > self.top:
+            return None
+        return Entrada(sl=float(f["Close"] - self.stop_atr * f["ATR_14"]))
+
+    def actualizar(self, df, t, pos: Posicion):
+        f = df.iloc[t]
+        salir = bool(f["REBALANCEO"] and (pd.isna(f[self.columna]) or f[self.columna] > self.mantener))
+        return pos.sl, salir
+
+
+class AzarMomento(Momento):
+    """Referencia del momento: las MISMAS reglas (rotación mensual, `top`,
+    `mantener`, stop), pero clasificando por una puntuación al azar entre
+    los mismos activos que compiten. Si el momento no supera a esto, elegir
+    por fuerza relativa no aporta nada frente a elegir a ciegas en el
+    mismo universo y con el mismo viento a favor.
+
+    El azar es determinista y causal: depende solo de la fecha, del cierre
+    de ese día y de la `semilla`. Una sola tirada es ruidosa: para juzgar
+    el momento hay que compararlo con muchas semillas (doc 06 §3.11)."""
+
+    nombre = "azar_momento"
+
+    def __init__(self, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.semilla = semilla
+
+    def puntuar(self, df: pd.DataFrame) -> pd.Series:
+        base = super().puntuar(df)
+        azar = [int(hashlib.md5(f"{self.semilla}-{i.value}-{c:.6f}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+                for i, c in zip(df.index, df["Close"].astype(float))]
+        return pd.Series(azar, index=df.index).where(base.notna())
+
+
+def anadir_rangos(datos: dict, estrategia) -> dict:
+    """{(simbolo, clase): df} con la columna de rango de una estrategia
+    cruzada: 1 = la mejor puntuación de su clase ese día. Causal: el rango
+    del día t solo usa las puntuaciones del día t, que solo usan datos
+    hasta t. Las estrategias que no son cruzadas devuelven `datos` tal cual."""
+    if not getattr(estrategia, "cruzada", False):
+        return datos
+    salida = {}
+    for clase in sorted({c for _, c in datos}):
+        claves = [k for k in datos if k[1] == clase]
+        puntos = pd.DataFrame({k[0]: estrategia.puntuar(datos[k]) for k in claves})
+        rangos = puntos.rank(axis=1, ascending=False, method="first")
+        for k in claves:
+            df = datos[k].copy()
+            df[estrategia.columna] = rangos[k[0]].reindex(df.index)
+            salida[k] = df
+    return salida
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
-               "azar": Azar}
+               "azar": Azar, "momento": Momento, "azar_momento": AzarMomento}

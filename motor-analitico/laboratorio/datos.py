@@ -86,10 +86,24 @@ SP100_SECTOR = {
 }
 
 
+# Universo SIN sesgo de supervivencia para las estrategias cruzadas (doc
+# 06 §3.11): los 9 ETF de sectores de SPDR (desde 1998) y 10 ETF de países
+# de iShares (desde 1996–2000). Se pueden elegir con la información de
+# 2000: ninguno está aquí por haber subido después. Cubre 2000–2002 y 2008.
+ETF_GRUPO = {
+    **{t: "Sector EE. UU." for t in "XLB XLE XLF XLI XLK XLP XLU XLV XLY".split()},
+    **{t: "País" for t in "EWJ EWG EWU EWC EWA EWZ EWY EWT EWH EWW".split()},
+}
+
+UNIVERSOS = ("activo", "sp100", "etf")
+
+
 def universo_nombrado(nombre: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
     """(activos, sector por símbolo) de un universo con nombre."""
     if nombre == "sp100":
         return [(t, "accion") for t in SP100_SECTOR], dict(SP100_SECTOR)
+    if nombre == "etf":
+        return [(t, "accion") for t in ETF_GRUPO], dict(ETF_GRUPO)
     return universo(), {}
 
 

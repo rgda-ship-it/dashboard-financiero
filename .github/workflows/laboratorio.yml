@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente'
+        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente; contra_azar = una estrategia cruzada frente a 30 tiradas al azar'
         type: choice
-        options: [laboratorio, robustez, cartera]
+        options: [laboratorio, robustez, cartera, contra_azar]
         default: laboratorio
       estrategias:
         description: 'Estrategias, separadas por comas (en robustez, solo la primera)'
@@ -30,10 +30,13 @@ on:
         description: 'Solo robustez y cartera: clase de activo (cripto o accion)'
         default: 'cripto'
       universo:
-        description: 'activo = el catálogo de producción; sp100 = el S&P 100 con sectores (amplitud)'
+        description: 'activo = el catálogo de producción; sp100 = el S&P 100 con sectores (amplitud); etf = 19 ETF de sectores y países (sin sesgo de supervivencia)'
         type: choice
-        options: [activo, sp100]
+        options: [activo, sp100, etf]
         default: activo
+      parametros:
+        description: 'Opcional: parámetros de las estrategias, nombre=valor separados por comas (p. ej. top=4,mantener=8)'
+        default: ''
 
 concurrency:
   group: laboratorio
@@ -65,6 +68,16 @@ jobs:
               --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --clase "${{ inputs.clase }}" \
               --universo "${{ inputs.universo }}" \
+              --parametros "${{ inputs.parametros }}" \
+              --periodo "${{ inputs.periodo }}" \
+              --salida ../laboratorio_salida
+            exit
+          fi
+          if [ "${{ inputs.modo }}" = "contra_azar" ]; then
+            python -m laboratorio.contra_azar \
+              --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
+              --universo "${{ inputs.universo }}" \
+              --parametros "${{ inputs.parametros }}" \
               --periodo "${{ inputs.periodo }}" \
               --salida ../laboratorio_salida
             exit
@@ -82,6 +95,7 @@ jobs:
             --universo "${{ inputs.universo }}" \
             --periodo "${{ inputs.periodo }}" \
             --activos "${{ inputs.activos }}" \
+            --parametros "${{ inputs.parametros }}" \
             --salida ../laboratorio_salida
 
       - uses: actions/upload-artifact@v4

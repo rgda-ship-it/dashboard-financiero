@@ -34,6 +34,7 @@ class Medidas:
     ic90: tuple[float, float]
     racha_perdidas: int = 0          # peor racha de pérdidas seguidas (manual §7.4)
     coste_pct: float = 0.0           # spread pagado ÷ beneficio bruto antes de costes, en %
+    mes_pct: float = 0.0             # rendimiento por mes (21 sesiones) en cartera, en %
 
 
 def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
@@ -66,7 +67,14 @@ def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
     costes = np.array([getattr(o, "coste_r", 0.0) for o in ops], dtype=float)
     bruto = np.clip(r + costes, 0, None).sum()
 
+    # Por mes en cartera: compara estrategias que mantienen las posiciones
+    # durante tiempos muy distintos, donde la R por operación favorece a la
+    # que mantiene más (doc 06 §3.11).
+    sesiones = sum(max(o.dias, 1) for o in ops)
+    mes = float(np.expm1(np.log1p(np.clip(pct / 100, -0.999, None)).sum() / sesiones * 21) * 100)
+
     return Medidas(
+        mes_pct=mes,
         racha_perdidas=peor,
         coste_pct=float(costes.sum() / bruto * 100) if bruto > 0 else 0.0,
         operaciones=n,

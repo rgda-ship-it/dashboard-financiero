@@ -32,7 +32,7 @@ import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
 from laboratorio.datos import cargar, spread_de, universo  # noqa: E402
-from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
+from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import Operacion  # noqa: E402
 
 
@@ -60,7 +60,7 @@ def simular_cartera(datos: dict, estrategia, saldo: float = 500.0, riesgo_pct: f
                     multiplo_g6: float | None = 4.0, desde: pd.Timestamp | None = None) -> Resultado:
     """Una cuenta para todos los activos. `multiplo_g6=None` quita G6."""
     prep, spreads = {}, {}
-    for (simbolo, clase), df in datos.items():
+    for (simbolo, clase), df in anadir_rangos(datos, estrategia).items():
         d = estrategia.preparar(df)
         prep[simbolo] = d
         spreads[simbolo] = (clase, spread_de(simbolo, clase))
@@ -156,6 +156,8 @@ def simular_cartera(datos: dict, estrategia, saldo: float = 500.0, riesgo_pct: f
                     atr = float(fila.get("ATR_14", np.nan))
                     fuerza = ((float(fila["Close"]) - float(fila.get("MAX_RUPTURA", fila["Close"]))) / atr
                               if atr and atr > 0 else 0.0)
+                    if getattr(estrategia, "cruzada", False):
+                        fuerza = -float(fila[estrategia.columna])   # el rango 1 primero
                     pendientes.append((fuerza, s, fecha, ent.sl))
         curva[fecha] = equity_marcado()
 
