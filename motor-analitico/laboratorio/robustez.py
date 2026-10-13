@@ -31,8 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import CRIPTO_TOP_2021, cargar, spread_de, universo, universo_nombrado  # noqa: E402
-from laboratorio.ejecutar import _fmt  # noqa: E402
+from laboratorio.datos import CRIPTO_TOP_2021, UNIVERSOS, cargar, spread_de, universo, universo_nombrado  # noqa: E402
+from laboratorio.ejecutar import _fmt, crear  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import Operacion, simular  # noqa: E402
 
@@ -89,8 +89,9 @@ def por_grupo(ops: list[Operacion], clave) -> list[tuple[str, int, float, float]
     return sorted(filas, key=lambda f: f[3], reverse=True)
 
 
-def informe(nombre: str, clase: str, datos: dict, datos_2021: dict, corte: pd.Timestamp) -> str:
-    base = ESTRATEGIAS[nombre]()
+def informe(nombre: str, clase: str, datos: dict, datos_2021: dict, corte: pd.Timestamp,
+            parametros: str = "") -> str:
+    base = crear(nombre, parametros)
     ops = _correr(datos, base)
     diseno, validacion = metricas.partir(ops, corte)
     md, mv = metricas.medir(diseno), metricas.medir(validacion)
@@ -143,7 +144,9 @@ def informe(nombre: str, clase: str, datos: dict, datos_2021: dict, corte: pd.Ti
     lineas.append("")
 
     # 4. Sensibilidad a los parámetros.
-    rejilla = REJILLAS.get(nombre, {})
+    rejilla = dict(REJILLAS.get(nombre, {}))
+    if "top" in rejilla and len(datos) < 40:
+        rejilla["top"] = (2, 4, 6)       # universo pequeño (ETF): los mismos tercios, no 5/10/20
     claves = list(rejilla)
     combinaciones = [dict(zip(claves, vals)) for vals in itertools.product(*rejilla.values())]
     lineas += ["## 4. ¿Solo funciona con estos parámetros?", "",
@@ -206,7 +209,8 @@ def main() -> int:
     p.add_argument("--clase", default="cripto", choices=("cripto", "accion"))
     p.add_argument("--periodo", default="5y")
     p.add_argument("--salida", default="laboratorio_salida")
-    p.add_argument("--universo", default="activo", choices=("activo", "sp100"))
+    p.add_argument("--universo", default="activo", choices=UNIVERSOS)
+    p.add_argument("--parametros", default="", help="nombre=valor separados por comas")
     a = p.parse_args()
 
     activos, _ = universo_nombrado(a.universo)
@@ -220,7 +224,7 @@ def main() -> int:
     hasta = max(df.index[-1] for df in datos.values())
     corte = desde + (hasta - desde) * metricas.TRAMO_DISENO
 
-    texto = informe(a.estrategia, a.clase, datos, datos_2021, corte)
+    texto = informe(a.estrategia, a.clase, datos, datos_2021, corte, a.parametros)
     if sin_datos or sin_2021:
         texto += f"\nSin datos de Yahoo: {', '.join(sin_datos + sin_2021)}.\n"
 

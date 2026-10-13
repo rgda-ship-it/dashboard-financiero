@@ -98,12 +98,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Ensayo sobre producción (`scripts/ensayo_tendencia.sql`), 2026-10-11 | Las 14 criptos tienen 29 días con rango real y 200 cierres. El token de maxlinear no tiene 200 cierres. Hoy no entraría en ninguna: 3 están bajo su media de 200 y 11 sin ruptura |
 | ✅ | 0038: precio fresco para la decisión diaria | Sin posición, una cripto solo recibía precio del ETL horario. Si el ETL tardaba, la decisión de las :20 lo encontraba viejo y el agente podía pasar el día sin entrar. Ahora el monitor pide también el universo del agente de 01:00 a 07:59 UTC (I87) |
 | ✅ 👤 | Umbral de pausa por caída: **35 %** (decidido el 2026-10-11) | Migración 0039 e invariante I88. El laboratorio de cartera cae hasta un 26 % ganando; con el 15 % de la 0037 se habría pausado en plena racha |
-| ⏭️ 👤 | **Aplicar la 0039 junto con la 0038** | Las dos antes de las 01:20 UTC si es posible |
-| ⏭️ 👤 | **Aplicar la 0038 antes de las 01:20 UTC** | Si no da tiempo, el agente decide igual. Solo corre el riesgo de registrar `sin_precio` si el ETL se retrasa |
 | ✅ | Comprobar que 5 $ de riesgo dan una cantidad operable en cada cripto | Con los ATR del 2026-10-12, a 2 ATR, todas pasan el mínimo de 10 $: de 25 $ (zcash, stop al 20 %) a 235 $ (tron, stop al 2 %) |
 | ✅ | Frontend: tarjeta sin meta diaria, con expectativa en R y criterio de retirada; racional de la ruptura; guía | El color `--agente-4` está pendiente de validar con el comprobador de paletas |
-| ⏭️ 👤 | **Aplicar la 0037 con `scripts/aplicar-migraciones.cmd` y activar «Tendencia cripto» desde /admin** | La primera decisión llega a la mañana siguiente, entre las 01:20 y las 07:20 UTC |
-| ⏭️ 👤 | Antes de la primera decisión: ensayo de solo lectura con `scripts/ensayo_tendencia.sql` | Muestra qué haría hoy con cada cripto (entrar, sin señal, sin datos) y con qué stop. Sirve para detectar a tiempo las criptos sin velas suficientes |
+| ✅ 👤 | Aplicar las 0037–0040 y activar «Tendencia cripto» | Aplicadas con `scripts/aplicar-migraciones.cmd`, que aplica todas las pendientes; el agente decide desde el 2026-10-12 |
 | ✅ | Al día siguiente de activarlo, comprobar que decidió (revisado el 2026-10-13) | Dos mañanas (velas del 11 y del 12): las 14 criptos con datos, `sin_senal`, de forma coherente (3 bajo su media de 200 y 11 sin ruptura). maxlinear, `sin_vela` y luego `sin_datos` (no tiene 200 cierres). Ningún `sin_precio`. Consultas: `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
@@ -155,7 +152,6 @@ punto ⏭️ de la lista de control»*.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | ✅ | Panel comparativo (0040, `v_comparativa_agentes`) | Los cuatro agentes con las mismas medidas: <br>• expectativa en R, con los cierres parciales; <br>• R total; <br>• aciertos; <br>• factor de beneficio; <br>• rentabilidad y caída. <br>Se miden en todo el histórico y «desde el experimento» (el alta de Tendencia cripto). Panel «Comparativa» en Agentes. Invariante I89 |
-| 👤 | **Aplicar la 0040** | Solo añade una vista; no cambia ninguna decisión |
 | ⏸️ | Agente de cartera que combine estrategias con ventaja | **Esperamos** a tener al menos dos estrategias con ventaja. Hoy hay media |
 | ⏸️ | Capa narrativa con LLM para el informe semanal (doc 05 §10.2) | **Esperamos** porque tiene un coste por uso que hoy el proyecto no tiene. Decide el dueño |
 

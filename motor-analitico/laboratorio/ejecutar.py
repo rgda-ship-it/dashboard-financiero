@@ -22,14 +22,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import cargar, spread_de, universo, universo_nombrado  # noqa: E402
+from laboratorio.datos import UNIVERSOS, cargar, spread_de, universo, universo_nombrado  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
 
 # Columnas de _fmt, en el mismo orden.
 CABECERA = ["Ops", "Aciertos", "Expectativa (R)", "IC 90 %", "Media %", "F. beneficio", "Caída máx.",
-            "Días", "Racha −", "Costes"]
+            "Días", "% / mes", "Racha −", "Costes"]
 
 
 def _fmt(m: metricas.Medidas | None) -> list[str]:
@@ -38,8 +38,26 @@ def _fmt(m: metricas.Medidas | None) -> list[str]:
     fb = "∞" if math.isinf(m.factor_beneficio) else f"{m.factor_beneficio:.2f}"
     return [str(m.operaciones), f"{m.aciertos_pct:.0f} %", f"{m.expectativa_r:+.3f}",
             f"[{m.ic90[0]:+.2f}, {m.ic90[1]:+.2f}]", f"{m.expectativa_pct:+.2f} %", fb,
-            f"{m.caida_maxima_pct:.1f} %", f"{m.dias_medios:.1f}", str(m.racha_perdidas),
+            f"{m.caida_maxima_pct:.1f} %", f"{m.dias_medios:.1f}", f"{m.mes_pct:+.2f} %", str(m.racha_perdidas),
             f"{m.coste_pct:.0f} %"]
+
+
+def crear(nombre: str, parametros: str = ""):
+    """Una estrategia con los parámetros «nombre=valor,…» que admita; los
+    que no admite se ignoran, para poder pasar los mismos a varias."""
+    import inspect
+    clase = ESTRATEGIAS[nombre]
+    admitidos = set()
+    for c in clase.__mro__:
+        if "__init__" in vars(c):
+            admitidos |= set(inspect.signature(c.__init__).parameters) - {"self", "kw"}
+    params = {}
+    for par in filter(None, parametros.split(",")):
+        k, v = par.split("=")
+        if k.strip() in admitidos:
+            v = v.strip()
+            params[k.strip()] = int(v) if v.lstrip("-").isdigit() else float(v)
+    return clase(**params)
 
 
 def con_regimen(df: pd.DataFrame) -> pd.DataFrame:
@@ -126,13 +144,14 @@ def main() -> int:
     p.add_argument("--periodo", default="5y")
     p.add_argument("--salida", default="laboratorio_salida")
     p.add_argument("--activos", default="", help="simbolo:clase separados por comas (por defecto, el universo)")
-    p.add_argument("--universo", default="activo", choices=("activo", "sp100"))
+    p.add_argument("--universo", default="activo", choices=UNIVERSOS)
+    p.add_argument("--parametros", default="", help="nombre=valor separados por comas, para las estrategias que los admitan")
     a = p.parse_args()
 
     activos, sectores = universo_nombrado(a.universo)
     if a.activos:
         activos = [tuple(x.split(":")) for x in a.activos.split(",") if x]
-    estrategias = [ESTRATEGIAS[n]() for n in a.estrategias.split(",") if n]
+    estrategias = [crear(n, a.parametros) for n in a.estrategias.split(",") if n]
     ops_por_estrategia = {e.nombre: [] for e in estrategias}
     desde, hasta, sin_datos, n = None, None, [], 0
 

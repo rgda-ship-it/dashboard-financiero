@@ -354,3 +354,24 @@ def test_el_informe_de_robustez_del_momento_cubre_su_rejilla():
     corte = indice[0] + (indice[-1] - indice[0]) * 0.7
     texto = robustez.informe("momento", "accion", datos, {}, corte)
     assert "18 variantes" in texto and "## 5." in texto
+
+
+def test_rendimiento_por_mes_en_cartera():
+    # +10 % en 21 sesiones y +10 % en 42: 1,21 en 63 sesiones → 6,56 % al mes.
+    a, b = _op(0, dias=21), _op(0, dia=30, dias=42)
+    a.precio_salida = b.precio_salida = 110.0
+    assert metricas.medir([a, b]).mes_pct == pytest.approx((1.21 ** (21 / 63) - 1) * 100)
+
+
+def test_los_parametros_se_pasan_solo_a_quien_los_admite():
+    from laboratorio.ejecutar import crear
+    m = crear("momento", "top=4,mantener=8,ruptura=30")
+    t = crear("tendencia", "top=4,mantener=8,ruptura=30")
+    assert (m.top, m.mantener) == (4, 8) and t.ruptura == 30
+    assert crear("azar_momento", "top=3").top == 3
+
+
+def test_el_universo_etf_es_de_antes_de_2000():
+    from laboratorio.datos import universo_nombrado
+    activos, grupos = universo_nombrado("etf")
+    assert len(activos) == 19 and grupos["XLK"] == "Sector EE. UU." and grupos["EWJ"] == "País"
