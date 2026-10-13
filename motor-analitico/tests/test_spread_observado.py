@@ -108,6 +108,10 @@ def test_el_conector_descarta_cotizaciones_sin_sentido(monkeypatch):
         ({"bid": 8.69, "ask": 8.68}, None),
         ({"bid": None, "ask": 8.68}, None),
         ({}, None),
+        # 0041: en Nasdaq la cotización de Yahoo está congelada; en NYSE no.
+        ({"exchange": "NMS", "bid": 260.78, "ask": 267.77}, None),
+        ({"exchange": "NGM", "bid": 8.67, "ask": 8.68}, None),
+        ({"exchange": "NYQ", "bid": 82.53, "ask": 82.54}, {"bid": 82.53, "ask": 82.54}),
     ]
     for info, esperado in casos:
         class TickerFalso:

@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-13 — 0041: el spread de Nasdaq no se mide
+
+### Corregido
+**0041**: en las acciones de Nasdaq, el precio de compra y de venta que da Yahoo no es el libro real.
+- **Síntoma** (primera sesión medida, 2026-10-12): AMZN dio 260,78 / 267,77 en las 12 medidas del día y otra vez en el premercado del 13. AAPL, MSFT, NVDA y SPCX dieron spreads del 1–2,7 %, cuando el real es de céntimos. CSCO, KMB, UAL, QFIN y CCOI no dieron ninguna medida válida.
+- **Efecto**: la 0035 cobra el mayor entre el spread configurado y el observado, así que los agentes con metas pagaban ese spread.
+- **Arreglo**: el conector de Yahoo ya no mide en Nasdaq (`BOLSAS_SIN_LIBRO_FIABLE`); ahí se cobra el configurado. La migración borra las medidas ya guardadas de esos 13 valores. Los 19 de NYSE dan datos coherentes y se siguen midiendo.
+
+### Revisado
+- **Tendencia cripto**: dos mañanas de decisiones, todas coherentes (`sin_senal`; maxlinear, `sin_datos`). Con 5 $ de riesgo, todas las criptos dan una posición por encima del mínimo de 10 $ (de 25 $ a 235 $).
+- **Primer autodiagnóstico semanal**: los tres agentes con metas piden revisar su meta, que no alcanzan. Es lo esperado (doc 05). El ATR mediano sale «sin dato»: está pendiente de averiguar.
+- **etl-acciones #182**: `401 PGRST303 JWT issued at future`, un desfase de reloj de Supabase. Fue aislado y la pasada siguiente salió bien.
+
 ## [Sin publicar] - 2026-10-11 — Laboratorio: el azar como vara de medir (resultado)
 
 ### Hallazgo
