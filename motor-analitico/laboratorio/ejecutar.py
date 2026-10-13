@@ -23,7 +23,7 @@ import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
 from laboratorio.datos import cargar, spread_de, universo, universo_nombrado  # noqa: E402
-from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
+from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
 
@@ -136,18 +136,22 @@ def main() -> int:
     ops_por_estrategia = {e.nombre: [] for e in estrategias}
     desde, hasta, sin_datos, n = None, None, [], 0
 
+    # Primero todos los datos: las estrategias cruzadas (momento) clasifican
+    # cada activo frente a los demás de su clase en cada fecha.
+    datos = {}
     for simbolo, clase in activos:
         df = cargar(simbolo, clase, a.periodo)
         if df is None or len(df) < 260:
             sin_datos.append(simbolo)
             continue
-        df = con_regimen(df)
+        datos[(simbolo, clase)] = con_regimen(df)
         n += 1
         desde = df.index[0] if desde is None else min(desde, df.index[0])
         hasta = df.index[-1] if hasta is None else max(hasta, df.index[-1])
-        for e in estrategias:
-            ops_por_estrategia[e.nombre] += simular(df, e, spread_de(simbolo, clase), simbolo, clase)
         print(f"  {simbolo:<14} {len(df)} velas")
+    for e in estrategias:
+        for (simbolo, clase), df in anadir_rangos(datos, e).items():
+            ops_por_estrategia[e.nombre] += simular(df, e, spread_de(simbolo, clase), simbolo, clase)
 
     if n == 0:
         print("Sin datos: nada que medir.")

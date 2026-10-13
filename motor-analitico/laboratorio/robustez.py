@@ -33,7 +33,7 @@ import pandas as pd  # noqa: E402
 from laboratorio import metricas  # noqa: E402
 from laboratorio.datos import CRIPTO_TOP_2021, cargar, spread_de, universo, universo_nombrado  # noqa: E402
 from laboratorio.ejecutar import _fmt  # noqa: E402
-from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
+from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import Operacion, simular  # noqa: E402
 
 from laboratorio.ejecutar import CABECERA as CAB  # noqa: E402
@@ -47,18 +47,22 @@ REJILLAS = {
     "ruptura_volumen": {"factor_volumen": (1.2, 1.5, 2.0), "ruptura": (20, 30, 55)},
     "ruptura_2r": {"objetivo_r": (1.5, 2.0, 3.0), "ruptura": (20, 30, 55)},
     "reversion_bollinger": {"adx_max": (15, 20, 25), "dias_max": (5, 10, 15)},
+    "momento": {"mirar": (126, 252), "top": (5, 10, 20), "stop_atr": (3.0, 5.0, 8.0)},
+    "azar_momento": {"mirar": (126, 252), "top": (5, 10, 20), "stop_atr": (3.0, 5.0, 8.0)},
 }
 
 
 def _variante(nombre: str, params: dict):
     if nombre in ("tendencia", "ruptura_volumen", "ruptura_2r") and "ruptura" in params:
         params = {**params, "salida": max(5, params["ruptura"] // 2)}
+    if nombre in ("momento", "azar_momento") and "top" in params:
+        params = {**params, "mantener": 2 * params["top"]}
     return ESTRATEGIAS[nombre](**params)
 
 
 def _correr(datos: dict, estrategia, factor_spread: float = 1.0) -> list[Operacion]:
     ops: list[Operacion] = []
-    for (simbolo, clase), df in datos.items():
+    for (simbolo, clase), df in anadir_rangos(datos, estrategia).items():
         base = spread_de(simbolo, clase)
         spread = base if factor_spread == 1.0 else (lambda p, b=base: b(p) * factor_spread)
         ops += simular(df, estrategia, spread, simbolo, clase)

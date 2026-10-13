@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from laboratorio import metricas  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS  # noqa: E402
-from laboratorio.motor import Entrada, Operacion, simular  # noqa: E402
+from laboratorio.motor import Entrada, Operacion, Posicion, simular  # noqa: E402
 
 SIN_SPREAD = lambda precio: 0.0  # noqa: E731
 
@@ -269,3 +269,88 @@ def test_el_informe_desglosa_por_sector_y_cuenta_valores_ganadores():
     assert "| Tecnología | 1 | 1 | 1 | +2.000 |" in texto
     assert "| Consumo defensivo | 1 | 0 | 2 | +0.000 |" in texto
     assert "1 de 2 valores" in texto
+
+
+# ---------------------------------------------------------------------------
+# Momento relativo (doc 06 §3.11): estrategias cruzadas
+# ---------------------------------------------------------------------------
+
+def _universo_aleatorio(n=700, activos=6):
+    return {(f"S{i}", "accion"): _serie_aleatoria(n=n, semilla=40 + i) for i in range(activos)}
+
+
+@pytest.mark.parametrize("nombre", ["momento", "azar_momento"])
+def test_el_rango_entre_activos_no_cambia_si_se_quita_el_futuro(nombre):
+    from laboratorio.estrategias import anadir_rangos
+    datos = _universo_aleatorio()
+    e = ESTRATEGIAS[nombre]()
+    completo = anadir_rangos(datos, e)
+    for t in range(260, 699, 53):
+        truncado = anadir_rangos({k: df.iloc[: t + 1] for k, df in datos.items()}, e)
+        for k in datos:
+            a, b = completo[k][e.columna].iloc[t], truncado[k][e.columna].iloc[t]
+            assert (pd.isna(a) and pd.isna(b)) or a == b, (nombre, k, t)
+            pa, pb = e.preparar(completo[k]), e.preparar(truncado[k])
+            assert (e.entrada(pa, t) is None) == (e.entrada(pb, t) is None), (nombre, k, t)
+
+
+def test_el_rango_es_por_clase_y_solo_compiten_los_que_tienen_historia():
+    from laboratorio.estrategias import anadir_rangos
+    datos = _universo_aleatorio(activos=4)
+    datos[("C0", "cripto")] = _serie_aleatoria(n=700, semilla=99)
+    e = ESTRATEGIAS["azar_momento"]()
+    con = anadir_rangos(datos, e)
+    # Los primeros 252 días no hay momento de 12 meses: nadie compite.
+    assert all(con[k][e.columna].iloc[:252].isna().all() for k in con)
+    fila = pd.Series({k: con[k][e.columna].iloc[500] for k in con if k[1] == "accion"})
+    assert sorted(fila) == [1, 2, 3, 4]
+    # La única cripto compite sola en su clase.
+    assert con[("C0", "cripto")][e.columna].iloc[500] == 1
+
+
+def test_el_momento_entra_en_las_primeras_y_rota_al_caer():
+    e = ESTRATEGIAS["momento"](top=2, mantener=4)
+    df = e.preparar(_serie_aleatoria(n=120))
+    rebalanceos = np.flatnonzero(df["REBALANCEO"].to_numpy())
+    assert len(rebalanceos) >= 3
+    assert all(df.index[t].month != df.index[t - 1].month for t in rebalanceos)
+    t1, t2 = rebalanceos[1], rebalanceos[2]
+    df.loc[df.index[t1], e.columna] = 2          # entre las 2 primeras: entra
+    df.loc[df.index[t1 + 1], e.columna] = 1      # no es día de rebalanceo: no entra
+    assert e.entrada(df, t1) is not None and e.entrada(df, t1 + 1) is None
+    ent = e.entrada(df, t1)
+    assert ent.tp is None and ent.sl == pytest.approx(df["Close"].iloc[t1] - 5 * df["ATR_14"].iloc[t1])
+
+    pos = Posicion(entrada=df["Close"].iloc[t1], sl=ent.sl, sl_inicial=ent.sl, tp=None,
+                   fecha_senal=df.index[t1], fecha_entrada=df.index[t1 + 1],
+                   indice_entrada=t1 + 1, mejor_cierre=df["Close"].iloc[t1])
+    df.loc[df.index[t2], e.columna] = 4          # sigue entre las 4: mantiene
+    assert e.actualizar(df, t2, pos) == (ent.sl, False)
+    df.loc[df.index[t2], e.columna] = 5          # cae fuera: sale a la apertura siguiente
+    assert e.actualizar(df, t2, pos) == (ent.sl, True)
+    df.loc[df.index[t2 + 1], e.columna] = 9      # fuera de rebalanceo no se mira
+    assert e.actualizar(df, t2 + 1, pos) == (ent.sl, False)
+
+
+def test_el_momento_opera_el_universo_de_principio_a_fin():
+    from laboratorio.estrategias import anadir_rangos
+    datos = _universo_aleatorio()
+    for nombre in ("momento", "azar_momento"):
+        e = ESTRATEGIAS[nombre](top=2, mantener=3)
+        ops = [o for (s, c), df in anadir_rangos(datos, e).items()
+               for o in simular(df, e, lambda p: p * 0.001, s, c)]
+        assert ops, nombre
+        assert all(o.fecha_entrada > o.fecha_senal for o in ops)
+        assert {o.motivo for o in ops} <= {"regla", "sl", "hueco", "fin"}
+        # En cada rebalanceo, como mucho `top` entradas nuevas.
+        por_fecha = pd.Series([o.fecha_senal for o in ops]).value_counts()
+        assert por_fecha.max() <= 2
+
+
+def test_el_informe_de_robustez_del_momento_cubre_su_rejilla():
+    from laboratorio import robustez
+    datos = _universo_aleatorio(n=600, activos=5)
+    indice = datos[("S0", "accion")].index
+    corte = indice[0] + (indice[-1] - indice[0]) * 0.7
+    texto = robustez.informe("momento", "accion", datos, {}, corte)
+    assert "18 variantes" in texto and "## 5." in texto
