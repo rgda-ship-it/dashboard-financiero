@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-13 — 0042: fuera de la cuarentena durante el experimento
+
+### Cambiado
+**0042**, por decisión del dueño: los tres agentes con metas salen de la cuarentena y recuperan el riesgo completo.
+- **Motivo**: W40 y W41 fueron deficientes, así que los tres quedaron con el riesgo a la mitad y en cuarentena: una posición a la vez y solo señales de fuerza alta. No abren nada desde el 09-10; el lunes 12 cada uno descartó unas 1.400 señales por «fuerza». Como las metas no se alcanzan por diseño, la cuarentena sería permanente y no dejaría ver el efecto de las mejoras de las 0030–0036.
+- **Nuevo**: `agentes.consecuencias_semanales`. Si está en false, el corte semanal sigue calculando la nota, guardándola y abriendo su entrada en el backlog, pero no reduce el riesgo ni pone en cuarentena. Queda en false para los agentes con metas mientras dure el experimento.
+- Las reglas de decisión no cambian. Invariante I90.
+
 ## [Sin publicar] - 2026-10-13 — 0041: el spread de Nasdaq no se mide
 
 ### Corregido

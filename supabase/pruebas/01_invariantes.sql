@@ -4533,6 +4533,56 @@ end
 $i89$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I90 · Corte semanal sin consecuencias durante el experimento (0042).
+--
+-- Los agentes con metas no están en cuarentena ni con el riesgo reducido
+-- y tienen las consecuencias suspendidas. Un agente así, con dos semanas
+-- deficientes seguidas, recibe su nota y su entrada en el backlog, pero
+-- sigue activo y con el riesgo completo.
+-- ═════════════════════════════════════════════════════════════════════
+do $i90$
+declare
+    v_lunes date := date_trunc('week', (now() at time zone 'UTC')::date)::date - 70;
+    v_ag    bigint;
+    v_cta   bigint;
+    v_json  jsonb;
+    v_texto text;
+begin
+    if exists (select 1 from public.agentes
+                where nombre in ('Prudencia', 'Cadencia', 'Audacia')
+                  and (consecuencias_semanales or riesgo_reducido or estado = 'cuarentena')) then
+        raise exception 'I90 FALLO: los agentes con metas debían quedar sin cuarentena, con el riesgo completo y sin consecuencias';
+    end if;
+
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+    values ('prueba-sin-consecuencias', 2, 'activo',
+            '{"riesgo_pct_operacion": 4, "max_posiciones_abiertas": 3}', false) returning id into v_ag;
+    v_cta := public.fn_crear_cuenta_agente(v_ag);
+    insert into public.agente_dias
+        (agente_id, fecha, cuenta_id, saldo_apertura, saldo_cierre, objetivo_importe, operable, cumplido, cerrado_en)
+    select v_ag, v_lunes + k, v_cta, 500, 500, 10, true, false, now()
+      from generate_series(0, 13) k;
+
+    v_json := public.fn_corte_semanal_agente(v_ag, v_lunes);
+    perform public.fn_corte_semanal_agente(v_ag, v_lunes + 7);
+    select format('%s/%s/%s', c.riesgo_pct_operacion, c.max_posiciones_abiertas, a.estado) into v_texto
+      from public.cuentas_simulacion c join public.agentes a on a.id = c.agente_id where c.id = v_cta;
+    if v_json ->> 'veredicto' <> 'deficiente' or v_texto <> '4.00/3/activo' then
+        raise exception 'I90 FALLO: dos deficientes sin consecuencias debían dejar 4.00/3/activo, quedó % (%)',
+              v_texto, v_json ->> 'veredicto';
+    end if;
+    if (v_json -> 'accion_correctiva' ->> 'consecuencias_suspendidas')::boolean is not true
+       or not exists (select 1 from public.agente_backlog
+                       where clave_deduplicacion = 'ajuste_regla:semana_deficiente:agente_' || v_ag)
+       or (select count(*) from public.agente_semanas where agente_id = v_ag and veredicto = 'deficiente') <> 2 then
+        raise exception 'I90 FALLO: la nota, su entrada en el backlog y la marca de consecuencias suspendidas debían quedar';
+    end if;
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    raise notice 'PASS  I90 sin consecuencias semanales: dos deficientes dejan la nota y el backlog, pero ni riesgo a la mitad ni cuarentena';
+end
+$i90$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
