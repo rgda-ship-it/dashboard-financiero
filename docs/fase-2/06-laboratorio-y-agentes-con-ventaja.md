@@ -281,6 +281,78 @@ en el mismo universo.
    universo y con intervalos que no se solapen. Sin eso, lo que mide es el
    mercado.
 
+### 3.11 Momento relativo: ¿elegir las más fuertes aporta algo?
+
+La referencia al azar del §3.10 deja una sola vía para tener ventaja de
+señal en acciones: que importe **qué** acción se elige frente a las
+demás, no **cuándo** se entra. Es el momento relativo, la anomalía más
+documentada en los estudios académicos.
+
+**Las estrategias** (`estrategias.py`):
+- **momento**: el primer día de bolsa de cada mes clasifica el universo de
+  su clase por la rentabilidad de 12 meses sin el último (12-1). Entra en
+  las `top` primeras y las mantiene mientras sigan entre las `mantener`
+  primeras (el doble). Stop de catástrofe fijo a 5 ATR, sin objetivo: la
+  salida normal es la rotación.
+- **azar_momento**: las mismas reglas, pero con una clasificación al azar
+  entre los mismos activos. Tiene semilla, porque una sola tirada es muy
+  ruidosa.
+
+Son estrategias **cruzadas**: la clasificación de un activo depende de los
+demás. Se calcula antes, para todos a la vez y de forma causal
+(`anadir_rangos`), y llega al motor como una columna.
+
+**Dos problemas de medida, y sus arreglos**:
+1. **La R por operación no sirve aquí.** El momento mantiene cada posición
+   de 3 a 4 veces más tiempo que su azar (90–170 sesiones frente a 23–47),
+   y la R crece con el tiempo en cartera. Por eso da +0,68 R frente a
+   +0,17 R en el S&P 100 aunque elija casi igual. La medida justa es el
+   **rendimiento por mes en cartera** (columna «% / mes», nueva en todos
+   los informes).
+2. **Una sola tirada del azar no sirve de vara.** En el S&P 100, la
+   validación de `azar_momento` va de +0,06 a +1,28 % al mes según la
+   semilla. El modo nuevo **`contra_azar`** compara la estrategia con 30
+   tiradas, y exige superar al 90 % de ellas en validación.
+
+**El universo sin sesgo de supervivencia**: `--universo etf`, con los 9 ETF
+de sectores de SPDR y 10 ETF de países de iShares, todos de 1996–2000.
+Se pueden elegir con la información de entonces, y el histórico cubre
+2000–2002 y 2008. En el S&P 100 de hoy, el momento sale favorecido justo
+por el sesgo: PLTR, que entró en el índice por haber subido, explica la
+mitad de la R de validación.
+
+**Resultado** (rendimiento por mes en cartera; percentil frente a 30
+tiradas al azar). [ETF, 4 primeras, en CI](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38383102154);
+el resto, en local con el mismo código:
+
+| Universo | top | Diseño: momento / azar (mediana) | Supera | Validación: momento / azar (mediana) | Supera |
+|---|---|---|---|---|---|
+| ETF (19, desde 1996) | **4** | +0,62 / +0,25 % | 100 % | +0,65 / +0,73 % | **33 %** ❌ |
+| ETF | 2 | +0,44 / +0,15 % | 90 % | +1,12 / +0,73 % | 93 % |
+| S&P 100 (sesgado) | **10** | +1,14 / +0,87 % | 90 % | +1,54 / +1,20 % | **73 %** ❌ |
+| S&P 100 | 5 | +2,07 / +0,79 % | 100 % | +2,44 / +1,20 % | 93 % |
+| Acciones propias (29) | **10** | +0,21 / +0,27 % | **37 %** ❌ | +1,31 / −0,10 % | 100 % |
+
+En negrita, la configuración fijada de antemano.
+
+**Conclusiones**:
+1. **La configuración fijada de antemano no aporta selección en ningún
+   universo.** En cada uno falla en uno de los dos tramos, y en los ETF,
+   el único universo sin sesgo, la validación queda por debajo de la
+   mediana del azar.
+2. **Las carteras concentradas (las 2 o las 5 mejores) pasan en los dos
+   tramos**, pero se han elegido después de ver los resultados. Con cinco
+   configuraciones probadas y un listón del 90 %, que alguna pase por
+   suerte es lo esperable. Es una hipótesis, no un resultado.
+3. **No se crea agente de acciones.** Si se quiere seguir, la variante
+   concentrada se fija ahora (ETF, 2 primeras, 12-1, stop a 5 ATR) y se
+   juzga con datos que todavía no existen: en vivo, o con el histórico que
+   se vaya acumulando. Sería el mismo criterio que el de Tendencia cripto.
+4. **Para toda estrategia que mantenga las posiciones durante tiempos
+   distintos de su referencia**, el criterio del §3.5 se aplica con el
+   rendimiento por mes en cartera y contra la distribución de tiradas, no
+   con la R por operación ni con una sola tirada.
+
 ---
 
 ## 4. Lo que viene después

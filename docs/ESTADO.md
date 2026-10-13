@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-13 (revisión de las primeras decisiones, del autodiagnóstico y de los spreads; 0041)
+> **Última actualización**: 2026-10-13 (spreads de Nasdaq, 0041; fuera de la cuarentena, 0042; momento relativo, doc 06 §3.11)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -116,8 +116,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Laboratorio a 10 años | Tendencia en cripto, reforzada: +1,09 R, IC [+0,57, +1,70], 203 operaciones en validación. En acciones, +0,12 R con el intervalo incluyendo el cero: sigue sin agente (doc 06 §3.7). [Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38135711624) |
 | ✅ | Segunda ronda: estrategias del manual del dueño (doc 06 §3.8) | **ruptura_volumen en acciones** pasa: +0,29 R en validación. También pasa la robustez formal, pero con márgenes justos y solo 12 de 29 acciones positivas. El resto no aporta: <br>• el objetivo a 2R empeora la ruptura en cripto; <br>• la reversión con Bollinger falla. <br>[Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38163243913) |
 | ✅ | Ruptura con volumen en acciones: amplitud (S&P 100) y referencia al azar (doc 06 §3.9–3.10) | **No se crea agente de acciones.** En el S&P 100, entrar al azar con las mismas salidas rinde lo mismo que la ruptura (+0,28 frente a +0,27 R): la «ventaja» es el mercado alcista con supervivientes, no la señal. En cripto, el azar da +0,65 R frente a +1,09 R de tendencia: la mayor parte de la ventaja de Tendencia cripto está en sus salidas. Desde ahora el criterio exige superar a la referencia al azar |
-| 🗓️ | Ideas que sí podrían aportar señal en acciones | Haría falta algo que el azar no tenga: <br>• momento relativo entre acciones (comprar las más fuertes frente a las demás, no frente a su pasado); <br>• datos fundamentales. <br>Siempre comparando con `azar` |
-| 🗓️ | Ideas nuevas para acciones (ninguna pasa hoy) | Candidatas: <br>• momento relativo (comprar los más fuertes del universo y rotar cada mes); <br>• tendencia con filtro de régimen del S&P 500. <br>Cada idea se escribe como estrategia nueva en `estrategias.py`, con su prueba de causalidad |
+| ✅ | Momento relativo en acciones (doc 06 §3.11), 2026-10-13 | **No aporta selección frente al azar** con la configuración fijada de antemano (las 4 o 10 primeras, 12-1), en ningún universo. En los 19 ETF sin sesgo de supervivencia, la validación queda en el percentil 33 de 30 tiradas al azar. Solo las carteras muy concentradas (2 o 5) pasan, pero se eligieron tras ver los datos. **No se crea agente de acciones.** Herramientas nuevas: el modo `contra_azar`, la medida «% / mes» y `--universo etf` |
+| 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
+| 🗓️ | Otras ideas para acciones | Solo datos fundamentales (calidad, valor), siempre contra la distribución de tiradas al azar. El momento ya se probó (§3.11) |
 | 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
 | ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
 
