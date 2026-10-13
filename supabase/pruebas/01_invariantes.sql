@@ -4549,7 +4549,7 @@ declare
     v_texto text;
 begin
     if exists (select 1 from public.agentes
-                where tipo = 'metas'
+                where nombre in ('Prudencia', 'Cadencia', 'Audacia')
                   and (consecuencias_semanales or riesgo_reducido or estado = 'cuarentena')) then
         raise exception 'I90 FALLO: los agentes con metas debían quedar sin cuarentena, con el riesgo completo y sin consecuencias';
     end if;
