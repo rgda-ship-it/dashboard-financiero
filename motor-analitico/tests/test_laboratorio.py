@@ -375,3 +375,22 @@ def test_el_universo_etf_es_de_antes_de_2000():
     from laboratorio.datos import universo_nombrado
     activos, grupos = universo_nombrado("etf")
     assert len(activos) == 19 and grupos["XLK"] == "Sector EE. UU." and grupos["EWJ"] == "País"
+
+
+def test_contra_azar_compara_con_la_distribucion_de_tiradas():
+    from laboratorio import contra_azar
+    datos = _universo_aleatorio(n=700, activos=6)
+    indice = datos[("S0", "accion")].index
+    corte = indice[0] + (indice[-1] - indice[0]) * 0.7
+    texto = contra_azar.informe("momento", datos, corte, "top=2,mantener=4", semillas=5)
+    assert "frente a 5 tiradas de azar_momento" in texto and "**Validación**" in texto
+    assert "aporta selección" in texto
+
+
+def test_las_semillas_del_azar_cambian_la_tirada():
+    datos = _universo_aleatorio(n=400, activos=4)
+    from laboratorio.estrategias import anadir_rangos
+    a = anadir_rangos(datos, ESTRATEGIAS["azar_momento"](semilla=0))
+    b = anadir_rangos(datos, ESTRATEGIAS["azar_momento"](semilla=1))
+    col = "RANGO_azar_momento"
+    assert not a[("S0", "accion")][col].equals(b[("S0", "accion")][col])

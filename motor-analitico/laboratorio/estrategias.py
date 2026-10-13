@@ -358,14 +358,19 @@ class AzarMomento(Momento):
     por fuerza relativa no aporta nada frente a elegir a ciegas en el
     mismo universo y con el mismo viento a favor.
 
-    El azar es determinista y causal: depende solo de la fecha y del cierre
-    de ese día."""
+    El azar es determinista y causal: depende solo de la fecha, del cierre
+    de ese día y de la `semilla`. Una sola tirada es ruidosa: para juzgar
+    el momento hay que compararlo con muchas semillas (doc 06 §3.11)."""
 
     nombre = "azar_momento"
 
+    def __init__(self, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.semilla = semilla
+
     def puntuar(self, df: pd.DataFrame) -> pd.Series:
         base = super().puntuar(df)
-        azar = [int(hashlib.md5(f"{i.value}-{c:.6f}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+        azar = [int(hashlib.md5(f"{self.semilla}-{i.value}-{c:.6f}".encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
                 for i, c in zip(df.index, df["Close"].astype(float))]
         return pd.Series(azar, index=df.index).where(base.notna())
 

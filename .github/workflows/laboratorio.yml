@@ -13,9 +13,9 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente'
+        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente; contra_azar = una estrategia cruzada frente a 30 tiradas al azar'
         type: choice
-        options: [laboratorio, robustez, cartera]
+        options: [laboratorio, robustez, cartera, contra_azar]
         default: laboratorio
       estrategias:
         description: 'Estrategias, separadas por comas (en robustez, solo la primera)'
@@ -67,6 +67,15 @@ jobs:
             python -m laboratorio.robustez \
               --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --clase "${{ inputs.clase }}" \
+              --universo "${{ inputs.universo }}" \
+              --parametros "${{ inputs.parametros }}" \
+              --periodo "${{ inputs.periodo }}" \
+              --salida ../laboratorio_salida
+            exit
+          fi
+          if [ "${{ inputs.modo }}" = "contra_azar" ]; then
+            python -m laboratorio.contra_azar \
+              --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --universo "${{ inputs.universo }}" \
               --parametros "${{ inputs.parametros }}" \
               --periodo "${{ inputs.periodo }}" \
