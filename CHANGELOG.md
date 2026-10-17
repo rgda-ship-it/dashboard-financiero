@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-17 — 0043: deterioro confirmado y espera tras el stop
+
+### Corregido
+Dos fallos de los agentes con metas, vistos en su primera semana fuera de la cuarentena (13–16 de octubre):
+- **La salida por deterioro vendía por una sola lectura.** La señal se recalcula cada 30 minutos, y la primera lectura peor bastaba para vender. F salió a los 30 minutos de entrar (−0,66 R), volvió a entrar más caro y llegó al objetivo. WFC salió con la primera lectura de la sesión, la de la subasta de apertura, y le pasó lo mismo. Fueron 7 de 16 cierres, con unos −0,4 R de media. **Ahora el deterioro tiene que verse en dos lecturas seguidas posteriores a la entrada.**
+- **Volvían a entrar en el valor que acababa de tocar el stop.** Audacia perdió −1 R en QFIN dos veces y volvió a entrar a los dos minutos del segundo stop. **Ahora esperan 48 h** (`espera_tras_stop_horas`) antes de volver a un activo tras un stop. Descarte nuevo: `tras_stop`.
+
+Invariante I91. I68 e I61 se adaptan: dos lecturas para el deterioro y ninguna espera en la prueba de prácticas.
+
+### Añadido
+- `scripts/consultar.py`: consultas de solo lectura a producción con `SUPABASE_DB_URL_LECTURA`, para que Claude revise los datos sin pasar por el editor de Supabase.
+- `scripts/revision_agentes.sql`: la revisión completa de los agentes en una sola tabla.
+
 ## [Sin publicar] - 2026-10-13 — Laboratorio: momento relativo (resultado)
 
 ### Hallazgo

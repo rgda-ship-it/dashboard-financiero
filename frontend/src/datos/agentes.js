@@ -158,6 +158,7 @@ export const MOTIVOS_DESCARTE = {
   atr_bajo: "ATR bajo",
   atr_alto: "ATR alto",
   posicion_abierta: "ya abierta",
+  tras_stop: "stop reciente (espera)",
   practica: "no cumple una práctica",
   margen_minimo: "margen < 10 $",
 };

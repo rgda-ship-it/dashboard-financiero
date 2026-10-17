@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-13 (spreads de Nasdaq, 0041; fuera de la cuarentena, 0042; momento relativo, doc 06 §3.11)
+> **Última actualización**: 2026-10-17 (revisión de la primera semana fuera de la cuarentena; 0043; consultas de Claude a producción)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -29,7 +29,7 @@ punto ⏭️ de la lista de control»*.
 |---|---|---|
 | Cambios de código y migraciones | Claude | Rama de trabajo, PR y merge a `master` |
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
-| Consultar producción | Dueño | Pega el SQL en el editor SQL de Supabase y sube el CSV al chat. Claude no tiene acceso directo a producción. Para copiar SQL largo, usar la URL *raw* de GitHub (las copias parciales dieron errores de sintaxis) |
+| Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
 | Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I89), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
@@ -138,7 +138,10 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Comprobar por qué los agentes con metas no abren nada desde el 09-10 | Por la cuarentena: el lunes 12 cada uno descartó unas 1.400 señales por «fuerza» (solo admite la alta) |
 | ✅ 👤 | 0042: los agentes con metas salen de la cuarentena (decisión del dueño, 2026-10-13) | Las metas no se cumplen nunca, así que la cuarentena sería permanente y no dejaría ver el efecto de las 0030–0036. Vuelven a `activo` y con el riesgo completo. Mientras dure el experimento, el corte semanal sigue calculando la nota y abriendo su entrada en el backlog, pero sin consecuencias (`agentes.consecuencias_semanales = false`). Invariante I90. Al acabar el experimento, volver a ponerla en true |
 | ✅ 👤 | Aplicar la 0042 (aplicada el 2026-10-13) | Prudencia, Cadencia y Audacia quedan `activo`, con `riesgo_reducido = false` y `consecuencias_semanales = false` |
-| ⏭️ 👤 | Tras el próximo día de bolsa: comprobar que los agentes con metas vuelven a abrir posiciones | La consulta de `agente_dias` (estado y descartes) del 2026-10-13: que `fuerza` deje de ser el descarte principal y aparezcan entradas. En `v_spreads`, los valores de Nasdaq deben cobrar 0,03 $ |
+| ✅ | Comprobar que los agentes con metas vuelven a abrir posiciones (revisión del 2026-10-17) | Sí, desde el 13-10. Los niveles de la 0030 funcionan (stops del 2–5 %, 7 objetivos alcanzados) y ya operan valores de Nasdaq. Dos fallos, corregidos en la 0043: la salida por deterioro vendía por una sola lectura (7 de 16 cierres, unos −0,4 R de media) y volvían a entrar en un valor que acababa de tocar el stop (QFIN) |
+| ⏭️ 👤 | **Aplicar la 0043** | Deterioro confirmado en dos lecturas seguidas; 48 h sin volver a un activo tras su stop (`espera_tras_stop_horas`). Invariante I91 |
+| ⏭️ 👤 | Dar `bypassrls` a `analista_lectura` | `alter role analista_lectura bypassrls;` en el editor SQL. Sin esto, el rol se conecta pero no ve ninguna fila |
+| 🗓️ | Revisar la 0043 tras una semana | Que las salidas por deterioro bajen y su resultado mejore, y cuántos descartes `tras_stop` hay. Con `scripts/consultar.py -f scripts/revision_agentes.sql` |
 | ✅ | Revisar `v_spreads` tras el primer día de bolsa (2026-10-13) | En NYSE (19 valores), las medidas son coherentes. En Nasdaq (13 valores), Yahoo da una cotización congelada: spreads del 1–2,7 % en AAPL, AMZN, MSFT, NVDA y SPCX, y casi ninguna medida en el resto. Se cobraban a los agentes con metas. Arreglo en la 0041 |
 | ✅ 👤 | Aplicar la 0041 (aplicada el 2026-10-13) | Borra las medidas de Nasdaq y deja de cobrarlas. El ETL ya no mide en Nasdaq desde el merge del PR |
 | 🗓️ 👤 | Comprobar que los agentes operan cripto el fin de semana | Con `scripts/diagnostico_agentes_editor.sql` tras un fin de semana completo con la 0032 aplicada |
