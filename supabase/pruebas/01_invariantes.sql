@@ -4679,6 +4679,74 @@ end
 $i91$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I92 · Backlog revisado (0044).
+--
+-- «Ampliar el universo» no salta con 5 ciclos ni con 24 de una sola señal
+-- descartada por ciclo; sí con 24 y 3 descartes del perfil por ciclo. La
+-- meta de un agente sin consecuencias semanales no se reabre; la de uno
+-- con consecuencias, sí. Y la descripción sigue a la última ocurrencia.
+-- ═════════════════════════════════════════════════════════════════════
+do $i92$
+declare
+    v_ag    bigint;
+    v_otro  bigint;
+    v_cta   bigint;
+    v_hoy   date := (now() at time zone 'UTC')::date;
+    v_b     public.agente_backlog;
+begin
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+    values ('prueba-backlog', 2, 'pausado', '{}', false) returning id into v_ag;
+    v_cta := public.fn_crear_cuenta_agente(v_ag);
+    insert into public.agente_dias (agente_id, fecha, cuenta_id, saldo_apertura, objetivo_importe, operable,
+                                    ciclos, ciclos_con_universo, ciclos_sin_candidatos, descartes)
+    values (v_ag, v_hoy, v_cta, 500, 10, true, 0, 0, 0, '{"rr": 5, "direccion": 70}');
+    update public.agente_dias set ciclos_universo_sin_candidatos = 5 where agente_id = v_ag and fecha = v_hoy;
+    perform public.fn_disparadores_backlog(v_ag, '{}');
+    update public.agente_dias set ciclos_universo_sin_candidatos = 24, descartes = '{"rr": 24, "direccion": 900}'
+     where agente_id = v_ag and fecha = v_hoy;
+    perform public.fn_disparadores_backlog(v_ag, '{}');
+    if exists (select 1 from public.agente_backlog where clave_deduplicacion = 'nuevo_activo:universo'
+                                                     and agente_id = v_ag) then
+        raise exception 'I92 FALLO: «Ampliar el universo» saltó sin 24 ciclos con 3 descartes del perfil por ciclo';
+    end if;
+    delete from public.agente_backlog where clave_deduplicacion = 'nuevo_activo:universo';
+    update public.agente_dias set descartes = '{"rr": 50, "atr_alto": 30, "direccion": 900}'
+     where agente_id = v_ag and fecha = v_hoy;
+    perform public.fn_disparadores_backlog(v_ag, '{}');
+    if not exists (select 1 from public.agente_backlog where clave_deduplicacion = 'nuevo_activo:universo') then
+        raise exception 'I92 FALLO: con 24 ciclos y 80 descartes del perfil debía saltar «Ampliar el universo»';
+    end if;
+    delete from public.agente_backlog where clave_deduplicacion = 'nuevo_activo:universo';
+
+    -- La meta sin consecuencias no se reabre, pero cuenta y actualiza el texto.
+    perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'diagnostico:meta:agente_' || v_ag, 'Meta', 'W41', 'j', '{"n": 1}', 2);
+    update public.agente_backlog set estado = 'rechazado', resolucion = 'Conocido'
+     where clave_deduplicacion = 'diagnostico:meta:agente_' || v_ag;
+    delete from public.agente_backlog_ocurrencias
+     where backlog_id = (select id from public.agente_backlog where clave_deduplicacion = 'diagnostico:meta:agente_' || v_ag);
+    perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'diagnostico:meta:agente_' || v_ag, 'Meta', 'W42', 'j', '{"n": 2}', 2);
+    select * into v_b from public.agente_backlog where clave_deduplicacion = 'diagnostico:meta:agente_' || v_ag;
+    if v_b.estado <> 'rechazado' or v_b.ocurrencias <> 2 or v_b.descripcion <> 'W42' then
+        raise exception 'I92 FALLO: la meta sin consecuencias debía seguir rechazada, contar la ocurrencia y decir W42: % / % / %',
+            v_b.estado, v_b.ocurrencias, v_b.descripcion;
+    end if;
+
+    -- Con consecuencias, sí se reabre.
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+    values ('prueba-backlog-2', 2, 'pausado', '{}') returning id into v_otro;
+    perform public.fn_registrar_backlog(v_otro, 'ajuste_regla', 'diagnostico:meta:agente_' || v_otro, 'Meta', 'W41', 'j', '{"n": 1}', 2);
+    update public.agente_backlog set estado = 'rechazado' where clave_deduplicacion = 'diagnostico:meta:agente_' || v_otro;
+    delete from public.agente_backlog_ocurrencias
+     where backlog_id = (select id from public.agente_backlog where clave_deduplicacion = 'diagnostico:meta:agente_' || v_otro);
+    perform public.fn_registrar_backlog(v_otro, 'ajuste_regla', 'diagnostico:meta:agente_' || v_otro, 'Meta', 'W42', 'j', '{"n": 2}', 2);
+    if (select estado from public.agente_backlog where clave_deduplicacion = 'diagnostico:meta:agente_' || v_otro) <> 'nuevo' then
+        raise exception 'I92 FALLO: con consecuencias, la meta debía reabrirse';
+    end if;
+    raise notice 'PASS  I92 backlog: «Ampliar el universo» pide 24 ciclos y 3 descartes del perfil por ciclo; la meta sin consecuencias no se reabre; la descripción sigue a la última ocurrencia';
+end
+$i92$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
