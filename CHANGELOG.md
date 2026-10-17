@@ -4,6 +4,21 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-17 — 0044: backlog revisado
+
+### Cambiado
+La **0044** cierra las 7 peticiones abiertas de los agentes:
+- 3 × «Mi meta diaria no es alcanzable»: rechazadas. Es cierto y se sabe (doc 05), pero las metas se mantienen porque los agentes con metas son el grupo de control.
+- 3 × «Revisar la estrategia» (semana deficiente): implementadas en la 0042.
+- «Ampliar el universo de activos»: rechazada. Saltó el sábado 17-10 con 5 ciclos y una sola cripto alcista descartada por R:R.
+
+Y tres cambios para que no vuelvan a abrirse por lo mismo:
+- «Ampliar el universo» exige 24 ciclos (unas 2 horas) y, de media, 3 descartes del perfil por ciclo.
+- La meta y la semana deficiente de un agente con las consecuencias semanales suspendidas cuentan la ocurrencia, pero no reabren la petición.
+- Al repetirse una petición, su descripción se actualiza junto con la evidencia. Antes, la de «semana deficiente» decía W40 con evidencia de W41.
+
+Invariante I92.
+
 ## [Sin publicar] - 2026-10-17 — 0043: deterioro confirmado y espera tras el stop
 
 ### Corregido
