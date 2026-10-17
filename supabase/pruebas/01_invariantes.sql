@@ -2637,7 +2637,8 @@ begin
     select string_agg(simbolo || '=' || coalesce(motivo, 'candidata'), ',' order by simbolo) into v_texto
       from public.fn_universo_agente(
                public.fn_parametros_agente((select a from public.agentes a where a.id = v_parc))
-                   || '{"fuerzas_admitidas": ["alta", "media"]}',
+                   -- 0043: sin la espera tras el stop; aquí se mide la práctica.
+                   || '{"fuerzas_admitidas": ["alta", "media"], "espera_tras_stop_horas": 0}',
                v_c_parc,
                jsonb_build_array(jsonb_build_object(
                    'c', (select condiciones from public.mejores_practicas where id = v_orden), 's', 'evitar')))
@@ -3154,6 +3155,8 @@ begin
          precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
          niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
     values (v_a, false, 5, 3, 's10', 102, null, null, null, 'bajista', 'sin_sesgo', 'alta', null, 9, 0, 3, now()),
+           -- 0043: el deterioro tiene que verse en dos lecturas seguidas.
+           (v_a, false, 5, 3, 's10', 102, null, null, null, 'bajista', 'sin_sesgo', 'alta', null, 9, 0, 3, now() - interval '30 minutes'),
            (v_b, true, 5, 3, 's10', 102, 97, 112, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now()),
            (v_c, true, 5, 3, 's10', 102, 97, 112, 5, 'alcista', 'largo', 'alta', 'estructura', 9, 3, 0, now());
     perform public.fn_ciclo_agente(v_ag);
@@ -4581,6 +4584,99 @@ begin
     raise notice 'PASS  I90 sin consecuencias semanales: dos deficientes dejan la nota y el backlog, pero ni riesgo a la mitad ni cuarentena';
 end
 $i90$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I91 · Deterioro confirmado y espera tras el stop (0043).
+--
+-- Una sola lectura deteriorada después de la entrada no cierra; la
+-- segunda seguida, sí. Y tras un stop en un activo, el agente no vuelve
+-- a entrar en él durante 48 h (descarte «tras_stop»); pasado ese tiempo,
+-- sí.
+-- ═════════════════════════════════════════════════════════════════════
+do $i91$
+declare
+    v_ag     bigint;
+    v_cuenta bigint;
+    v_a      bigint;
+    v_oa     bigint;
+    v_hoy    date := (now() at time zone 'UTC')::date;
+    v_motivo text;
+    v_n      int;
+begin
+    insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+    values ('zzdcf', 'cripto', 'coingecko', 'zzdcf', 'activo', 100, now()) returning id into v_a;
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, true, 5, 3, 's10', 100, 95, 110, 5, 'alcista', 'largo', 'alta', 'estructura', 9.5, 3, 0, now() - interval '3 hours');
+    insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+        ('prueba-confirmado', 2, 'activo',
+         '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["alta"], "niveles_origen_admitidos": ["estructura"],
+           "atr_pct_min": 9.2, "rr_minimo": 1.5, "riesgo_pct_operacion": 2, "antiguedad_senal_max_min": 600}')
+    returning id into v_ag;
+    v_cuenta := public.fn_crear_cuenta_agente(v_ag);
+    perform public.fn_sincronizar_dia_agente(v_ag, v_cuenta);
+    update public.agente_dias set operable = true where agente_id = v_ag and fecha = v_hoy;
+    perform public.fn_ciclo_agente(v_ag);
+    select id into v_oa from public.ordenes where cuenta_id = v_cuenta and activo_id = v_a and estado = 'abierta';
+    if v_oa is null then
+        raise exception 'I91 FALLO: el agente debía abrir la posición de prueba';
+    end if;
+    update public.ordenes set fecha_entrada = now() - interval '2 hours' where id = v_oa;
+    update public.activos set ultimo_precio = 101, ultimo_precio_en = now() where id = v_a;
+
+    -- Una lectura deteriorada después de la entrada: no basta.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, false, 5, 3, 's10', 101, null, null, null, 'bajista', 'sin_sesgo', 'alta', null, 9.5, 0, 3, now() - interval '30 minutes');
+    if public.fn_agente_salidas_deterioro(v_ag) <> 0
+       or (select estado from public.ordenes where id = v_oa) <> 'abierta' then
+        raise exception 'I91 FALLO: una sola lectura deteriorada no debía cerrar';
+    end if;
+
+    -- La segunda seguida: cierra, y deja los dos motivos.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, false, 5, 3, 's10', 101, null, null, null, 'bajista', 'sin_sesgo', 'alta', null, 9.5, 0, 3, now());
+    v_n := public.fn_agente_salidas_deterioro(v_ag);
+    if v_n <> 1
+       or not exists (select 1 from public.agente_decisiones
+                       where agente_id = v_ag and tipo = 'deterioro' and orden_id = v_oa
+                         and datos ->> 'motivo' = 'direccion' and datos ->> 'motivo_anterior' = 'direccion') then
+        raise exception 'I91 FALLO: dos lecturas deterioradas seguidas debían cerrar y dejar los dos motivos';
+    end if;
+
+    -- Espera tras el stop: un cierre por stop hace 1 h la descarta; hace 49 h, no.
+    insert into public.senales
+        (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+         precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+         niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+    values (v_a, true, 5, 3, 's10', 101, 96, 111, 5, 'alcista', 'largo', 'alta', 'estructura', 9.5, 3, 0, now() + interval '1 second');
+    update public.ordenes set motivo_cierre = 'sl', fecha_salida = now() - interval '1 hour' where id = v_oa;
+    select u.motivo into v_motivo
+      from public.agentes a, public.fn_universo_agente(public.fn_parametros_agente(a), v_cuenta, '[]') u
+     where a.id = v_ag and u.activo_id = v_a;
+    if v_motivo is distinct from 'tras_stop' then
+        raise exception 'I91 FALLO: tras un stop hace 1 h debía descartar con «tras_stop», dio %', v_motivo;
+    end if;
+    update public.ordenes set fecha_salida = now() - interval '49 hours' where id = v_oa;
+    select u.motivo into v_motivo
+      from public.agentes a, public.fn_universo_agente(public.fn_parametros_agente(a), v_cuenta, '[]') u
+     where a.id = v_ag and u.activo_id = v_a;
+    if v_motivo is not null then
+        raise exception 'I91 FALLO: pasadas 48 h debía volver a ser candidata, dio %', v_motivo;
+    end if;
+
+    update public.agentes set estado = 'pausado' where id = v_ag;
+    update public.activos set estado = 'suspendido' where id = v_a;
+    raise notice 'PASS  I91 deterioro: una lectura no cierra, dos seguidas sí; tras un stop, 48 h sin volver a entrar en ese activo';
+end
+$i91$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
