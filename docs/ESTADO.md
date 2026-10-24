@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (250 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I96), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (268 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I96), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -107,7 +107,8 @@ punto ⏭️ de la lista de control»*.
 | ✅ 👤 | Aplicar la 0046 (aplicada y comprobada el 2026-10-24) | Tabla y vistas nuevas en producción y legibles con `analista_lectura`; el generador está enganchado al autodiagnóstico de los lunes. Simulación de solo lectura con los datos de hoy: H2 propondría a los tres «entrar también con el MACD positivo» en acciones (Prudencia y Cadencia 8 movimientos perdidos en 6 activos, Audacia 9 en 7; soporte 75–78 %, frecuencia 40 %). H1 no salta (ningún tipo llega a 20 decisiones resueltas) ni H4 (no hay peticiones de cierre parcial ni de trailing stop) |
 | 🗓️ | Revisar las primeras hipótesis (lunes 26-10, tras las 00:17 UTC) | Que haya una por agente, con la evidencia y el experimento esperados, y el evento «… propone probar» |
 | ✅ | I2: el laboratorio reproduce a los agentes | Estrategia `agente`: banda de volatilidad, deterioro en dos lecturas, toma parcial, stop que sigue y condición del catálogo. El motor admite la toma parcial, y `laboratorio/agentes.py` traduce la estrategia de producción. No reproduce la rotación ni el reparto. 250 pruebas del motor en verde |
-| ⏭️ | I3: prueba automática con `hipotesis.yml` y concordancia con producción | Doc fase-3/01 §5 y §8 |
+| ✅ | I3: prueba automática con `hipotesis.yml` y concordancia con producción | Los lunes a las 02:00 UTC, el agente actual frente al agente con el cambio, y 20 tiradas al azar con las mismas salidas. El percentil exigido sube un punto por prueba anterior. Escribe el veredicto y deja un evento del agente. Pasada real, sin escribir: «entrar también con el MACD positivo» queda refutada para Prudencia (+0,10 R → +0,006 R; percentil 65 frente al 90 exigido) |
+| 🗓️ | Revisar la primera pasada de `hipotesis.yml` (lunes 26-10, tras las 02:00 UTC) | Que las 3 hipótesis queden `validada` o `refutada`, con el informe enlazado, y ver la concordancia de cada agente. Si el `schedule` de GitHub no llega, lanzarlo a mano desde Actions |
 | 🗓️ | I4: registro de descartes y H3 | Doc fase-3/01 §8 |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
 | 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |

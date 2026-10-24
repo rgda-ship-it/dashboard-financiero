@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — I3: el laboratorio prueba las hipótesis de los agentes
+
+### Añadido
+- **`hipotesis.yml`** (los lunes a las 02:00 UTC y a mano) y **`laboratorio/hipotesis.py`**. Para cada hipótesis `propuesta`:
+  - compara el agente tal como opera con el agente con el cambio, en el tramo de validación;
+  - lo enfrenta a 20 tiradas al azar con las mismas salidas (`AzarAgente`, nueva estrategia del laboratorio);
+  - juzga con el criterio guardado: ≥ 30 operaciones, mejora mínima en R, intervalo del 90 % por encima de cero y percentil frente al azar, que sube un punto por cada prueba anterior (hasta 99).
+
+  Escribe el veredicto y el informe en `agente_hipotesis` y deja un evento del agente.
+- **Concordancia con producción** (`laboratorio/concordancia.py`): qué entradas reales tienen su gemela en el laboratorio y cuántas del laboratorio no tienen una real. Avisa por debajo del 50 %.
+- El resultado del laboratorio se ve en la pestaña «Investigan» de Agentes y en Administración.
+
+### Cambiado
+- La estrategia `agente` precalcula la confluencia y los niveles de cada día en `preparar`, y la prueba los reutiliza entre el agente actual, el cambio y las tiradas al azar. Una prueba completa tarda unos 25 segundos.
+
+### Hallazgo
+Primera prueba real, sin escribir en la base: «entrar también con el MACD positivo», la hipótesis que la H2 propondrá a Prudencia, queda refutada. En validación baja de +0,10 R a +0,006 R y supera solo al 65 % del azar (se exige el 90 %).
+
 ## [Sin publicar] - 2026-10-24 — 0046 y laboratorio: los agentes proponen hipótesis (I1 e I2)
 
 ### Añadido

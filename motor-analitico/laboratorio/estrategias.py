@@ -9,6 +9,7 @@ recalculando sobre el histórico truncado.
 from __future__ import annotations
 
 import hashlib
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -437,6 +438,11 @@ class Agente(Actual):
       `parcial_mover`, stop a la entrada;
     · `sigue_atr` > 0: stop que sigue al mejor cierre a esa distancia en ATR.
 
+    La confluencia y los niveles de cada día se calculan una vez, en
+    `preparar` (`evaluar_confluencia` solo lee la última fila, y el soporte
+    y la resistencia, las 20 últimas): así la referencia al azar puede
+    tirar muchas veces sobre los mismos datos sin recalcularlos.
+
     Lo que no reproduce (doc fase-3/01 §5): la rotación y el reparto, que
     dependen de la cartera entera, y la cadencia intradía (aquí, un día es
     una lectura)."""
@@ -459,14 +465,22 @@ class Agente(Actual):
         hist = next((c for c in df.columns if c.startswith("MACDh_")), None)
         df["MACD_HIST"] = df[hist] if hist else np.nan
         df["MAX_20"] = df["High"].rolling(20).max().shift(1)
+        n = len(df)
+        alc, baj, fuerza = np.zeros(n), np.zeros(n), np.empty(n, dtype=object)
+        sl, tp = np.full(n, np.nan), np.full(n, np.nan)
+        for t in range(n):
+            conf = evaluar_confluencia(df.iloc[t: t + 1])
+            alc[t], baj[t], fuerza[t] = conf.indicadores_alcistas, conf.indicadores_bajistas, conf.fuerza
+            if t >= 199:
+                niveles = self._niveles(df, t)
+                if niveles is not None:
+                    sl[t], tp[t] = niveles
+        df["CONF_ALC"], df["CONF_BAJ"], df["CONF_FUERZA"] = alc, baj, fuerza
+        df["NIVEL_SL"], df["NIVEL_TP"] = sl, tp
         return df
 
-    def _confluencia(self, df: pd.DataFrame, t: int):
-        return evaluar_confluencia(df.iloc[: t + 1])
-
-    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
-        if t < 199:
-            return None
+    def _niveles(self, df: pd.DataFrame, t: int) -> tuple[float, float] | None:
+        """Stop y objetivo del día si pasa la banda de volatilidad y el R:R."""
         fila = df.iloc[t]
         precio, atr = float(fila["Close"]), fila["ATR_14"]
         if pd.isna(atr) or atr <= 0:
@@ -474,19 +488,32 @@ class Agente(Actual):
         atr_pct = atr / precio * 100
         if (self.atr_min and atr_pct < self.atr_min) or (self.atr_max and atr_pct > self.atr_max):
             return None
-        conf = self._confluencia(df, t)
-        por_confluencia = (conf.indicadores_alcistas > conf.indicadores_bajistas
-                           and conf.fuerza in ("media", "alta"))
-        if not por_confluencia and not (self.condicion and cumple(fila, self.condicion)):
-            return None
         soporte, resistencia = calcular_soporte_resistencia(df.iloc[: t + 1])
         if (pd.isna(soporte) or pd.isna(resistencia) or resistencia - soporte < atr):
             soporte, resistencia = precio - 2 * atr, precio + 2 * atr
         sl, tp = calcular_niveles_operativos(precio, float(soporte), float(resistencia), float(atr))
         if (tp - precio) / (precio - sl) < self.rr_minimo:
             return None
-        return Entrada(sl=sl, tp=tp, parcial=self.parcial,
-                       datos={"fuerza_entrada": conf.fuerza if por_confluencia else "baja"})
+        return float(sl), float(tp)
+
+    def _confluencia(self, df: pd.DataFrame, t: int):
+        fila = df.iloc[t]
+        return SimpleNamespace(indicadores_alcistas=fila["CONF_ALC"], indicadores_bajistas=fila["CONF_BAJ"],
+                               fuerza=fila["CONF_FUERZA"])
+
+    def _quiere_entrar(self, df: pd.DataFrame, t: int, conf) -> bool:
+        por_confluencia = conf.indicadores_alcistas > conf.indicadores_bajistas and conf.fuerza in ("media", "alta")
+        return por_confluencia or bool(self.condicion and cumple(df.iloc[t], self.condicion))
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if t < 199 or pd.isna(df["NIVEL_SL"].iloc[t]):
+            return None
+        conf = self._confluencia(df, t)
+        if not self._quiere_entrar(df, t, conf):
+            return None
+        alcista = conf.indicadores_alcistas > conf.indicadores_bajistas
+        return Entrada(sl=float(df["NIVEL_SL"].iloc[t]), tp=float(df["NIVEL_TP"].iloc[t]), parcial=self.parcial,
+                       datos={"fuerza_entrada": conf.fuerza if alcista else "baja"})
 
     def actualizar(self, df, t, pos: Posicion):
         sl = pos.sl
@@ -502,8 +529,29 @@ class Agente(Actual):
         return sl, dos_seguidas
 
 
+class AzarAgente(Agente):
+    """Referencia al azar de una hipótesis (doc fase-3/01 §5): el MISMO
+    agente —filtros, niveles y salidas—, pero entrando en días al azar con
+    la `probabilidad` que tenga la estrategia que se juzga. Si el cambio
+    propuesto no supera a la mayoría de estas tiradas, lo que mejora no es
+    la señal sino estar comprado con esas salidas.
+
+    Determinista y causal, como `Azar`: depende de la semilla, la fecha y el
+    cierre de ese día."""
+
+    nombre = "azar_agente"
+
+    def __init__(self, probabilidad: float = 0.05, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def _quiere_entrar(self, df: pd.DataFrame, t: int, conf) -> bool:
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        return int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF < self.probabilidad
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
                "azar": Azar, "momento": Momento, "azar_momento": AzarMomento,
-               "agente": Agente}
+               "agente": Agente, "azar_agente": AzarAgente}

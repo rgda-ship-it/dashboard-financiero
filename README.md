@@ -41,6 +41,7 @@ dashboard-financiero/
 │   ├── altas.yml              # Alta de activos nuevos (lo dispara la BD)
 │   ├── backfill.yml           # Rehacer el histórico de un símbolo, a mano
 │   ├── laboratorio.yml        # Laboratorio de estrategias sobre años de histórico, a mano (doc 06)
+│   ├── hipotesis.yml          # FASE 3 — Prueba las hipótesis de los agentes, los lunes (doc fase-3/01)
 │   └── keep-alive.yml         # Latido semanal + respaldo JSON + retención + catálogo CoinGecko
 │
 ├── supabase/                 # FASE 2 — el esquema, versionado
