@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-17 (revisión de la primera semana fuera de la cuarentena; 0043; consultas de Claude a producción)
+> **Última actualización**: 2026-10-24 (diagnóstico y arranque de la Fase 3; 0045: salud del sistema)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -17,11 +17,12 @@ punto ⏭️ de la lista de control»*.
 **Orden de lectura** (de lo más reciente a lo más general):
 
 1. Este documento.
-2. [`fase-2/07-agente-tendencia-cripto.md`](fase-2/07-agente-tendencia-cripto.md): lo siguiente que se construye.
-3. [`fase-2/06-laboratorio-y-agentes-con-ventaja.md`](fase-2/06-laboratorio-y-agentes-con-ventaja.md): el laboratorio y su veredicto.
-4. [`fase-2/05-agentes-conscientes-del-tiempo.md`](fase-2/05-agentes-conscientes-del-tiempo.md): las mejoras a los agentes con metas.
-5. [`../CHANGELOG.md`](../CHANGELOG.md): la bitácora, entrada por entrada.
-6. [`fase-2/03-logica-de-agentes.md`](fase-2/03-logica-de-agentes.md) (guardarraíles G1–G6, monitor M1–M4) y [`fase-2/04-sprint-backlog.md`](fase-2/04-sprint-backlog.md) (decisiones D1–D24).
+2. [`fase-3/00-diagnostico-y-plan.md`](fase-3/00-diagnostico-y-plan.md): el diagnóstico del 2026-10-24 y el plan de la Fase 3.
+3. [`fase-2/07-agente-tendencia-cripto.md`](fase-2/07-agente-tendencia-cripto.md): el agente experimental.
+4. [`fase-2/06-laboratorio-y-agentes-con-ventaja.md`](fase-2/06-laboratorio-y-agentes-con-ventaja.md): el laboratorio y su veredicto.
+5. [`fase-2/05-agentes-conscientes-del-tiempo.md`](fase-2/05-agentes-conscientes-del-tiempo.md): las mejoras a los agentes con metas.
+6. [`../CHANGELOG.md`](../CHANGELOG.md): la bitácora, entrada por entrada.
+7. [`fase-2/03-logica-de-agentes.md`](fase-2/03-logica-de-agentes.md) (guardarraíles G1–G6, monitor M1–M4) y [`fase-2/04-sprint-backlog.md`](fase-2/04-sprint-backlog.md) (decisiones D1–D24).
 
 **Cómo trabajamos**:
 
@@ -31,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I89), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I95), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -46,6 +47,12 @@ punto ⏭️ de la lista de control»*.
 
 ## 2. La situación en una página
 
+- **Fase 3 (desde el 2026-10-24)**: mantener el sistema fiable mientras
+  corre el experimento. El diagnóstico encontró que **el ETL no se lanza
+  desde el 23-10 a las 19:07 UTC** (GitHub responde 401: el token de Vault
+  ha caducado) y que la toma parcial de 1 acción deshacía el ciclo del
+  agente. La 0045 arregla lo segundo y hace visibles los dos (panel «Salud
+  del sistema»). El token lo renueva el dueño (doc fase-3/00 §4).
 - **Hay tres agentes con metas diarias**: Prudencia (2 %), Cadencia (5 %) y
   Audacia (7 %). Entre el 2026-10-10 y el 2026-10-11 se corrigió lo que
   los hacía perder por diseño:
@@ -84,6 +91,18 @@ punto ⏭️ de la lista de control»*.
 | ⏸️ | En espera, con el motivo |
 | 👤 | Lo tiene que hacer o decidir el dueño |
 | ❌ | Descartado, con el motivo |
+
+### 3.0 Fase 3 (doc fase-3/00)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| ✅ | Diagnóstico del comportamiento del 13 al 24-10 | Doc fase-3/00 §2: 7 problemas (P1–P7) |
+| ⏭️ 👤 | **Renovar el token `github_pat_altas` de Vault, antes del lunes 26-10 a las 13:30 UTC** | Caducó el 23-10 (GitHub responde 401). Sin él no corre el ETL desde la BD: el lunes no habría señales de acciones ni precio fresco para las posiciones de acciones. Nuevo token *fine-grained* con **1 año** de caducidad y solo Actions: Read and write; `vault.update_secret` como dice `RUNBOOK-sprint-4.md` («Renovación») |
+| ⏭️ 👤 | **Aplicar la 0045** (E1, salud del sistema) | Incluye: <br>• la toma parcial se salta la posición que no se parte en unidades enteras (I93); <br>• cada disparo del ETL guarda su petición y la pasada siguiente lee la respuesta: un `fallo` por episodio y un `etl` al recuperarse (I94); <br>• `rpc_salud_sistema` y el panel «Salud del sistema» en Administración; <br>• `analista_lectura` lee todo `public`, también lo que se cree después, y ejecuta las funciones no volátiles (I95) |
+| 🗓️ | Comprobar la 0045 al aplicarla | Doc fase-3/00 §6. Incluye revisar las decisiones diarias de Tendencia cripto, que hasta ahora el rol de lectura no veía |
+| 🗓️ | E2: caducidad de las credenciales en el panel de salud, con aviso 14 días antes | Tras la 0045 |
+| 🗓️ | E3: revisión semanal guiada y backlog («Ampliar el universo» se reabrió el 19 y el 23-10; «Señales más frecuentes» nunca se revisó) | Tras la 0045 |
+| 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 
 ### 3.1 Agente experimental «Tendencia cripto» (doc 07)
 
@@ -141,9 +160,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Comprobar que los agentes con metas vuelven a abrir posiciones (revisión del 2026-10-17) | Sí, desde el 13-10. Los niveles de la 0030 funcionan (stops del 2–5 %, 7 objetivos alcanzados) y ya operan valores de Nasdaq. Dos fallos, corregidos en la 0043: la salida por deterioro vendía por una sola lectura (7 de 16 cierres, unos −0,4 R de media) y volvían a entrar en un valor que acababa de tocar el stop (QFIN) |
 | ✅ 👤 | Aplicar la 0043 (aplicada el 2026-10-17) | Deterioro confirmado en dos lecturas seguidas; 48 h sin volver a un activo tras su stop (`espera_tras_stop_horas`). Invariante I91. Aplicada a las 10 salidas por deterioro del 12 al 14 de octubre, habría evitado 7. Según el contrafactual de cada decisión, esas 7 costaron unos 135 $; las 3 que seguirían saliendo, unos 10 $ |
 | ✅ 👤 | Dar `bypassrls` a `analista_lectura` (2026-10-17) | Claude ya consulta producción con `scripts/consultar.py`. Las funciones con `revoke` (como `fn_rango_fuerza`) no se pueden ejecutar con ese rol: hay que escribir su lógica en la propia consulta |
-| 🗓️ | Revisar la 0043 tras una semana | Que las salidas por deterioro bajen y su resultado mejore, y cuántos descartes `tras_stop` hay. Con `scripts/consultar.py -f scripts/revision_agentes.sql` |
+| ✅ | Revisar la 0043 tras una semana (2026-10-24) | Funciona: 4 salidas por deterioro desde la 0043, todas de Prudencia, a −0,29 R de media, frente a 9 en los cuatro días anteriores; F evitó un stop. La espera de 48 h se respeta (QFIN volvió a las 48 h y 2 min). Sin cambios (doc fase-3/00 §2.3) |
 | ✅ | Revisar el backlog de los agentes (2026-10-17) | 7 peticiones abiertas: 3 «meta no alcanzable» (rechazadas: se sabe y se mantiene el grupo de control), 3 «semana deficiente» (implementadas en la 0042) y «Ampliar el universo» (rechazada: falso positivo de un sábado flojo en cripto). Se cierran en la 0044 |
-| ⏭️ 👤 | **Aplicar la 0044** | Cierra las 7 peticiones. «Ampliar el universo» exige 24 ciclos y 3 descartes del perfil por ciclo. La meta y la semana deficiente no se reabren mientras las consecuencias estén suspendidas. La descripción sigue a la última ocurrencia. Invariante I92 |
+| ✅ 👤 | Aplicar la 0044 (aplicada el 2026-10-17) | Cierra las 7 peticiones. «Ampliar el universo» exige 24 ciclos y 3 descartes del perfil por ciclo. La meta y la semana deficiente no se reabren mientras las consecuencias estén suspendidas. La descripción sigue a la última ocurrencia. Invariante I92 |
 | ✅ | Revisar `v_spreads` tras el primer día de bolsa (2026-10-13) | En NYSE (19 valores), las medidas son coherentes. En Nasdaq (13 valores), Yahoo da una cotización congelada: spreads del 1–2,7 % en AAPL, AMZN, MSFT, NVDA y SPCX, y casi ninguna medida en el resto. Se cobraban a los agentes con metas. Arreglo en la 0041 |
 | ✅ 👤 | Aplicar la 0041 (aplicada el 2026-10-13) | Borra las medidas de Nasdaq y deja de cobrarlas. El ETL ya no mide en Nasdaq desde el merge del PR |
 | ✅ | Comprobar que los agentes miran cripto el fin de semana (2026-10-17) | Sí: los fines de semana del 10–11 y del 17 sus descartes son de cripto (`direccion`). No abrieron nada porque ninguna cripto era alcista, no por un fallo |
@@ -167,7 +186,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0040_comparativa_agentes.sql`. La siguiente es la 0041 |
+| Migración más reciente | `0045_salud_del_sistema.sql`. La siguiente es la 0046 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

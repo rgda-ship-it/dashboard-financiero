@@ -28,6 +28,12 @@ begin
     if not exists (select 1 from pg_roles where rolname = 'service_role') then
         create role service_role;
     end if;
+    -- No es de Supabase: en producción lo creó el dueño a mano para las
+    -- consultas de solo lectura (`scripts/consultar.py`). La 0045 le da
+    -- permisos solo si existe; aquí existe para que I95 lo pruebe.
+    if not exists (select 1 from pg_roles where rolname = 'analista_lectura') then
+        create role analista_lectura;
+    end if;
 end $$;
 
 -- ── Sprint 3: lo que las políticas y los triggers de 0007 necesitan ──

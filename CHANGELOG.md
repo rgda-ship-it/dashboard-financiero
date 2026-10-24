@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — Fase 3: diagnóstico y 0045 (salud del sistema)
+
+### Hallazgo
+Revisión del comportamiento del 13 al 24-10 (doc `fase-3/00-diagnostico-y-plan.md`):
+- **El ETL no se lanza desde la base de datos desde el 23-10 a las 19:07 UTC.** GitHub responde `401 Bad credentials` a cada disparo: el token `github_pat_altas` de Vault ha caducado. Solo corren los `schedule` de respaldo de GitHub (dos pasadas de cripto en 12 horas). Lo renueva el dueño.
+- **Nadie lo vio**, porque `fn_disparar_workflow` lanza con pg_net, que es asíncrono, y apuntaba «disparado» sin mirar la respuesta.
+- La 0043 funciona: 4 salidas por deterioro en una semana (antes, 9 en cuatro días), y la espera tras el stop se respeta.
+
+### Corregido
+- **La toma parcial de una posición de 1 acción deshacía el ciclo entero del agente.** Del 19 al 20-10, el ciclo de Cadencia falló 8 veces y el de Prudencia 2 con AMZN: ni entradas, ni salidas por deterioro, ni rotaciones. Ahora la toma parcial se salta la posición que no se puede partir en unidades enteras, que sigue entera hacia su objetivo o su stop (`fn_parcial_divisible`).
+- **El rol `analista_lectura` no podía leer 9 tablas y vistas** (entre ellas `v_comparativa_agentes` y `agente_decisiones_diarias`), ni ejecutar las funciones de otras 5, y `scripts/revision_agentes.sql` no corría con él. Ahora lee todo `public`, también lo que se cree después, y ejecuta las funciones no volátiles.
+
+### Añadido
+- Cada disparo del ETL guarda el id de su petición. En la pasada siguiente, `fn_revisar_despachos` lee la respuesta: si no es 2xx deja un evento `fallo` (uno por episodio; con un 401 dice que hay que renovar el token) y, al recuperarse, un evento `etl`.
+- `rpc_salud_sistema()` (solo admin) y el panel **Salud del sistema** en Administración: los dos ETL y su última respuesta de GitHub, la frescura de las señales por clase y los fallos de ciclo de cada agente en 24 h.
+
+Invariantes I93–I95.
+
 ## [Sin publicar] - 2026-10-17 — 0044: backlog revisado
 
 ### Cambiado
