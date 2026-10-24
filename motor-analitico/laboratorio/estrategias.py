@@ -555,8 +555,116 @@ class AzarAgente(Agente):
         return int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF < self.probabilidad
 
 
+# ---------------------------------------------------------------------------
+# Cortos (doc fase-3/02): las mismas ideas que en largo, al revés. Antes de
+# tocar el simulador y la regla protegida nº2, el laboratorio dice si hay
+# ventaja después del spread, los huecos y la financiación del corto, y si
+# supera a entrar en corto al azar con las mismas salidas.
+# ---------------------------------------------------------------------------
+
+class TendenciaCorta(Tendencia):
+    """Espejo de `tendencia`: rotura del mínimo de 20 días con el cierre
+    bajo la media de 200, stop a 2 ATR por encima que baja siguiendo al
+    mejor cierre a 3 ATR, y salida si cierra por encima del máximo de 10."""
+
+    nombre = "tendencia_corta"
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().preparar(df)
+        df["MIN_RUPTURA"] = df["Low"].rolling(self.ruptura).min().shift(1)
+        df["MAX_SALIDA"] = df["High"].rolling(self.salida).max().shift(1)
+        return df
+
+    def entrada(self, df, t):
+        fila = df.iloc[t]
+        if any(pd.isna(fila[k]) for k in ("SMA_200", "ATR_14", "MIN_RUPTURA")):
+            return None
+        if fila["Close"] < fila["MIN_RUPTURA"] and fila["Close"] < fila["SMA_200"]:
+            return Entrada(sl=float(fila["Close"] + self.stop_atr * fila["ATR_14"]), lado="corto")
+        return None
+
+    def actualizar(self, df, t, pos: Posicion):
+        fila = df.iloc[t]
+        sigue = pos.mejor_cierre + self.sigue_atr * fila["ATR_14"] if not pd.isna(fila["ATR_14"]) else pos.sl
+        salir = not pd.isna(fila["MAX_SALIDA"]) and fila["Close"] > fila["MAX_SALIDA"]
+        return float(sigue), bool(salir)
+
+
+class AzarCorto(TendenciaCorta):
+    """Referencia de `tendencia_corta` (como `azar` en largo): mismas
+    salidas y el mismo filtro de fondo (bajo la media de 200), entrando en
+    corto en días al azar. Si esto también gana, lo que gana es estar corto
+    en un mercado bajista con ese stop, no la señal."""
+
+    nombre = "azar_corto"
+
+    def __init__(self, probabilidad: float = 0.05, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        fila = df.iloc[t]
+        if any(pd.isna(fila[k]) for k in ("SMA_200", "ATR_14")) or fila["Close"] >= fila["SMA_200"]:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(fila['Close']):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return Entrada(sl=float(fila["Close"] + self.stop_atr * fila["ATR_14"]), lado="corto")
+
+
+class ConfluenciaCorta(Actual):
+    """Espejo de `actual`: lo que harían los agentes si pudieran vender en
+    corto. Confluencia BAJISTA media o alta, y los niveles de la D21 sobre
+    el precio reflejado: el stop por encima de la resistencia y el objetivo
+    hacia el soporte, acotados en ATR, con el mismo R:R mínimo."""
+
+    nombre = "confluencia_corta"
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        ventana = df.iloc[: t + 1]
+        if len(ventana) < 200:
+            return None
+        conf = evaluar_confluencia(ventana)
+        if not (conf.indicadores_bajistas > conf.indicadores_alcistas and conf.fuerza in ("media", "alta")):
+            return None
+        precio = float(df["Close"].iloc[t])
+        atr = df["ATR_14"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        soporte, resistencia = calcular_soporte_resistencia(ventana)
+        if (pd.isna(soporte) or pd.isna(resistencia) or resistencia - soporte < atr):
+            soporte, resistencia = precio - 2 * atr, precio + 2 * atr
+        # Reflejo alrededor del precio: la resistencia hace de soporte.
+        sl_r, tp_r = calcular_niveles_operativos(precio, 2 * precio - float(resistencia),
+                                                 2 * precio - float(soporte), float(atr))
+        sl, tp = 2 * precio - sl_r, 2 * precio - tp_r
+        if tp <= 0 or (precio - tp) / (sl - precio) < self.rr_minimo:
+            return None
+        return Entrada(sl=sl, tp=tp, lado="corto")
+
+
+class AgenteContrario(Agente):
+    """Lo contrario de un agente con metas (pregunta del dueño, 2026-10-24):
+    vende en corto cuando el agente compraría, con el stop en su objetivo y
+    el objetivo en su stop. Mismos filtros; las salidas por deterioro, la
+    parcial y el stop que sigue no se invierten (se apagan)."""
+
+    nombre = "agente_contrario"
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        largo = super().entrada(df, t)
+        if largo is None:
+            return None
+        return Entrada(sl=largo.tp, tp=largo.sl, lado="corto")
+
+    def actualizar(self, df, t, pos: Posicion):
+        return pos.sl, False
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
                "azar": Azar, "momento": Momento, "azar_momento": AzarMomento,
-               "agente": Agente, "azar_agente": AzarAgente}
+               "agente": Agente, "azar_agente": AzarAgente,
+               "tendencia_corta": TendenciaCorta, "azar_corto": AzarCorto,
+               "confluencia_corta": ConfluenciaCorta, "agente_contrario": AgenteContrario}

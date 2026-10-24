@@ -14,6 +14,11 @@ futuro, con las mismas reglas de ejecución que el simulador (doc 06 §3.1).
       esa fracción AL NIVEL, como el agente. El stop gana el empate; si el
       mismo día llega también al objetivo, primero va la parcial. Mover el
       stop a la entrada vale desde el día siguiente.
+    · Cortos (fase 3, doc fase-3/02): la misma disciplina al revés. Se entra
+      al precio de VENTA y se sale al de COMPRA; el stop está por encima y
+      el objetivo por debajo; el hueco es abrir por ENCIMA del stop. Cada
+      día natural abierto cuesta la financiación del corto
+      (`financiacion_corto_pct`, anual), que se suma al precio de salida.
 
 Una posición por activo y estrategia a la vez. El laboratorio mide la
 ventaja de una regla de entrada y salida, no la gestión de una cartera.
@@ -43,22 +48,24 @@ class Entrada:
     tp: float | None = None
     parcial: Parcial | None = None
     datos: dict = field(default_factory=dict)   # pasa a Posicion.datos
+    lado: str = "largo"                         # largo | corto
 
 
 @dataclass
 class Posicion:
-    entrada: float          # precio de compra (con medio spread)
+    entrada: float          # precio de compra en largo, de venta en corto (con medio spread)
     sl: float
     sl_inicial: float
     tp: float | None
     fecha_senal: pd.Timestamp
     fecha_entrada: pd.Timestamp
     indice_entrada: int
-    mejor_cierre: float
+    mejor_cierre: float     # el mayor cierre en largo, el menor en corto
     salir_en_apertura: bool = False
     datos: dict = field(default_factory=dict)
     parcial: Parcial | None = None
-    precio_parcial: float | None = None     # a qué precio se vendió la parcial
+    precio_parcial: float | None = None     # a qué precio se cerró la parcial
+    lado: str = "largo"
 
 
 @dataclass
@@ -75,22 +82,27 @@ class Operacion:
     precio_salida: float
     motivo: str             # sl | tp | hueco | regla | fin
     dias: int
-    coste_r: float = 0.0    # spread pagado (entrada + salida), en R
+    coste_r: float = 0.0    # spread pagado (entrada + salida) y financiación, en R
     regimen: str = ""       # régimen al dar la señal (columna REGIMEN), si lo hay
     parcial: bool = False   # hubo toma parcial: `precio_salida` es la media ponderada
+    lado: str = "largo"     # en corto, `precio_salida` ya incluye la financiación
+
+    @property
+    def signo(self) -> int:
+        return 1 if self.lado == "largo" else -1
 
     @property
     def riesgo(self) -> float:
-        return self.precio_entrada - self.sl_inicial
+        return self.signo * (self.precio_entrada - self.sl_inicial)
 
     @property
     def r(self) -> float:
         """Resultado en múltiplos del riesgo inicial (R)."""
-        return (self.precio_salida - self.precio_entrada) / self.riesgo
+        return self.signo * (self.precio_salida - self.precio_entrada) / self.riesgo
 
     @property
     def pct(self) -> float:
-        return (self.precio_salida / self.precio_entrada - 1) * 100
+        return self.signo * (self.precio_salida / self.precio_entrada - 1) * 100
 
 
 class Estrategia(Protocol):
@@ -104,14 +116,16 @@ class Estrategia(Protocol):
 
     def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion) -> tuple[float, bool]:
         """Al cierre de t con la posición abierta: (nuevo stop, salir mañana).
-        El stop nunca baja: el motor se queda con el mayor."""
+        El stop nunca se aleja: el motor se queda con el más ajustado (el
+        mayor en largo, el menor en corto)."""
 
 
 Spread = Callable[[float], float]   # precio -> spread completo en $
 
 
 def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
-            activo: str = "", clase: str = "", inicio: int = 0) -> list[Operacion]:
+            activo: str = "", clase: str = "", inicio: int = 0,
+            financiacion_corto_pct: float = 0.0) -> list[Operacion]:
     """Opera un activo de principio a fin con una estrategia."""
     regimenes = df["REGIMEN"] if "REGIMEN" in df.columns else None
     df = estrategia.preparar(df)
@@ -130,13 +144,21 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
 
     def cerrar(t: int, precio: float, motivo: str) -> None:
         nonlocal pos
-        riesgo = pos.entrada - pos.sl_inicial
+        corto = pos.lado == "corto"
+        riesgo = (pos.sl_inicial - pos.entrada) if corto else (pos.entrada - pos.sl_inicial)
         coste = pos.datos.get("coste_entrada", 0.0) + spread(precio) / 2
         if pos.precio_parcial is not None:
-            # Una sola operación con la salida media: la parte vendida en la
+            # Una sola operación con la salida media: la parte cerrada en la
             # parcial a su nivel, el resto a la salida final.
             f = pos.parcial.fraccion
             precio = f * pos.precio_parcial + (1 - f) * precio
+        if corto and financiacion_corto_pct:
+            # Financiación del corto por día NATURAL abierto, sobre el nominal
+            # de entrada. Se paga al recomprar: sube el precio de salida.
+            dias = (fechas[t] - pos.fecha_entrada).days
+            financiacion = pos.entrada * financiacion_corto_pct / 100 * dias / 365
+            precio += financiacion
+            coste += financiacion
         regimen = ""
         if regimenes is not None and pos.fecha_senal in regimenes.index:
             regimen = str(regimenes.loc[pos.fecha_senal])
@@ -147,7 +169,7 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             sl_inicial=pos.sl_inicial, tp=pos.tp, precio_salida=precio,
             motivo=motivo, dias=t - pos.indice_entrada,
             coste_r=coste / riesgo if riesgo > 0 else 0.0, regimen=regimen,
-            parcial=pos.precio_parcial is not None))
+            parcial=pos.precio_parcial is not None, lado=pos.lado))
         pos = None
 
     for t in range(inicio, n):
@@ -155,25 +177,49 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             continue
 
         # 1. Entrada pendiente de ayer, en la apertura de hoy.
+        entra_hoy = False
         if pos is None and pendiente is not None:
             t_senal, ent = pendiente
             pendiente = None
-            precio = compra(o[t])
-            # Si hoy ya abre fuera de sus niveles, la operación no existe.
-            if venta(o[t]) > ent.sl and (ent.tp is None or venta(o[t]) < ent.tp) and precio > ent.sl:
+            if ent.lado == "corto":
+                # Se vende al precio de venta; para cerrar habría que recomprar
+                # al de compra, que tiene que quedar entre objetivo y stop.
+                precio = venta(o[t])
+                valida = (compra(o[t]) < ent.sl and (ent.tp is None or compra(o[t]) > ent.tp)
+                          and precio < ent.sl)
+            else:
+                precio = compra(o[t])
+                # Si hoy ya abre fuera de sus niveles, la operación no existe.
+                valida = (venta(o[t]) > ent.sl and (ent.tp is None or venta(o[t]) < ent.tp)
+                          and precio > ent.sl)
+            if valida:
                 pos = Posicion(entrada=precio, sl=ent.sl, sl_inicial=ent.sl, tp=ent.tp,
                                fecha_senal=fechas[t_senal], fecha_entrada=fechas[t],
                                indice_entrada=t, mejor_cierre=c[t],
                                datos={**ent.datos, "coste_entrada": spread(o[t]) / 2},
-                               parcial=ent.parcial if ent.tp is not None else None)
+                               parcial=ent.parcial if ent.tp is not None else None, lado=ent.lado)
                 entra_hoy = True
-            else:
-                entra_hoy = False
-        else:
-            entra_hoy = False
 
         # 2. Con la posición abierta: salida por regla, hueco, stop, objetivo.
-        if pos is not None:
+        if pos is not None and pos.lado == "corto":
+            if pos.salir_en_apertura and not entra_hoy:
+                cerrar(t, compra(o[t]), "regla")
+            else:
+                c_open, c_low, c_high = compra(o[t]), compra(l[t]), compra(h[t])
+                if not entra_hoy and c_open >= pos.sl:
+                    cerrar(t, c_open, "hueco")                 # M3', al revés
+                elif c_high >= pos.sl:
+                    cerrar(t, pos.sl, "sl")                    # M2: el stop gana el empate
+                else:
+                    if pos.parcial is not None and pos.precio_parcial is None:
+                        nivel = pos.entrada - pos.parcial.recorrido * (pos.entrada - pos.tp)
+                        if c_low <= nivel:
+                            pos.precio_parcial = nivel
+                            if pos.parcial.mover_stop:
+                                pos.sl = min(pos.sl, pos.entrada * 1.0005)
+                    if pos.tp is not None and c_low <= pos.tp:
+                        cerrar(t, pos.tp, "tp")
+        elif pos is not None:
             if pos.salir_en_apertura and not entra_hoy:
                 cerrar(t, venta(o[t]), "regla")
             else:
@@ -194,15 +240,21 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
 
         # 3. Al cierre: la estrategia gestiona lo abierto o busca entrada.
         if pos is not None:
-            pos.mejor_cierre = max(pos.mejor_cierre, c[t])
-            nuevo_sl, salir = estrategia.actualizar(df, t, pos)
-            pos.sl = max(pos.sl, nuevo_sl)
+            if pos.lado == "corto":
+                pos.mejor_cierre = min(pos.mejor_cierre, c[t])
+                nuevo_sl, salir = estrategia.actualizar(df, t, pos)
+                pos.sl = min(pos.sl, nuevo_sl)
+            else:
+                pos.mejor_cierre = max(pos.mejor_cierre, c[t])
+                nuevo_sl, salir = estrategia.actualizar(df, t, pos)
+                pos.sl = max(pos.sl, nuevo_sl)
             pos.salir_en_apertura = salir
         elif t < n - 1:
             ent = estrategia.entrada(df, t)
-            if ent is not None and ent.sl < c[t]:
+            if ent is not None and ((ent.lado == "corto" and ent.sl > c[t])
+                                    or (ent.lado != "corto" and ent.sl < c[t])):
                 pendiente = (t, ent)
 
     if pos is not None:
-        cerrar(n - 1, venta(c[n - 1]), "fin")
+        cerrar(n - 1, compra(c[n - 1]) if pos.lado == "corto" else venta(c[n - 1]), "fin")
     return ops

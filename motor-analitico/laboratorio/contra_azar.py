@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import UNIVERSOS, cargar, spread_de, universo_nombrado  # noqa: E402
+from laboratorio.datos import UNIVERSOS, cargar, financiacion_de, spread_de, universo_nombrado  # noqa: E402
 from laboratorio.ejecutar import crear  # noqa: E402
 from laboratorio.estrategias import anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
@@ -39,13 +39,14 @@ from laboratorio.motor import simular  # noqa: E402
 PERCENTIL_MINIMO = 90
 
 # La referencia al azar de cada estrategia cruzada: mismas reglas, otra puntuación.
-REFERENCIAS = {"momento": "azar_momento"}
+REFERENCIAS = {"momento": "azar_momento", "tendencia_corta": "azar_corto"}
 
 
 def mes_por_tramo(datos: dict, estrategia, corte) -> tuple[float | None, float | None]:
     """(% / mes en diseño, % / mes en validación)."""
     ops = [o for (s, c), df in anadir_rangos(datos, estrategia).items()
-           for o in simular(df, estrategia, spread_de(s, c), s, c)]
+           for o in simular(df, estrategia, spread_de(s, c), s, c,
+                            financiacion_corto_pct=financiacion_de(c))]
     d, v = metricas.partir(ops, corte)
     md, mv = metricas.medir(d), metricas.medir(v)
     return (md.mes_pct if md else None), (mv.mes_pct if mv else None)
@@ -70,7 +71,7 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         "| Tramo | Estrategia | Azar: mediana | Azar: p5 – p95 | Supera al |",
         "|---|---|---|---|---|",
     ]
-    veredicto = None
+    veredicto, en_validacion = None, None
     for i, tramo in enumerate(("Diseño", "**Validación**")):
         az = np.array([t[i] for t in tiradas if t[i] is not None])
         if propia[i] is None or not len(az):
@@ -80,8 +81,13 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         lineas.append(f"| {tramo} | {propia[i]:+.2f} % | {np.median(az):+.2f} % | "
                       f"{np.quantile(az, 0.05):+.2f} – {np.quantile(az, 0.95):+.2f} % | {pct:.0f} % |")
         if i == 1:
-            veredicto = pct >= PERCENTIL_MINIMO
+            veredicto, en_validacion = pct >= PERCENTIL_MINIMO, propia[i]
     lineas += ["", "✅ **aporta selección**" if veredicto else "❌ **no aporta selección frente al azar**", ""]
+    if veredicto and en_validacion is not None and en_validacion <= 0:
+        # Superar al azar perdiendo dinero es ser menos malo, no tener ventaja
+        # (cortos en acciones, doc fase-3/02).
+        lineas += [f"⚠️ **Pero pierde dinero** ({en_validacion:+.2f} % al mes en validación): "
+                   "es menos mala que el azar, no una ventaja.", ""]
     return "\n".join(lineas)
 
 
@@ -93,12 +99,13 @@ def main() -> int:
     p.add_argument("--parametros", default="")
     p.add_argument("--semillas", type=int, default=30)
     p.add_argument("--salida", default="laboratorio_salida")
+    p.add_argument("--clase", default="accion", choices=("accion", "cripto"))
     a = p.parse_args()
 
     activos, _ = universo_nombrado(a.universo)
     datos = {}
     for simbolo, clase in activos:
-        if clase != "accion":
+        if clase != a.clase:
             continue
         df = cargar(simbolo, clase, a.periodo)
         if df is not None and len(df) >= 260:

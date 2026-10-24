@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import UNIVERSOS, cargar, spread_de, universo, universo_nombrado  # noqa: E402
+from laboratorio.datos import UNIVERSOS, cargar, financiacion_de, spread_de, universo, universo_nombrado  # noqa: E402
 from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
@@ -173,7 +173,8 @@ def main() -> int:
         print(f"  {simbolo:<14} {len(df)} velas")
     for e in estrategias:
         for (simbolo, clase), df in anadir_rangos(datos, e).items():
-            ops_por_estrategia[e.nombre] += simular(df, e, spread_de(simbolo, clase), simbolo, clase)
+            ops_por_estrategia[e.nombre] += simular(df, e, spread_de(simbolo, clase), simbolo, clase,
+                                                    financiacion_corto_pct=financiacion_de(clase))
 
     if n == 0:
         print("Sin datos: nada que medir.")

@@ -31,6 +31,19 @@ SPREAD_CRIPTO_PCT = 0.10
 SPREAD_CRIPTO_ABS = {"bitcoin": 5.0, "ethereum": 0.10}
 
 
+# Financiación de un corto, % anual sobre el nominal, por día natural.
+# SUPUESTO PESIMISTA, no la tarifa de QuantFury (no está publicada en el
+# proyecto): acciones, tipo de interés más un margen de broker y el coste
+# del préstamo del título; cripto, la financiación de los perpetuos, que en
+# mercados bajistas suelen pagar los cortos. Se puede cambiar con
+# `--financiacion` en el laboratorio.
+FINANCIACION_CORTO_PCT = {"accion": 8.0, "cripto": 15.0}
+
+
+def financiacion_de(clase: str) -> float:
+    return FINANCIACION_CORTO_PCT.get(clase, 0.0)
+
+
 def spread_de(simbolo: str, clase: str):
     """Función precio → spread completo en $ para un activo."""
     if clase == "accion":

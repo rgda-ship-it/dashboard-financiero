@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (269 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I97), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (294 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I97), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -111,7 +111,9 @@ punto ⏭️ de la lista de control»*.
 | 🗓️ | Revisar la primera pasada de `hipotesis.yml` (lunes 26-10, tras las 02:00 UTC) | Que las 3 hipótesis queden `validada` o `refutada`, con el informe enlazado, y ver la concordancia de cada agente. Si el `schedule` de GitHub no llega, lanzarlo a mano desde Actions |
 | ✅ | I4: registro de descartes y H3 (0047) | `agente_descartes`: en cada ciclo, una fila por agente, activo, día y motivo, para los filtros del perfil (fuerza, origen de los niveles, R:R y ATR alto o bajo); se conservan 120 días. La H3 propone relajar el filtro cuyos descartes subieron claramente más que su universo. En el laboratorio, `fuerza_minima`. Invariante I97 |
 | ⏭️ 👤 | **Aplicar la 0047** | Los descartes empiezan a registrarse en el primer ciclo. La H3 necesita al menos 30 descartes de un motivo en 5 activos: no saltará hasta dentro de unos días |
-| 👤 | Operaciones en corto y otros mercados (doc fase-3/00, E8 y E9) | Previstos desde la Fase 2, pero sin fecha. La plantilla «Operar en corto» no ha saltado nunca. Propuesta para los cortos: probarlos primero en el laboratorio con coste de financiación. Para otros mercados, primero saber qué permite QuantFury |
+| ✅ 👤 | Cortos en el laboratorio (doc fase-3/02), 2026-10-24 | **Sin ventaja.** `tendencia_corta` se queda en +0,04 R a 5 años y −0,26 R a 10, y no supera al azar. `confluencia_corta`, lo que harían los agentes, pierde entre 0,29 y 0,38 R. Operar al revés que Audacia daría −16,82 $ con spread y financiación, no +84,78 $: más de la mitad de sus pérdidas es spread de acciones baratas. Su contraria acierta el 52–68 %, pero pierde. La regla protegida nº2 se mantiene |
+| 👤 | ¿Excluir acciones baratas o exigir un objetivo mínimo frente al spread? (doc fase-3/02 §4) | Audacia pagó 47,94 $ de spread en 55 operaciones, más de lo que le quitó el precio. Es un cambio al grupo de control: por defecto, se espera a que lo proponga una hipótesis o a que acabe el experimento |
+| 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
 | 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 

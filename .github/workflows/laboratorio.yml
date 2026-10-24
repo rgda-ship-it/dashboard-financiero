@@ -77,6 +77,7 @@ jobs:
             python -m laboratorio.contra_azar \
               --estrategia "$(echo '${{ inputs.estrategias }}' | cut -d, -f1)" \
               --universo "${{ inputs.universo }}" \
+              --clase "${{ inputs.clase }}" \
               --parametros "${{ inputs.parametros }}" \
               --periodo "${{ inputs.periodo }}" \
               --salida ../laboratorio_salida
