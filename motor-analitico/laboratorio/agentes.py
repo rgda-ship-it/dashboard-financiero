@@ -21,6 +21,9 @@ def parametros_de_agente(estrategia: dict, clase: str) -> dict:
         "atr_max": float(propia.get("atr_pct_max") or 0),
         "deterioro": int(bool(propia.get("salida_deterioro", True))),
     }
+    fuerzas = propia.get("fuerzas_admitidas")
+    if fuerzas:
+        p["fuerza_minima"] = min({"baja": 1, "media": 2, "alta": 3}[f] for f in fuerzas)
     tp = propia.get("tp_parcial")
     if isinstance(tp, dict):
         p["parcial_recorrido"] = float(tp.get("recorrido", 0))

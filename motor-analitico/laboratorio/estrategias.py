@@ -436,7 +436,9 @@ class Agente(Actual):
       que bajistas, o menos fuerza;
     · `parcial_recorrido` > 0: toma parcial de `parcial_fraccion` y, con
       `parcial_mover`, stop a la entrada;
-    · `sigue_atr` > 0: stop que sigue al mejor cierre a esa distancia en ATR.
+    · `sigue_atr` > 0: stop que sigue al mejor cierre a esa distancia en ATR;
+    · `fuerza_minima`: 2 = media o alta (como los tres agentes), 3 = solo
+      alta, 1 = también la baja (fuente H3).
 
     La confluencia y los niveles de cada día se calculan una vez, en
     `preparar` (`evaluar_confluencia` solo lee la última fila, y el soporte
@@ -451,8 +453,10 @@ class Agente(Actual):
 
     def __init__(self, rr_minimo: float = 1.2, atr_min: float = 0.0, atr_max: float = 0.0,
                  condicion: str = "", deterioro: int = 0, parcial_recorrido: float = 0.0,
-                 parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0):
+                 parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0,
+                 fuerza_minima: int = 2):
         super().__init__(rr_minimo=rr_minimo)
+        self.fuerza_minima = int(fuerza_minima)
         self.atr_min, self.atr_max = atr_min, atr_max
         self.condicion = str(condicion or "")
         self.deterioro = bool(deterioro)
@@ -502,7 +506,8 @@ class Agente(Actual):
                                fuerza=fila["CONF_FUERZA"])
 
     def _quiere_entrar(self, df: pd.DataFrame, t: int, conf) -> bool:
-        por_confluencia = conf.indicadores_alcistas > conf.indicadores_bajistas and conf.fuerza in ("media", "alta")
+        por_confluencia = (conf.indicadores_alcistas > conf.indicadores_bajistas
+                           and _RANGO_FUERZA[conf.fuerza] >= self.fuerza_minima)
         return por_confluencia or bool(self.condicion and cumple(df.iloc[t], self.condicion))
 
     def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:

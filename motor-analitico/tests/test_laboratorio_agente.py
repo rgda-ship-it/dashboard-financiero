@@ -154,6 +154,16 @@ def test_el_catalogo_de_condiciones():
                                 "rsi_50_70", "rsi_bajo_35", "ruptura_20", "volumen_alto"}
 
 
+def test_la_fuerza_minima_decide_que_confluencia_entra(monkeypatch):
+    df = _serie_aleatoria()
+    prep = Agente().preparar(df)
+    dias = range(200, len(df) - 1)
+    def entradas(f):
+        return {t for t in dias if Agente(fuerza_minima=f).entrada(prep, t)}
+    solo_alta, media, baja = entradas(3), entradas(2), entradas(1)
+    assert solo_alta <= media <= baja and len(baja) > len(solo_alta)
+
+
 def test_crear_admite_texto_para_la_condicion():
     a = crear("agente", "condicion=macd_positivo+ruptura_20,deterioro=1,top=4")
     assert a.condicion == "macd_positivo+ruptura_20" and a.deterioro
@@ -163,7 +173,7 @@ def test_crear_admite_texto_para_la_condicion():
 # De la estrategia de producción a los parámetros
 # ---------------------------------------------------------------------------
 
-PRUDENCIA = {"rr_minimo": 1.5, "atr_pct_max": 3.0, "atr_pct_min": None,
+PRUDENCIA = {"rr_minimo": 1.5, "atr_pct_max": 3.0, "atr_pct_min": None, "fuerzas_admitidas": ["media", "alta"],
              "tp_parcial": {"fraccion": 0.5, "recorrido": 0.5, "mover_stop": True},
              "por_clase": {"cripto": {"atr_pct_max": 12}}}
 AUDACIA = {"rr_minimo": 1.2, "atr_pct_min": 2.3, "atr_pct_max": None, "tp_parcial": None,
@@ -172,7 +182,7 @@ AUDACIA = {"rr_minimo": 1.2, "atr_pct_min": 2.3, "atr_pct_max": None, "tp_parcia
 
 def test_parametros_de_prudencia_y_audacia():
     assert parametros_de_agente(PRUDENCIA, "accion") == {
-        "rr_minimo": 1.5, "atr_min": 0.0, "atr_max": 3.0, "deterioro": 1,
+        "rr_minimo": 1.5, "atr_min": 0.0, "atr_max": 3.0, "deterioro": 1, "fuerza_minima": 2,
         "parcial_recorrido": 0.5, "parcial_fraccion": 0.5, "parcial_mover": 1}
     assert parametros_de_agente(PRUDENCIA, "cripto")["atr_max"] == 12
     assert parametros_de_agente(AUDACIA, "accion") == {

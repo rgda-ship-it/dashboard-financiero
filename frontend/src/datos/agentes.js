@@ -225,6 +225,11 @@ export function cambioLegible(cambio) {
     partes.push(`toma parcial del ${Math.round((cambio.parcial_fraccion ?? 0.5) * 100)} % al ${Math.round(cambio.parcial_recorrido * 100)} % del recorrido`);
   if (cambio.sigue_atr) partes.push(`stop que sigue a ${cambio.sigue_atr} ATR`);
   if (cambio.rotacion === 0) partes.push("sin rotación");
+  if (cambio.rr_minimo != null) partes.push(`R:R mínimo ${cambio.rr_minimo}`);
+  if (cambio.fuerza_minima != null)
+    partes.push(`admitir la fuerza ${["", "baja", "media", "alta"][cambio.fuerza_minima]} o más`);
+  if (cambio.atr_max != null) partes.push(`ATR máximo ${cambio.atr_max} %`);
+  if (cambio.atr_min != null) partes.push(`ATR mínimo ${cambio.atr_min} %`);
   return partes.join(" · ");
 }
 

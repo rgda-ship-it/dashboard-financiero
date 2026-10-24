@@ -89,6 +89,8 @@ TABLAS = {
     "agente_decisiones_diarias": "agente_id,activo_id,fecha_vela",
     # Hipótesis de los agentes (0046).
     "agente_hipotesis": "id",
+    # Descartes por filtro del perfil (0047).
+    "agente_descartes": "agente_id,activo_id,fecha,motivo",
     # Al final: apunta a agentes y a usuarios.
     "eventos_sistema": "id",
 }
