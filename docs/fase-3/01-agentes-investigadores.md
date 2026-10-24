@@ -106,10 +106,21 @@ backlog. Esa sí la implementa Claude.
 
 ## 5. Cómo se prueban
 
-- **Workflow `hipotesis.yml`**: los lunes, después del corte semanal, lee
-  las hipótesis en `propuesta`, ejecuta el laboratorio con su
-  `experimento` y escribe el `resultado` y el veredicto según el
-  `criterio`. Usa la clave de servicio, como el ETL.
+- **Workflow `hipotesis.yml` (hecho en la I3)**: los lunes a las 02:00
+  UTC, después del autodiagnóstico, lee hasta 3 hipótesis en `propuesta`
+  y las prueba con `laboratorio/hipotesis.py`:
+  1. El agente tal como opera frente al agente con el cambio, en el tramo
+     de validación (el 30 % final de 5 años) del universo activo de sus
+     clases.
+  2. La referencia al azar (`AzarAgente`): el agente con el cambio
+     entrando en días al azar con su misma frecuencia, en 20 tiradas.
+  3. El veredicto con el criterio guardado. Exige al menos 30 operaciones,
+     una mejora mínima en R, el intervalo del 90 % por encima de cero y el
+     percentil frente al azar.
+
+  Escribe el resultado, el estado y el enlace al informe, deja un evento
+  del agente y se puede lanzar a mano para una hipótesis concreta. Usa la
+  clave de servicio, como el ETL.
 - **Requisito del laboratorio (hecho en la I2)**: la estrategia `agente`
   reproduce a un agente con metas con cada pieza encendible: banda de
   volatilidad, deterioro en dos lecturas, toma parcial (el motor la admite
@@ -118,14 +129,24 @@ backlog. Esa sí la implementa Claude.
   parámetros. **No reproduce** la rotación ni el reparto (dependen de la
   cartera entera) ni la cadencia intradía: en el laboratorio, un día es una
   lectura. Por eso una hipótesis sobre la rotación queda `no_ejecutable`.
-- **Concordancia con producción (en la I3)**: no es posible una paridad
-  exacta con las operaciones reales, porque los agentes deciden cada 30
-  minutos y el laboratorio, al cierre. La I3 añade un informe de
-  concordancia: qué entradas reales tienen su gemela en el laboratorio el
-  mismo día o el siguiente.
+- **Concordancia con producción (hecho en la I3)**: no es posible una
+  paridad exacta con las operaciones reales, porque los agentes deciden
+  cada 30 minutos y el laboratorio, al cierre. `laboratorio/concordancia.py`
+  mide qué entradas reales tienen su gemela en el laboratorio (mismo
+  activo, entre 3 días antes y 1 después) y cuántas del laboratorio no
+  tienen una real. Va en el resultado de cada hipótesis y, por debajo del
+  50 %, avisa de que el veredicto describe al laboratorio más que al
+  agente.
 - **Límite de pruebas**: como mucho 3 por semana (una por agente). El
-  número de pruebas acumuladas se guarda, y el percentil exigido frente al
-  azar sube con él. Así, probar mucho no regala validaciones.
+  número de pruebas acumuladas se guarda en el criterio, y el percentil
+  exigido frente al azar sube **un punto por cada prueba anterior**, hasta
+  99. Así, probar mucho no regala validaciones.
+- **Primera prueba real (2026-10-24, sin escribir en la base)**: la
+  hipótesis que la H2 propondrá a Prudencia, «entrar también con el MACD
+  positivo» en acciones, queda **refutada**. Su expectativa en validación
+  baja de +0,10 R a +0,006 R (de 53 a 120 operaciones), y solo supera al
+  65 % de las tiradas al azar (se exige el 90 %). Tardó 24 segundos con 21
+  acciones.
 
 ## 6. Dónde se ve
 
@@ -160,7 +181,7 @@ concentran el día antes de resultados»).
 |---|---|---|
 | **I1 · Hipótesis y fuentes H1, H2 y H4** ✅ | 0046: `agente_hipotesis`, `v_condiciones_dia`, `fn_generar_hipotesis` en el autodiagnóstico de los lunes, `rpc_revisar_hipotesis`, pestaña «Investigan» en Agentes y revisión en Administración. Invariante I96 | — |
 | **I2 · Laboratorio que reproduce a los agentes** ✅ | Estrategia `agente`, toma parcial en el motor, catálogo `CONDICIONES` (el mismo que la 0046) y `laboratorio/agentes.py`. 15 pruebas nuevas | — |
-| **I3 · Prueba automática** | `hipotesis.yml`, veredicto, límite de pruebas, informe de concordancia con producción y panel con resultados | I1 e I2 |
+| **I3 · Prueba automática** ✅ | `hipotesis.yml`, `laboratorio/hipotesis.py` (veredicto y percentil creciente), `AzarAgente`, `laboratorio/concordancia.py` y el resultado en las pestañas de Agentes y Administración. La estrategia `agente` precalcula confluencia y niveles para que las tiradas al azar sean rápidas. 18 pruebas nuevas | I1 e I2 |
 | **I4 · Registro de descartes y H3** | Guardar qué señal se descartó y por qué (con retención, como los eventos) | I1 |
 | **I5 · LLM** | Proveedor de hipótesis con el mismo contrato | I3 y la decisión del dueño |
 

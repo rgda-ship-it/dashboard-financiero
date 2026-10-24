@@ -1,0 +1,64 @@
+# Prueba de las hipótesis de los agentes (doc fase-3/01 §5, I3).
+#
+# Los lunes a las 00:17 UTC el autodiagnóstico deja como mucho una
+# hipótesis `propuesta` por agente (0046). Este workflow las prueba en el
+# laboratorio: el agente tal como opera frente al agente con el cambio, en
+# el tramo de validación, y frente a 20 tiradas al azar con las mismas
+# salidas. Escribe el veredicto en `agente_hipotesis`, deja un evento del
+# agente y mide la concordancia con producción. No toca cómo operan los
+# agentes: adoptar una hipótesis validada lo decide el dueño.
+
+name: hipotesis
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 'Opcional: probar solo esta hipótesis (también si ya se probó)'
+        default: ''
+      semillas:
+        description: 'Tiradas al azar'
+        default: '20'
+
+concurrency:
+  group: hipotesis
+  cancel-in-progress: false
+
+jobs:
+  hipotesis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: motor-analitico/requirements.txt
+
+      - run: pip install -r motor-analitico/requirements.txt
+
+      - name: Probar las hipótesis
+        working-directory: motor-analitico
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ID: ${{ inputs.id }}
+          SEMILLAS: ${{ inputs.semillas || '20' }}
+        run: |
+          case "$ID$SEMILLAS" in *[!0-9]*) echo "id y semillas deben ser números"; exit 1 ;; esac
+          if [ -n "$ID" ]; then
+            python -m laboratorio.hipotesis --semillas "$SEMILLAS" --id "$ID"
+          else
+            python -m laboratorio.hipotesis --semillas "$SEMILLAS"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hipotesis
+          path: motor-analitico/laboratorio_salida/
+          if-no-files-found: ignore

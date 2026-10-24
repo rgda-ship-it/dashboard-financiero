@@ -228,6 +228,17 @@ export function cambioLegible(cambio) {
   return partes.join(" · ");
 }
 
+/** El veredicto del laboratorio en una línea (resultado de hipotesis.yml). */
+export function resultadoLegible(r) {
+  if (!r || !r.con_cambio) return r?.motivos?.length ? r.motivos.join(" · ") : "";
+  const f = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(2)} R`;
+  return (
+    `agente actual ${f(r.agente_actual?.expectativa_r ?? 0)} → con el cambio ${f(r.con_cambio.expectativa_r)}` +
+    ` (${r.con_cambio.operaciones} operaciones en validación)` +
+    ` · supera al ${Math.round(r.percentil_azar ?? 0)} % del azar (exigido ${r.percentil_exigido} %)`
+  );
+}
+
 export const ESTADOS_BACKLOG = {
   nuevo: "nuevo",
   en_revision: "en revisión",

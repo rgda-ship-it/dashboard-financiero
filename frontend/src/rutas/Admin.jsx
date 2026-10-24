@@ -21,6 +21,7 @@ import {
   ESTADOS_HIPOTESIS,
   ORIGENES_HIPOTESIS,
   cambioLegible,
+  resultadoLegible,
   reiniciarAgente,
   revisarBacklog,
 } from "../datos/agentes.js";
@@ -173,6 +174,7 @@ function FilaHipotesis({ h, ocupado, alRevisar }) {
           semana del {h.semana} · {cambioLegible(h.experimento?.cambio)} · {ESTADOS_HIPOTESIS[h.estado] ?? h.estado}
           {h.resolucion && <> · «{h.resolucion}»</>}
         </p>
+        {h.resultado && <p className="admin__meta">Laboratorio: {resultadoLegible(h.resultado)}</p>}
       </div>
       {archivando ? (
         <form className="admin__motivo" onSubmit={archivar}>

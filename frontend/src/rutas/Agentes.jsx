@@ -25,6 +25,7 @@ import {
   ORIGENES_HIPOTESIS,
   ESTADOS_HIPOTESIS,
   cambioLegible,
+  resultadoLegible,
   leerComparativa,
   leerCurvas,
   leerDecisiones,
@@ -618,6 +619,13 @@ function TablaHipotesis({ filas }) {
                 {h.experimento?.clases?.length ? ` · ${h.experimento.clases.join(", ")}` : ""}
                 {h.criterio && ` · criterio: +${h.criterio.mejora_r_min} R y percentil ≥ ${h.criterio.percentil_azar_min} frente al azar`}
               </span>
+              {h.resultado && <span className="sim__sub">Laboratorio: {resultadoLegible(h.resultado)}</span>}
+              {h.resultado?.motivos?.length > 0 && h.resultado.con_cambio && (
+                <span className="sim__sub">No se valida porque: {h.resultado.motivos.join("; ")}</span>
+              )}
+              {h.resultado?.concordancia && (
+                <span className="sim__sub">Concordancia con producción: {h.resultado.concordancia.texto}</span>
+              )}
               {h.resolucion && <span className="sim__sub">Resolución: {h.resolucion}</span>}
             </td>
             <td>
