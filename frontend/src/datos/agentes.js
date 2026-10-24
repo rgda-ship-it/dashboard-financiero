@@ -106,6 +106,17 @@ export const reiniciarAgente = (agenteId) =>
 export const revertirFase = (cuentaId) =>
   llamar(supabase.rpc("rpc_revertir_fase_manual", { p_cuenta_id: cuentaId, p_confirmacion: true }));
 
+/** Hipótesis de los agentes (0046, doc fase-3/01). Sin la migración
+ *  aplicada la vista no existe: se lee como vacía. */
+export const leerHipotesis = () =>
+  llamar(supabase.from("v_hipotesis_agentes").select("*").order("id", { ascending: false }).limit(60))
+    .catch(() => []);
+
+export const revisarHipotesis = (id, estado, resolucion) =>
+  llamar(
+    supabase.rpc("rpc_revisar_hipotesis", { p_id: id, p_estado: estado, p_resolucion: resolucion ?? null })
+  );
+
 export const revisarBacklog = (id, estado, resolucion) =>
   llamar(
     supabase.rpc("rpc_revisar_backlog", { p_id: id, p_estado: estado, p_resolucion: resolucion ?? null })
@@ -184,6 +195,38 @@ export const TIPOS_BACKLOG = {
   reversion_fase: "fase",
   sesgo_corto: "cortos",
 };
+
+export const ORIGENES_HIPOTESIS = {
+  decision: "decisión que cuesta",
+  movimiento: "movimiento perdido",
+  descarte: "descarte",
+  plantilla: "plantilla",
+  llm: "LLM",
+};
+
+export const ESTADOS_HIPOTESIS = {
+  propuesta: "propuesta · espera al laboratorio",
+  en_prueba: "en el laboratorio",
+  validada: "validada",
+  refutada: "refutada",
+  no_ejecutable: "el laboratorio aún no la puede probar",
+  adoptada: "adoptada",
+  archivada: "archivada",
+};
+
+/** Lo que cambia el experimento, en palabras (parámetros de `agente`). */
+export function cambioLegible(cambio) {
+  if (!cambio) return "";
+  const partes = [];
+  if (cambio.condicion) partes.push(`entrar también con ${cambio.condicion.split("+").join(" y ")}`);
+  if (cambio.deterioro === 0) partes.push("sin salida por deterioro");
+  if (cambio.parcial_recorrido === 0) partes.push("sin toma parcial");
+  if (cambio.parcial_recorrido > 0)
+    partes.push(`toma parcial del ${Math.round((cambio.parcial_fraccion ?? 0.5) * 100)} % al ${Math.round(cambio.parcial_recorrido * 100)} % del recorrido`);
+  if (cambio.sigue_atr) partes.push(`stop que sigue a ${cambio.sigue_atr} ATR`);
+  if (cambio.rotacion === 0) partes.push("sin rotación");
+  return partes.join(" · ");
+}
 
 export const ESTADOS_BACKLOG = {
   nuevo: "nuevo",

@@ -4905,6 +4905,163 @@ end
 $i95$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I96 · Los agentes proponen hipótesis (0046, doc fase-3/01).
+--
+-- H2: cuatro criptos con dos saltos de 5 ATR cada una, en los que el
+-- agente no entró; el MACD positivo solo el día en que empieza cada
+-- movimiento → «movimiento:macd_positivo». Una por semana. H1: 25 salidas
+-- por deterioro que costaron → «sin deterioro»; la rotación, que el
+-- laboratorio no modela, queda `no_ejecutable`. La misma idea viva no se
+-- repite. Solo el admin revisa, y solo adopta lo validado.
+--
+-- Todo dentro de un bloque que se deshace al final: suspender las demás
+-- criptos para aislar la prueba no debe afectar a nada de después.
+-- ═════════════════════════════════════════════════════════════════════
+do $i96$
+declare
+    v_a      bigint;
+    v_b      bigint;
+    v_c      bigint;
+    v_d      bigint;
+    v_act    bigint;
+    v_h      public.agente_hipotesis;
+    v_id     bigint;
+    v_id2    bigint;
+    v_admin  uuid;
+    v_otro   uuid;
+    v_fallo  boolean := false;
+    v_inicio date := current_date - 40;
+begin
+    begin
+        update public.activos set estado = 'suspendido' where clase = 'cripto' and estado = 'activo';
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, creado_en)
+        values ('prueba-hip-a', 2, 'pausado', '{"clases_admitidas": ["cripto"]}', now() - interval '60 days')
+        returning id into v_a;
+        perform public.fn_crear_cuenta_agente(v_a);
+
+        for i in 1..4 loop
+            insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+            values ('zzhip' || i, 'cripto', 'coingecko', 'zzhip' || i, 'activo') returning id into v_act;
+            -- 100 hasta el día 8+i, 110 hasta el 22+i y 120 después: dos
+            -- saltos de 10 con ATR 2.
+            insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, volumen, origen)
+            select v_act, v_inicio + d, c, c + 1, c - 1, c, 1000, 'coingecko_market_chart'
+              from (select d, case when d <= 8 + i then 100 when d <= 22 + i then 110 else 120 end as c
+                      from generate_series(0, 39) d) x;
+            insert into public.indicadores_diarios (activo_id, fecha, sma_50, sma_200, rsi_14, macd, macd_signal,
+                                                    macd_hist, atr_14, version_motor)
+            select v_act, v_inicio + d, 50, 200, 45, 0, 0,
+                   case when d in (8 + i - 4, 22 + i - 4) then 1 else -1 end, 2, 's9'
+              from generate_series(0, 39) d;
+        end loop;
+
+        v_id := public.fn_generar_hipotesis(v_a);
+        select * into v_h from public.agente_hipotesis where id = v_id;
+        if v_h.id is null or v_h.origen <> 'movimiento' or v_h.clave <> 'movimiento:macd_positivo'
+           or v_h.estado <> 'propuesta' or (v_h.evidencia ->> 'movimientos_perdidos')::int <> 8
+           or v_h.experimento -> 'cambio' <> '{"condicion": "macd_positivo"}'::jsonb
+           or v_h.experimento -> 'clases' <> '["cripto"]'::jsonb
+           or (v_h.criterio ->> 'percentil_azar_min')::int <> 90
+           or not exists (select 1 from public.eventos_sistema
+                           where agente_id = v_a and tipo = 'agente' and datos ->> 'hipotesis_id' = v_id::text) then
+            raise exception 'I96 FALLO: H2 debía proponer «macd_positivo» con 8 movimientos perdidos: % / % / %',
+                  v_h.clave, v_h.evidencia, v_h.experimento;
+        end if;
+        if public.fn_generar_hipotesis(v_a) is not null then
+            raise exception 'I96 FALLO: una sola hipótesis por agente y semana';
+        end if;
+        -- La semana siguiente, la misma idea sigue viva: no se repite.
+        update public.agente_hipotesis set semana = semana - 7 where id = v_id;
+        if public.fn_generar_hipotesis(v_a) is not null then
+            raise exception 'I96 FALLO: la misma hipótesis viva no se propone otra vez';
+        end if;
+
+        -- H1: 25 salidas por deterioro que costaron.
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, creado_en)
+        values ('prueba-hip-b', 2, 'pausado', '{"clases_admitidas": ["accion"]}', now() - interval '60 days')
+        returning id into v_b;
+        insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, creado_en, resuelta_en)
+        select v_b, 'deterioro', '{"salida_deterioro": true}', -3 + (g % 3), now() - interval '1 day', now()
+          from generate_series(1, 25) g;
+        v_id2 := public.fn_generar_hipotesis(v_b);
+        select * into v_h from public.agente_hipotesis where id = v_id2;
+        if v_h.origen is distinct from 'decision' or v_h.clave <> 'decision:deterioro'
+           or v_h.experimento -> 'cambio' <> '{"deterioro": 0}'::jsonb or v_h.estado <> 'propuesta'
+           or (v_h.evidencia ->> 'decisiones')::int <> 25 then
+            raise exception 'I96 FALLO: H1 debía proponer probar sin deterioro: % / %', v_h.clave, v_h.evidencia;
+        end if;
+
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, creado_en)
+        values ('prueba-hip-c', 2, 'pausado', '{"clases_admitidas": ["accion"]}', now() - interval '60 days')
+        returning id into v_c;
+        insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, creado_en, resuelta_en)
+        select v_c, 'rotacion', '{"umbral": 1.5}', -2 - (g % 2), now() - interval '1 day', now()
+          from generate_series(1, 25) g;
+        v_id2 := public.fn_generar_hipotesis(v_c);
+        select * into v_h from public.agente_hipotesis where id = v_id2;
+        if v_h.clave is distinct from 'decision:rotacion' or v_h.estado <> 'no_ejecutable' then
+            raise exception 'I96 FALLO: la rotación debía quedar no_ejecutable: % / %', v_h.clave, v_h.estado;
+        end if;
+
+        -- H4: la plantilla «trailing stop» del backlog pasa a experimento.
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, creado_en)
+        values ('prueba-hip-d', 2, 'pausado', '{"clases_admitidas": ["accion"]}', now() - interval '60 days')
+        returning id into v_d;
+        delete from public.agente_backlog where clave_deduplicacion = 'nueva_herramienta:trailing_stop';
+        perform public.fn_registrar_backlog(v_d, 'nueva_herramienta', 'nueva_herramienta:trailing_stop',
+                                            'Trailing stop', 'd', 'j', '{"ordenes": [1, 2, 3]}', 3);
+        v_id2 := public.fn_generar_hipotesis(v_d);
+        select * into v_h from public.agente_hipotesis where id = v_id2;
+        if v_h.clave is distinct from 'plantilla:trailing_stop' or v_h.origen <> 'plantilla'
+           or v_h.experimento -> 'cambio' <> '{"sigue_atr": 2}'::jsonb
+           or v_h.evidencia -> 'ordenes' <> '[1, 2, 3]'::jsonb then
+            raise exception 'I96 FALLO: H4 debía convertir el trailing stop en experimento: % / %', v_h.clave, v_h.evidencia;
+        end if;
+
+        -- Revisión: solo el admin, y solo adopta lo validado.
+        select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+        select id into v_otro from public.perfiles where rol <> 'admin' and estado = 'aprobado' limit 1;
+        perform pg_temp.como(v_otro);
+        begin
+            perform public.rpc_revisar_hipotesis(v_id, 'archivada', 'no');
+            v_fallo := true;
+        exception when insufficient_privilege then null;
+        end;
+        perform pg_temp.como(v_admin);
+        begin
+            perform public.rpc_revisar_hipotesis(v_id, 'adoptada');
+            v_fallo := true;
+        exception when raise_exception then null;
+        end;
+        begin
+            perform public.rpc_revisar_hipotesis(v_id, 'archivada');
+            v_fallo := true;
+        exception when invalid_parameter_value then null;
+        end;
+        perform public.rpc_revisar_hipotesis(v_id, 'archivada', 'Se probará con más movimientos');
+        perform pg_temp.como_dueno();
+        if v_fallo or (select estado from public.agente_hipotesis where id = v_id) <> 'archivada'
+           or not exists (select 1 from public.auditoria_admin
+                           where accion = 'resolver_hipotesis' and objetivo_id = v_id::text) then
+            raise exception 'I96 FALLO: la revisión es del admin, adopta solo lo validado y archivar pide motivo';
+        end if;
+        -- Archivada hace menos de 8 semanas: tampoco se repite.
+        if public.fn_hipotesis_repetida(v_a, 'movimiento:macd_positivo') is not true then
+            raise exception 'I96 FALLO: una hipótesis archivada hace poco no debe volver';
+        end if;
+
+        raise exception 'I96 OK';
+    exception when others then
+        perform pg_temp.como_dueno();
+        if sqlerrm <> 'I96 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I96 hipótesis: H2 (movimientos perdidos), H1 (decisiones que cuestan) y H4 (plantillas), una por semana, sin repetir, revisión del admin';
+end
+$i96$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

@@ -325,6 +325,13 @@ export const SECCIONES = [
           "Una práctica no es un consejo en prosa: es un filtro ejecutable sobre las señales —clase, fuerza, origen de niveles, tramo de ATR y de R:R— que otro agente aplica al elegir. Si dos agentes llegan por su cuenta a la misma, el segundo la respalda: se suma su evidencia y queda como coautor, en vez de publicarla dos veces. Adoptarla cambia de verdad sus candidatos. Dos semanas después se compara su rendimiento medio antes y después; si empeora, la abandona y le pone un voto negativo, y con dos fracasos la práctica deja de ofrecerse a nadie.",
       },
       {
+        termino: "Lo que investigan los agentes",
+        formula:
+          "una hipótesis por agente y semana (lunes)\n\ndecisión que cuesta   ≥ 20 resueltas, efecto medio < 0 con el IC 90 % entero\nmovimiento perdido    subida ≥ 3 ATR en 5 sesiones sin entrar;\n                      condición presente en ≥ 60 % de ellas y ≤ 50 % de los días\nplantilla             cierre parcial o trailing stop del backlog",
+        lectura:
+          "La meta no hace que un agente aprenda: su evidencia sí. Cada lunes, cada agente con metas mira lo que le ha costado dinero y lo que se ha perdido, y propone UN cambio con el experimento que lo pondría a prueba y el criterio para juzgarlo, fijados antes de ver el resultado. El laboratorio lo prueba contra la referencia al azar y el dueño decide. Ningún agente cambia solo: una hipótesis validada se convierte en un agente experimental nuevo o en un cambio para cuando acabe el experimento.",
+      },
+      {
         termino: "Lo que piden los agentes",
         formula: "prioridad  = ocurrencias × agentes distintos que lo piden\nocurrencia = un agente, un día",
         lectura:

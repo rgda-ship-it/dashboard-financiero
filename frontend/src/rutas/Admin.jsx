@@ -16,6 +16,11 @@ import {
   leerBacklog,
   leerRanking,
   leerSalud,
+  leerHipotesis,
+  revisarHipotesis,
+  ESTADOS_HIPOTESIS,
+  ORIGENES_HIPOTESIS,
+  cambioLegible,
   reiniciarAgente,
   revisarBacklog,
 } from "../datos/agentes.js";
@@ -47,6 +52,7 @@ const ACCIONES = {
   cambiar_estado_agente: "cambió el estado de",
   reiniciar_agente: "reinició a",
   resolver_backlog: "resolvió la petición",
+  resolver_hipotesis: "resolvió la hipótesis",
 };
 
 // ── Agentes (Sprint 6, D13) ──────────────────────────────────────────
@@ -135,6 +141,71 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
             </button>
           ))}
       </div>
+    </li>
+  );
+}
+
+// ── Hipótesis de los agentes (0046) ──────────────────────────────────
+// Adoptar solo se puede lo que el laboratorio validó (lo comprueba el
+// RPC); archivar, cualquiera, explicando por qué.
+const HIPOTESIS_CERRADAS = ["adoptada", "archivada"];
+
+function FilaHipotesis({ h, ocupado, alRevisar }) {
+  const [archivando, setArchivando] = useState(false);
+  const [motivo, setMotivo] = useState("");
+
+  function archivar(e) {
+    e.preventDefault();
+    alRevisar(h.id, "archivada", motivo.trim());
+    setArchivando(false);
+    setMotivo("");
+  }
+
+  return (
+    <li className="admin__fila">
+      <div className="admin__quien">
+        <p className="admin__email">
+          <span className="ag__punto" style={{ background: colorDe(h.nombre) }} aria-hidden="true" />
+          {h.nombre} · <span className="ag__etiqueta">{ORIGENES_HIPOTESIS[h.origen] ?? h.origen}</span>
+        </p>
+        <p className="admin__meta">{h.enunciado}</p>
+        <p className="admin__meta">
+          semana del {h.semana} · {cambioLegible(h.experimento?.cambio)} · {ESTADOS_HIPOTESIS[h.estado] ?? h.estado}
+          {h.resolucion && <> · «{h.resolucion}»</>}
+        </p>
+      </div>
+      {archivando ? (
+        <form className="admin__motivo" onSubmit={archivar}>
+          <input
+            className="acceso__input"
+            autoFocus
+            required
+            placeholder="Por qué se archiva (obligatorio)"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+          />
+          <button type="submit" className="btn btn--peligro" disabled={ocupado || !motivo.trim()}>
+            Archivar
+          </button>
+          <button type="button" className="btn" onClick={() => setArchivando(false)}>
+            Cancelar
+          </button>
+        </form>
+      ) : (
+        !HIPOTESIS_CERRADAS.includes(h.estado) && (
+          <div className="admin__acciones">
+            {h.estado === "validada" && (
+              <button type="button" className="btn btn--accent" disabled={ocupado}
+                      onClick={() => alRevisar(h.id, "adoptada")}>
+                Adoptar
+              </button>
+            )}
+            <button type="button" className="btn" disabled={ocupado} onClick={() => setArchivando(true)}>
+              Archivar
+            </button>
+          </div>
+        )
+      )}
     </li>
   );
 }
@@ -375,6 +446,7 @@ export default function Admin() {
   const [agentes, setAgentes] = useState([]);
   const [backlog, setBacklog] = useState([]);
   const [salud, setSalud] = useState(null);
+  const [hipotesis, setHipotesis] = useState([]);
   const [filtro, setFiltro] = useState("pendiente");
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
@@ -394,12 +466,14 @@ export default function Admin() {
     setUsuarios(u.data ?? []);
     setAuditoria(a.data ?? []);
     try {
-      const [ag, bl, sa] = await Promise.all([leerRanking(), leerBacklog(),
+      const [ag, bl, sa, hi] = await Promise.all([leerRanking(), leerBacklog(),
         // Sin la 0045 aplicada el RPC no existe: el panel no sale, el resto sí.
-        leerSalud().catch(() => null)]);
+        leerSalud().catch(() => null),
+        leerHipotesis()]);
       setAgentes(ag ?? []);
       setBacklog(bl ?? []);
       setSalud(sa);
+      setHipotesis(hi ?? []);
     } catch (err) {
       setError(err.message);
     }
@@ -509,6 +583,29 @@ export default function Admin() {
               />
             ))}
           </ul>
+        </Panel>
+
+        <Panel
+          titulo="Lo que investigan los agentes"
+          flush
+          meta={`${hipotesis.filter((h) => h.estado === "validada").length} validadas por revisar · adoptar solo lo validado`}
+        >
+          {hipotesis.length === 0 ? (
+            <p className="prosa admin__vacio">Ningún agente ha propuesto todavía una hipótesis.</p>
+          ) : (
+            <ul className="admin__lista">
+              {hipotesis.map((h) => (
+                <FilaHipotesis
+                  key={h.id}
+                  h={h}
+                  ocupado={ocupado}
+                  alRevisar={(id, estado, resolucion) =>
+                    ejecutarAgente(() => revisarHipotesis(id, estado, resolucion))
+                  }
+                />
+              ))}
+            </ul>
+          )}
         </Panel>
 
         <Panel

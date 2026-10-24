@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (202 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I95), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (250 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I96), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -103,9 +103,11 @@ punto ⏭️ de la lista de control»*.
 | ⏭️ | E2: caducidad de las credenciales en el panel de salud, con aviso 14 días antes | Tras la 0045 |
 | 🗓️ | E3: revisión semanal guiada y backlog («Ampliar el universo» se reabrió el 19 y el 23-10; «Señales más frecuentes» nunca se revisó) | Tras la 0045 |
 | ✅ 👤 | Agentes investigadores: diseño (doc fase-3/01), decidido el 2026-10-24 | La meta diaria no les hace aprender: no razonan y solo piden lo que está en 7 plantillas. Pasan a proponer hipótesis a partir de su propia evidencia, el laboratorio las prueba y el dueño decide. Dos pasos: primero determinista, sin coste y sin tocar cómo operan; después, un LLM con el mismo contrato |
-| ⏭️ | I1: `agente_hipotesis` y fuentes H1 (decisiones que cuestan), H2 (movimientos perdidos) y H4 (plantillas medibles), con el panel «Lo que investiga» | Doc fase-3/01 §8. En paralelo con la I2 |
-| ⏭️ | I2: el laboratorio reproduce las salidas de los agentes (deterioro, toma parcial, rotación), con prueba de paridad | Doc fase-3/01 §5. Sin ella no se pueden probar las hipótesis H1 |
-| 🗓️ | I3 (prueba automática con `hipotesis.yml`), I4 (registro de descartes y H3) | Doc fase-3/01 §8 |
+| ✅ | I1: hipótesis de los agentes (0046) | Incluye: <br>• `agente_hipotesis`, con tres fuentes: H1 (decisiones que cuestan), H2 (movimientos perdidos) y H4 (cierre parcial y trailing stop del backlog); <br>• una por agente y semana, en el autodiagnóstico de los lunes; <br>• pestaña «Investigan» en Agentes y revisión en Administración. <br>Invariante I96. Con los datos del 24-10, la H2 propondría a los tres «entrar también con el MACD positivo»: se cumplía en el 75–78 % de sus 8–9 movimientos perdidos, frente al 40 % de los días. La H1 aún no salta: tras la 0043 solo hay 1 deterioro resuelto |
+| ⏭️ 👤 | **Aplicar la 0046** | El primer lunes después (00:17 UTC), cada agente con metas propone su primera hipótesis. Quedan `propuesta` hasta la I3 |
+| ✅ | I2: el laboratorio reproduce a los agentes | Estrategia `agente`: banda de volatilidad, deterioro en dos lecturas, toma parcial, stop que sigue y condición del catálogo. El motor admite la toma parcial, y `laboratorio/agentes.py` traduce la estrategia de producción. No reproduce la rotación ni el reparto. 250 pruebas del motor en verde |
+| ⏭️ | I3: prueba automática con `hipotesis.yml` y concordancia con producción | Doc fase-3/01 §5 y §8 |
+| 🗓️ | I4: registro de descartes y H3 | Doc fase-3/01 §8 |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
 | 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 
@@ -192,7 +194,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0045_salud_del_sistema.sql`. La siguiente es la 0046 |
+| Migración más reciente | `0046_hipotesis_de_los_agentes.sql`. La siguiente es la 0047 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

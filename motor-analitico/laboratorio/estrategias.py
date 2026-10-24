@@ -20,7 +20,7 @@ from indicadores.tecnicos import (
     calcular_soporte_resistencia,
     evaluar_confluencia,
 )
-from laboratorio.motor import Entrada, Posicion
+from laboratorio.motor import Entrada, Parcial, Posicion
 
 
 def _atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
@@ -394,7 +394,116 @@ def anadir_rangos(datos: dict, estrategia) -> dict:
     return salida
 
 
+# ---------------------------------------------------------------------------
+# Fase 3 (doc fase-3/01 §5): los agentes con metas, como operan de verdad
+# ---------------------------------------------------------------------------
+
+# Condiciones de entrada que una hipótesis puede añadir. El catálogo es el
+# MISMO que `fn_condiciones_dia` en SQL (0046): lo que la fuente H2 mide en
+# producción es lo que el laboratorio sabe probar.
+CONDICIONES = {
+    "sobre_sma50": lambda f: f["Close"] > f["SMA_50"],
+    "sobre_sma200": lambda f: f["Close"] > f["SMA_200"],
+    "cruce_medias": lambda f: f["SMA_50"] > f["SMA_200"],
+    "macd_positivo": lambda f: f["MACD_HIST"] > 0,
+    "rsi_50_70": lambda f: 50 <= f["RSI_14"] <= 70,
+    "rsi_bajo_35": lambda f: f["RSI_14"] < 35,
+    "ruptura_20": lambda f: f["Close"] > f["MAX_20"],
+    "volumen_alto": lambda f: f["Volumen_relativo"] > 1.5,
+}
+
+_RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}
+
+
+def cumple(fila: pd.Series, condicion: str) -> bool:
+    """¿Cumple la fila todas las condiciones de «a+b»? Sin dato, no (una
+    comparación con NaN es falsa). Un nombre fuera del catálogo es un error."""
+    nombres = [n for n in condicion.split("+") if n]
+    return bool(nombres) and all(bool(CONDICIONES[n](fila)) for n in nombres)
+
+
+class Agente(Actual):
+    """Lo que hace un agente con metas, con cada pieza encendible:
+
+    · entrada de `Actual` (confluencia alcista media o alta, niveles en ATR)
+      con su R:R mínimo y su banda de volatilidad (`atr_min`, `atr_max`, en
+      % del precio; 0 = sin límite);
+    · `condicion`: entra TAMBIÉN cuando se cumple una condición del
+      catálogo (fuente H2), con los mismos niveles y filtros;
+    · `deterioro`: sale en la apertura siguiente tras DOS cierres seguidos
+      con la señal peor que al entrar (0043): menos indicadores alcistas
+      que bajistas, o menos fuerza;
+    · `parcial_recorrido` > 0: toma parcial de `parcial_fraccion` y, con
+      `parcial_mover`, stop a la entrada;
+    · `sigue_atr` > 0: stop que sigue al mejor cierre a esa distancia en ATR.
+
+    Lo que no reproduce (doc fase-3/01 §5): la rotación y el reparto, que
+    dependen de la cartera entera, y la cadencia intradía (aquí, un día es
+    una lectura)."""
+
+    nombre = "agente"
+
+    def __init__(self, rr_minimo: float = 1.2, atr_min: float = 0.0, atr_max: float = 0.0,
+                 condicion: str = "", deterioro: int = 0, parcial_recorrido: float = 0.0,
+                 parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0):
+        super().__init__(rr_minimo=rr_minimo)
+        self.atr_min, self.atr_max = atr_min, atr_max
+        self.condicion = str(condicion or "")
+        self.deterioro = bool(deterioro)
+        self.parcial = (Parcial(parcial_recorrido, parcial_fraccion, bool(parcial_mover))
+                        if parcial_recorrido > 0 else None)
+        self.sigue_atr = sigue_atr
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().preparar(df)
+        hist = next((c for c in df.columns if c.startswith("MACDh_")), None)
+        df["MACD_HIST"] = df[hist] if hist else np.nan
+        df["MAX_20"] = df["High"].rolling(20).max().shift(1)
+        return df
+
+    def _confluencia(self, df: pd.DataFrame, t: int):
+        return evaluar_confluencia(df.iloc[: t + 1])
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if t < 199:
+            return None
+        fila = df.iloc[t]
+        precio, atr = float(fila["Close"]), fila["ATR_14"]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        atr_pct = atr / precio * 100
+        if (self.atr_min and atr_pct < self.atr_min) or (self.atr_max and atr_pct > self.atr_max):
+            return None
+        conf = self._confluencia(df, t)
+        por_confluencia = (conf.indicadores_alcistas > conf.indicadores_bajistas
+                           and conf.fuerza in ("media", "alta"))
+        if not por_confluencia and not (self.condicion and cumple(fila, self.condicion)):
+            return None
+        soporte, resistencia = calcular_soporte_resistencia(df.iloc[: t + 1])
+        if (pd.isna(soporte) or pd.isna(resistencia) or resistencia - soporte < atr):
+            soporte, resistencia = precio - 2 * atr, precio + 2 * atr
+        sl, tp = calcular_niveles_operativos(precio, float(soporte), float(resistencia), float(atr))
+        if (tp - precio) / (precio - sl) < self.rr_minimo:
+            return None
+        return Entrada(sl=sl, tp=tp, parcial=self.parcial,
+                       datos={"fuerza_entrada": conf.fuerza if por_confluencia else "baja"})
+
+    def actualizar(self, df, t, pos: Posicion):
+        sl = pos.sl
+        if self.sigue_atr > 0 and not pd.isna(df["ATR_14"].iloc[t]):
+            sl = max(sl, pos.mejor_cierre - self.sigue_atr * float(df["ATR_14"].iloc[t]))
+        if not self.deterioro:
+            return sl, False
+        conf = self._confluencia(df, t)
+        peor = (conf.indicadores_alcistas <= conf.indicadores_bajistas
+                or _RANGO_FUERZA[conf.fuerza] < _RANGO_FUERZA[pos.datos.get("fuerza_entrada", "baja")])
+        dos_seguidas = peor and pos.datos.get("deterioro_previo", False)
+        pos.datos["deterioro_previo"] = peor
+        return sl, dos_seguidas
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
-               "azar": Azar, "momento": Momento, "azar_momento": AzarMomento}
+               "azar": Azar, "momento": Momento, "azar_momento": AzarMomento,
+               "agente": Agente}

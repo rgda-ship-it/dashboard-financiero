@@ -33,9 +33,12 @@ razones:
    | Decisión | Resueltas | Efecto medio | Efecto total | Con efecto positivo |
    |---|---|---|---|---|
    | Salida por deterioro (antes de la 0043) | 44 | −2,86 $ | −125,7 $ | 26 |
-   | Reparto | 133 | −0,70 $ | −93,2 $ | 40 |
    | Toma parcial | 5 | −1,99 $ | −10,0 $ | 0 |
    | Rotación | 11 | +5,49 $ | +60,4 $ | 9 |
+
+   El «efecto» del reparto no está en la tabla porque no es un
+   contrafactual: es el retorno de la operación sobre su margen, en %. Por
+   eso tampoco sirve para la fuente H1.
 
    Las salidas por deterioro costaban dinero desde el principio. No lo
    pidió ningún agente: lo vimos en el chat y se corrigió en la 0043. Hay
@@ -72,10 +75,10 @@ Lo que no cambia:
 
 | Fuente | Qué mira | Hipótesis que genera | Datos |
 |---|---|---|---|
-| **H1 · Decisiones que cuestan** | Un tipo de decisión con al menos 20 resueltas y un efecto medio negativo cuyo intervalo (bootstrap, 90 %) no incluye el cero | «Sin esta decisión, o con este parámetro, mi expectativa mejora» | `agente_decisiones` (ya existe) |
+| **H1 · Decisiones que cuestan** | Un tipo de decisión (deterioro, toma parcial o rotación) con al menos 20 resueltas en 90 días y un efecto medio negativo cuyo intervalo del 90 % (aproximación normal) no incluye el cero. Del deterioro solo cuenta lo posterior a la 0043, que cambió la regla | «Sin esta decisión, o con este parámetro, mi expectativa mejora» | `agente_decisiones` (ya existe) |
 | **H2 · Movimientos perdidos** | Subidas de 3 ATR o más en 5 sesiones en activos de su universo en las que no entró. Para cada una, qué indicadores daban señal el día de partida y cuáles no | «Con el indicador X, o el umbral Y, habría entrado en estos movimientos sin entrar en otros peores» | `precios_diarios`, `indicadores_diarios`, `senales.senales_detalle` (ya existen) |
 | **H3 · Descartes que subieron** | Señales que el agente descartó por un filtro concreto (R:R, ATR alto, fuerza, dirección) y qué hicieron en las 5 sesiones siguientes | «Este filtro me quita más de lo que me protege» | **Falta**: hoy solo se guarda el recuento por motivo (`agente_dias.descartes`), no qué señal se descartó |
-| **H4 · Las plantillas de hoy** | Las siete del backlog | Las que se pueden medir pasan a ser hipótesis («señales más frecuentes» → «bajar la fuerza mínima»). Las que no, se retiran | `fn_disparadores_backlog` |
+| **H4 · Las plantillas de hoy** | Las siete del backlog | Las dos que se pueden medir en el laboratorio («cierre parcial» y «trailing stop») pasan además a ser hipótesis. Las otras cinco piden datos o infraestructura («ampliar el universo», «volatilidad de X», «señales más frecuentes», que es la cadencia del ETL…): siguen en el backlog, que es su sitio | `fn_disparadores_backlog` |
 
 Cada generador corre en el corte semanal (lunes) y como mucho deja **una
 hipótesis por agente y semana**: la de evidencia más fuerte. Es el freno a
@@ -107,12 +110,19 @@ backlog. Esa sí la implementa Claude.
   las hipótesis en `propuesta`, ejecuta el laboratorio con su
   `experimento` y escribe el `resultado` y el veredicto según el
   `criterio`. Usa la clave de servicio, como el ETL.
-- **Requisito del laboratorio**: hoy `Actual` reproduce las entradas de
-  los agentes con metas, pero no sus salidas (deterioro, toma parcial,
-  rotación, reparto). Para probar H1, el laboratorio tiene que modelarlas
-  con parámetros que se puedan encender y apagar, y una prueba de paridad
-  que compare el laboratorio con las operaciones reales en las mismas
-  fechas (como la de `cartera.py`).
+- **Requisito del laboratorio (hecho en la I2)**: la estrategia `agente`
+  reproduce a un agente con metas con cada pieza encendible: banda de
+  volatilidad, deterioro en dos lecturas, toma parcial (el motor la admite
+  ahora), stop que sigue y condición de entrada del catálogo.
+  `laboratorio/agentes.py` traduce la estrategia de producción a esos
+  parámetros. **No reproduce** la rotación ni el reparto (dependen de la
+  cartera entera) ni la cadencia intradía: en el laboratorio, un día es una
+  lectura. Por eso una hipótesis sobre la rotación queda `no_ejecutable`.
+- **Concordancia con producción (en la I3)**: no es posible una paridad
+  exacta con las operaciones reales, porque los agentes deciden cada 30
+  minutos y el laboratorio, al cierre. La I3 añade un informe de
+  concordancia: qué entradas reales tienen su gemela en el laboratorio el
+  mismo día o el siguiente.
 - **Límite de pruebas**: como mucho 3 por semana (una por agente). El
   número de pruebas acumuladas se guarda, y el percentil exigido frente al
   azar sube con él. Así, probar mucho no regala validaciones.
@@ -148,9 +158,9 @@ concentran el día antes de resultados»).
 
 | Entrega | Qué | Depende de |
 |---|---|---|
-| **I1 · Hipótesis y fuentes H1, H2 y H4** | Tabla `agente_hipotesis`, generadores en el corte semanal, retirada de las plantillas no medibles, panel «Lo que investiga» (sin laboratorio todavía: estado `propuesta`). Invariantes | — |
-| **I2 · Laboratorio que reproduce a los agentes** | Salidas por deterioro, toma parcial y rotación en `Actual`, con parámetros y prueba de paridad | — (en paralelo con I1) |
-| **I3 · Prueba automática** | `hipotesis.yml`, veredicto, límite de pruebas y panel con resultados | I1 e I2 |
+| **I1 · Hipótesis y fuentes H1, H2 y H4** ✅ | 0046: `agente_hipotesis`, `v_condiciones_dia`, `fn_generar_hipotesis` en el autodiagnóstico de los lunes, `rpc_revisar_hipotesis`, pestaña «Investigan» en Agentes y revisión en Administración. Invariante I96 | — |
+| **I2 · Laboratorio que reproduce a los agentes** ✅ | Estrategia `agente`, toma parcial en el motor, catálogo `CONDICIONES` (el mismo que la 0046) y `laboratorio/agentes.py`. 15 pruebas nuevas | — |
+| **I3 · Prueba automática** | `hipotesis.yml`, veredicto, límite de pruebas, informe de concordancia con producción y panel con resultados | I1 e I2 |
 | **I4 · Registro de descartes y H3** | Guardar qué señal se descartó y por qué (con retención, como los eventos) | I1 |
 | **I5 · LLM** | Proveedor de hipótesis con el mismo contrato | I3 y la decisión del dueño |
 

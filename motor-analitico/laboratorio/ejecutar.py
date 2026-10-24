@@ -56,7 +56,10 @@ def crear(nombre: str, parametros: str = ""):
         k, v = par.split("=")
         if k.strip() in admitidos:
             v = v.strip()
-            params[k.strip()] = int(v) if v.lstrip("-").isdigit() else float(v)
+            try:
+                params[k.strip()] = int(v) if v.lstrip("-").isdigit() else float(v)
+            except ValueError:
+                params[k.strip()] = v      # texto: p. ej. condicion=macd_positivo+ruptura_20
     return clase(**params)
 
 
@@ -185,14 +188,14 @@ def main() -> int:
         w = csv.writer(f)
         w.writerow(["estrategia", "activo", "clase", "fecha_senal", "fecha_entrada", "fecha_salida",
                     "precio_entrada", "sl_inicial", "tp", "precio_salida", "motivo", "dias", "r", "pct", "coste_r",
-                    "regimen", "tramo"])
+                    "regimen", "tramo", "parcial"])
         for nombre, ops in ops_por_estrategia.items():
             for o in ops:
                 w.writerow([nombre, o.activo, o.clase, o.fecha_senal.date(), o.fecha_entrada.date(),
                             o.fecha_salida.date(), round(o.precio_entrada, 6), round(o.sl_inicial, 6),
                             "" if o.tp is None else round(o.tp, 6), round(o.precio_salida, 6), o.motivo,
                             o.dias, round(o.r, 4), round(o.pct, 4), round(o.coste_r, 4), o.regimen,
-                            "diseno" if o.fecha_entrada < corte else "validacion"])
+                            "diseno" if o.fecha_entrada < corte else "validacion", int(o.parcial)])
     print(texto)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:

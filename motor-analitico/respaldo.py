@@ -87,6 +87,8 @@ TABLAS = {
     "agente_ajustes": "id",
     # Decisión diaria de los agentes de estrategia (0037).
     "agente_decisiones_diarias": "agente_id,activo_id,fecha_vela",
+    # Hipótesis de los agentes (0046).
+    "agente_hipotesis": "id",
     # Al final: apunta a agentes y a usuarios.
     "eventos_sistema": "id",
 }

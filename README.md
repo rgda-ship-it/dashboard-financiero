@@ -96,7 +96,8 @@ dashboard-financiero/
 │       ├── 0042_sin_cuarentena_en_el_experimento.sql # Agentes con metas fuera de la cuarentena durante el experimento
 │       ├── 0043_deterioro_confirmado_y_espera_tras_stop.sql # Deterioro en dos lecturas; 48 h sin volver tras un stop
 │       ├── 0044_backlog_revisado.sql # Backlog revisado; «Ampliar el universo» más exigente
-│       └── 0045_salud_del_sistema.sql # FASE 3 — Disparos que miran la respuesta, toma parcial de 1 acción, salud y rol de lectura
+│       ├── 0045_salud_del_sistema.sql # FASE 3 — Disparos que miran la respuesta, toma parcial de 1 acción, salud y rol de lectura
+│       └── 0046_hipotesis_de_los_agentes.sql # FASE 3 — Los agentes proponen hipótesis con su propia evidencia (doc fase-3/01)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
