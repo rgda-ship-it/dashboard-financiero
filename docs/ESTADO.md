@@ -17,7 +17,7 @@ punto ⏭️ de la lista de control»*.
 **Orden de lectura** (de lo más reciente a lo más general):
 
 1. Este documento.
-2. [`fase-3/00-diagnostico-y-plan.md`](fase-3/00-diagnostico-y-plan.md): el diagnóstico del 2026-10-24 y el plan de la Fase 3.
+2. [`fase-3/00-diagnostico-y-plan.md`](fase-3/00-diagnostico-y-plan.md): el diagnóstico del 2026-10-24 y el plan de la Fase 3; [`fase-3/01-agentes-investigadores.md`](fase-3/01-agentes-investigadores.md): los agentes como medio para evolucionar el sistema.
 3. [`fase-2/07-agente-tendencia-cripto.md`](fase-2/07-agente-tendencia-cripto.md): el agente experimental.
 4. [`fase-2/06-laboratorio-y-agentes-con-ventaja.md`](fase-2/06-laboratorio-y-agentes-con-ventaja.md): el laboratorio y su veredicto.
 5. [`fase-2/05-agentes-conscientes-del-tiempo.md`](fase-2/05-agentes-conscientes-del-tiempo.md): las mejoras a los agentes con metas.
@@ -102,7 +102,12 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Comprobar la 0045 (2026-10-24) | Las 24 vistas se leen con `analista_lectura` (antes fallaban 11), también `v_comparativa_agentes` y `agente_decisiones_diarias`. El disparo de cripto de las 15:07 UTC guarda su petición y GitHub respondió 204; su `estado_http` lo rellena la pasada siguiente. El 401 del 23–24-10 no deja evento: aquellos disparos son anteriores a la 0045. Falta ver el panel «Salud del sistema» en el navegador (lo abre el dueño, con su sesión de admin) |
 | ⏭️ | E2: caducidad de las credenciales en el panel de salud, con aviso 14 días antes | Tras la 0045 |
 | 🗓️ | E3: revisión semanal guiada y backlog («Ampliar el universo» se reabrió el 19 y el 23-10; «Señales más frecuentes» nunca se revisó) | Tras la 0045 |
-| 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
+| ✅ 👤 | Agentes investigadores: diseño (doc fase-3/01), decidido el 2026-10-24 | La meta diaria no les hace aprender: no razonan y solo piden lo que está en 7 plantillas. Pasan a proponer hipótesis a partir de su propia evidencia, el laboratorio las prueba y el dueño decide. Dos pasos: primero determinista, sin coste y sin tocar cómo operan; después, un LLM con el mismo contrato |
+| ⏭️ | I1: `agente_hipotesis` y fuentes H1 (decisiones que cuestan), H2 (movimientos perdidos) y H4 (plantillas medibles), con el panel «Lo que investiga» | Doc fase-3/01 §8. En paralelo con la I2 |
+| ⏭️ | I2: el laboratorio reproduce las salidas de los agentes (deterioro, toma parcial, rotación), con prueba de paridad | Doc fase-3/01 §5. Sin ella no se pueden probar las hipótesis H1 |
+| 🗓️ | I3 (prueba automática con `hipotesis.yml`), I4 (registro de descartes y H3) | Doc fase-3/01 §8 |
+| ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
+| 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 
 ### 3.1 Agente experimental «Tendencia cripto» (doc 07)
 

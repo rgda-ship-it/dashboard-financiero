@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — Diseño: agentes investigadores (doc fase-3/01)
+
+### Decidido
+La meta diaria no hace que los agentes aprendan ni pidan cosas: ejecutan reglas en SQL, y lo que «piden» sale de 7 plantillas escritas de antemano. La evidencia para aprender ya existe y nadie la usa. Por ejemplo, las salidas por deterioro costaron −125,7 $ frente a no hacerlas antes de la 0043, y no lo pidió ningún agente. El rediseño: los agentes siguen operando igual (grupo de control), y una capa nueva convierte su evidencia en hipótesis, el laboratorio las prueba contra el azar y el dueño decide. Primero en versión determinista (entregas I1–I4); después, un LLM con el mismo contrato (I5, pendiente de la decisión sobre el coste).
+
 ## [Sin publicar] - 2026-10-24 — Fase 3: diagnóstico y 0045 (salud del sistema)
 
 ### Hallazgo

@@ -124,6 +124,7 @@ Principios:
 | **E3 · Revisión semanal guiada** | Una consulta única para la revisión de cada lunes (la de `scripts/revision_agentes.sql`, más salud y decisiones de Tendencia cripto), y revisar «Ampliar el universo» y «Señales más frecuentes» (P6) | Tras aplicar E1 |
 | **E4 · Primeras operaciones de Tendencia cripto** | Comparar las 5 primeras con el laboratorio en las mismas fechas (ya previsto en ESTADO §3.1) | Cuando las haya |
 | **E5 · Calibración de las prácticas** (doc 05 §9, la antigua entrega E) | Medir horizontes y resultados observados frente a lo estimado | Cuando haya semanas de datos (lleva la 0031 desde el 10-10) |
+| **E7 · Agentes investigadores** | Los agentes proponen hipótesis con su propia evidencia y el laboratorio las prueba ([doc 01](01-agentes-investigadores.md)) | Diseño decidido el 2026-10-24; entregas I1–I5 |
 | **E6 · Lo que decida el veredicto** | Agente de cartera, ampliar el universo cripto, fin del experimento (`consecuencias_semanales = true`) | ⏸️ Hasta el veredicto |
 
 ---
