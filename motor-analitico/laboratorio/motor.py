@@ -10,6 +10,10 @@ futuro, con las mismas reglas de ejecución que el simulador (doc 06 §3.1).
     · Si el día abre ya más allá del stop, se sale a la apertura (M3').
     · Una salida por regla (la decide la estrategia al cierre) se ejecuta
       en la apertura siguiente.
+    · Toma parcial (fase 3, doc 01 §5): si el día llega al nivel, se vende
+      esa fracción AL NIVEL, como el agente. El stop gana el empate; si el
+      mismo día llega también al objetivo, primero va la parcial. Mover el
+      stop a la entrada vale desde el día siguiente.
 
 Una posición por activo y estrategia a la vez. El laboratorio mide la
 ventaja de una regla de entrada y salida, no la gestión de una cartera.
@@ -24,10 +28,21 @@ import pandas as pd
 
 
 @dataclass
+class Parcial:
+    """Toma parcial del agente: al `recorrido` del camino hasta el objetivo
+    vende la `fraccion`, y con `mover_stop` sube el stop a la entrada."""
+    recorrido: float
+    fraccion: float
+    mover_stop: bool = False
+
+
+@dataclass
 class Entrada:
     """Lo que propone una estrategia al cierre del día t."""
     sl: float
     tp: float | None = None
+    parcial: Parcial | None = None
+    datos: dict = field(default_factory=dict)   # pasa a Posicion.datos
 
 
 @dataclass
@@ -42,6 +57,8 @@ class Posicion:
     mejor_cierre: float
     salir_en_apertura: bool = False
     datos: dict = field(default_factory=dict)
+    parcial: Parcial | None = None
+    precio_parcial: float | None = None     # a qué precio se vendió la parcial
 
 
 @dataclass
@@ -60,6 +77,7 @@ class Operacion:
     dias: int
     coste_r: float = 0.0    # spread pagado (entrada + salida), en R
     regimen: str = ""       # régimen al dar la señal (columna REGIMEN), si lo hay
+    parcial: bool = False   # hubo toma parcial: `precio_salida` es la media ponderada
 
     @property
     def riesgo(self) -> float:
@@ -114,6 +132,11 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
         nonlocal pos
         riesgo = pos.entrada - pos.sl_inicial
         coste = pos.datos.get("coste_entrada", 0.0) + spread(precio) / 2
+        if pos.precio_parcial is not None:
+            # Una sola operación con la salida media: la parte vendida en la
+            # parcial a su nivel, el resto a la salida final.
+            f = pos.parcial.fraccion
+            precio = f * pos.precio_parcial + (1 - f) * precio
         regimen = ""
         if regimenes is not None and pos.fecha_senal in regimenes.index:
             regimen = str(regimenes.loc[pos.fecha_senal])
@@ -123,7 +146,8 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             fecha_salida=fechas[t], precio_entrada=pos.entrada,
             sl_inicial=pos.sl_inicial, tp=pos.tp, precio_salida=precio,
             motivo=motivo, dias=t - pos.indice_entrada,
-            coste_r=coste / riesgo if riesgo > 0 else 0.0, regimen=regimen))
+            coste_r=coste / riesgo if riesgo > 0 else 0.0, regimen=regimen,
+            parcial=pos.precio_parcial is not None))
         pos = None
 
     for t in range(inicio, n):
@@ -140,7 +164,8 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
                 pos = Posicion(entrada=precio, sl=ent.sl, sl_inicial=ent.sl, tp=ent.tp,
                                fecha_senal=fechas[t_senal], fecha_entrada=fechas[t],
                                indice_entrada=t, mejor_cierre=c[t],
-                               datos={"coste_entrada": spread(o[t]) / 2})
+                               datos={**ent.datos, "coste_entrada": spread(o[t]) / 2},
+                               parcial=ent.parcial if ent.tp is not None else None)
                 entra_hoy = True
             else:
                 entra_hoy = False
@@ -157,8 +182,15 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
                     cerrar(t, v_open, "hueco")                 # M3'
                 elif v_low <= pos.sl:
                     cerrar(t, pos.sl, "sl")                    # M2: el stop gana el empate
-                elif pos.tp is not None and v_high >= pos.tp:
-                    cerrar(t, pos.tp, "tp")
+                else:
+                    if pos.parcial is not None and pos.precio_parcial is None:
+                        nivel = pos.entrada + pos.parcial.recorrido * (pos.tp - pos.entrada)
+                        if v_high >= nivel:
+                            pos.precio_parcial = nivel
+                            if pos.parcial.mover_stop:
+                                pos.sl = max(pos.sl, pos.entrada * 0.9995)
+                    if pos.tp is not None and v_high >= pos.tp:
+                        cerrar(t, pos.tp, "tp")
 
         # 3. Al cierre: la estrategia gestiona lo abierto o busca entrada.
         if pos is not None:

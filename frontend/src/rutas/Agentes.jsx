@@ -21,6 +21,10 @@ import {
   LIMITE_OPERACIONES,
   leerAjustes,
   leerBacklog,
+  leerHipotesis,
+  ORIGENES_HIPOTESIS,
+  ESTADOS_HIPOTESIS,
+  cambioLegible,
   leerComparativa,
   leerCurvas,
   leerDecisiones,
@@ -576,6 +580,61 @@ function TablaBacklog({ filas }) {
   );
 }
 
+// ── Lo que investigan (0046, doc fase-3/01) ─────────────────────────
+// Cada lunes, cada agente con metas propone como mucho una hipótesis sacada
+// de su propia evidencia. El laboratorio la prueba contra el azar y el
+// dueño decide: los agentes no cambian solos.
+function TablaHipotesis({ filas }) {
+  if (filas.length === 0) {
+    return (
+      <p className="sim__nota">
+        Todavía no hay hipótesis. Cada lunes, cada agente propone como mucho una, sacada de su
+        propia evidencia: decisiones que le cuestan dinero, subidas en las que no entró o
+        peticiones del backlog que se pueden medir.
+      </p>
+    );
+  }
+  return (
+    <table className="sim__tabla">
+      <thead>
+        <tr>
+          <th>Semana</th>
+          <th>Quién</th>
+          <th>Hipótesis</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((h) => (
+          <tr key={h.id}>
+            <td>{h.semana}</td>
+            <td>
+              <span className="ag__punto" style={{ background: colorDe(h.nombre) }} aria-hidden="true" /> {h.nombre}
+            </td>
+            <td>
+              <span className="ag__etiqueta">{ORIGENES_HIPOTESIS[h.origen] ?? h.origen}</span> {h.enunciado}
+              <span className="sim__sub">
+                Experimento: {cambioLegible(h.experimento?.cambio)}
+                {h.experimento?.clases?.length ? ` · ${h.experimento.clases.join(", ")}` : ""}
+                {h.criterio && ` · criterio: +${h.criterio.mejora_r_min} R y percentil ≥ ${h.criterio.percentil_azar_min} frente al azar`}
+              </span>
+              {h.resolucion && <span className="sim__sub">Resolución: {h.resolucion}</span>}
+            </td>
+            <td>
+              {ESTADOS_HIPOTESIS[h.estado] ?? h.estado}
+              {h.informe_url && (
+                <span className="sim__sub">
+                  <a href={h.informe_url} target="_blank" rel="noreferrer">informe</a>
+                </span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function TablaPracticas({ filas }) {
   if (filas.length === 0) {
     return (
@@ -732,6 +791,7 @@ export default function Agentes() {
   const [curvas, setCurvas] = useState([]);
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
+  const [hipotesis, setHipotesis] = useState([]);
   const [practicas, setPracticas] = useState([]);
   const [decisiones, setDecisiones] = useState([]);
   const [ajustes, setAjustes] = useState([]);
@@ -743,13 +803,13 @@ export default function Agentes() {
   const [filtroMotivo, setFiltroMotivo] = useState("todos");
   const [abierta, setAbierta] = useState(null);
   const [pagina, setPagina] = useState(1);
-  const [pestana, setPestana] = useState("backlog");
+  const [pestana, setPestana] = useState("investiga");
   const [seccionGuia, setSeccionGuia] = useState(null);
   const temporizador = useRef(null);
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p, d, j, e, k] = await Promise.all([
+      const [r, c, o, b, p, d, j, e, k, h] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
@@ -759,6 +819,7 @@ export default function Agentes() {
         leerAjustes(),
         leerEstrategias(),
         leerComparativa(),
+        leerHipotesis(),
       ]);
       setRanking(r ?? []);
       setEstrategias(e ?? []);
@@ -766,6 +827,7 @@ export default function Agentes() {
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
+      setHipotesis(h ?? []);
       setPracticas(p ?? []);
       setDecisiones(d ?? []);
       setAjustes(j ?? []);
@@ -1025,14 +1087,18 @@ export default function Agentes() {
 
           <Panel
             titulo={
-              pestana === "backlog"
+              pestana === "investiga"
+                ? "Lo que investigan los agentes"
+                : pestana === "backlog"
                 ? "Lo que piden los agentes"
                 : pestana === "practicas"
                   ? "Prácticas compartidas"
                   : "Decisiones y lo que aprendieron"
             }
             meta={
-              pestana === "backlog"
+              pestana === "investiga"
+                ? "una hipótesis por agente y semana · la prueba el laboratorio, decide el dueño"
+                : pestana === "backlog"
                 ? "ordenado por ocurrencias × agentes que lo piden"
                 : pestana === "practicas"
                   ? "ordenadas por efecto medido · también los errores a evitar"
@@ -1044,6 +1110,7 @@ export default function Agentes() {
             <div className="toolbar">
               <div className="segmented" role="tablist" aria-label="Tablas de los agentes">
                 {[
+                  ["investiga", `Investigan (${hipotesis.length})`],
                   ["backlog", `Backlog (${backlog.length})`],
                   ["practicas", `Prácticas (${practicas.length})`],
                   ["decisiones", `Decisiones (${decisiones.length})`],
@@ -1062,7 +1129,9 @@ export default function Agentes() {
                 ))}
               </div>
             </div>
-            {pestana === "backlog" ? (
+            {pestana === "investiga" ? (
+              <TablaHipotesis filas={hipotesis} />
+            ) : pestana === "backlog" ? (
               <TablaBacklog filas={backlog} />
             ) : pestana === "practicas" ? (
               <TablaPracticas filas={practicas} />

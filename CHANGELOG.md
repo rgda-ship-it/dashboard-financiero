@@ -4,6 +4,22 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — 0046 y laboratorio: los agentes proponen hipótesis (I1 e I2)
+
+### Añadido
+- **0046 (I1)**: cada lunes, con el autodiagnóstico, cada agente con metas propone como mucho una hipótesis sacada de su propia evidencia (`agente_hipotesis`). Tres fuentes:
+  - **H1, decisiones que cuestan**: al menos 20 resueltas en 90 días, con el efecto medio negativo y el intervalo del 90 % entero por debajo de cero.
+  - **H2, movimientos perdidos**: subidas de 3 ATR en 5 sesiones en las que no entró, y la condición del catálogo que las anticipaba (`v_condiciones_dia`).
+  - **H4, plantillas medibles**: cierre parcial y trailing stop.
+
+  Cada hipótesis lleva el experimento y el criterio, fijados antes del resultado, y no se repite mientras siga viva. El admin la adopta (solo si está validada) o la archiva con motivo (`rpc_revisar_hipotesis`). Pestaña «Investigan» en Agentes y panel en Administración. Invariante I96.
+- **Laboratorio (I2)**: estrategia `agente`, que reproduce a los agentes con metas con cada pieza encendible: banda de volatilidad, deterioro en dos lecturas, toma parcial, stop que sigue y una condición de entrada del catálogo `CONDICIONES` (el mismo que la 0046). El motor admite la toma parcial. `laboratorio/agentes.py` traduce la estrategia de producción a parámetros, y `--parametros` admite texto.
+
+### Corregido (respecto al diseño)
+- El «efecto» del reparto es el retorno sobre el margen, no un contrafactual: no entra en la H1.
+- Las plantillas que no se pueden medir no se retiran: piden datos o infraestructura y siguen en el backlog.
+- Un par de condiciones solo se propone si es más selectivo que cada una por separado. Lo encontró I96: sin esa regla, al no poder repetir «macd_positivo», proponía «macd_positivo y sobre_sma50», que es la misma idea.
+
 ## [Sin publicar] - 2026-10-24 — Diseño: agentes investigadores (doc fase-3/01)
 
 ### Decidido
