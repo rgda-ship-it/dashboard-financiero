@@ -123,7 +123,8 @@ def test_las_senales_no_cambian_si_se_quita_el_futuro(nombre):
 @pytest.mark.parametrize("nombre", sorted(ESTRATEGIAS))
 def test_cada_estrategia_opera_de_principio_a_fin(nombre):
     ops = simular(_serie_aleatoria(), ESTRATEGIAS[nombre](), lambda p: p * 0.001)
-    assert all(o.sl_inicial < o.precio_entrada for o in ops)
+    # En largo el stop está debajo de la entrada; en corto, encima.
+    assert all(o.riesgo > 0 for o in ops)
     assert all(o.fecha_entrada > o.fecha_senal and o.fecha_salida >= o.fecha_entrada for o in ops)
 
 
