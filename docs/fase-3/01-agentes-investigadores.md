@@ -77,7 +77,7 @@ Lo que no cambia:
 |---|---|---|---|
 | **H1 · Decisiones que cuestan** | Un tipo de decisión (deterioro, toma parcial o rotación) con al menos 20 resueltas en 90 días y un efecto medio negativo cuyo intervalo del 90 % (aproximación normal) no incluye el cero. Del deterioro solo cuenta lo posterior a la 0043, que cambió la regla | «Sin esta decisión, o con este parámetro, mi expectativa mejora» | `agente_decisiones` (ya existe) |
 | **H2 · Movimientos perdidos** | Subidas de 3 ATR o más en 5 sesiones en activos de su universo en las que no entró. Para cada una, qué indicadores daban señal el día de partida y cuáles no | «Con el indicador X, o el umbral Y, habría entrado en estos movimientos sin entrar en otros peores» | `precios_diarios`, `indicadores_diarios`, `senales.senales_detalle` (ya existen) |
-| **H3 · Descartes que subieron** | Señales que el agente descartó por un filtro concreto (R:R, ATR alto, fuerza, dirección) y qué hicieron en las 5 sesiones siguientes | «Este filtro me quita más de lo que me protege» | **Falta**: hoy solo se guarda el recuento por motivo (`agente_dias.descartes`), no qué señal se descartó |
+| **H3 · Descartes que subieron** | Señales que el agente descartó por un filtro de su perfil (fuerza, origen de los niveles, R:R, ATR alto o bajo) y lo que subieron en las 5 sesiones siguientes, en ATR, frente a su universo esos mismos días. Salta con al menos 30 descartes en 5 activos y una subida media cuyo intervalo del 90 % supera en 0,25 ATR a la del universo | «Este filtro me quita más de lo que me protege». Propone relajarlo: R:R mínimo 0,2 más bajo, una fuerza menos, el tope de ATR × 1,5 o el suelo × 0,5 | `agente_descartes` (0047): una fila por agente, activo, día y motivo, en cada ciclo |
 | **H4 · Las plantillas de hoy** | Las siete del backlog | Las dos que se pueden medir en el laboratorio («cierre parcial» y «trailing stop») pasan además a ser hipótesis. Las otras cinco piden datos o infraestructura («ampliar el universo», «volatilidad de X», «señales más frecuentes», que es la cadencia del ETL…): siguen en el backlog, que es su sitio | `fn_disparadores_backlog` |
 
 Cada generador corre en el corte semanal (lunes) y como mucho deja **una
@@ -182,7 +182,7 @@ concentran el día antes de resultados»).
 | **I1 · Hipótesis y fuentes H1, H2 y H4** ✅ | 0046: `agente_hipotesis`, `v_condiciones_dia`, `fn_generar_hipotesis` en el autodiagnóstico de los lunes, `rpc_revisar_hipotesis`, pestaña «Investigan» en Agentes y revisión en Administración. Invariante I96 | — |
 | **I2 · Laboratorio que reproduce a los agentes** ✅ | Estrategia `agente`, toma parcial en el motor, catálogo `CONDICIONES` (el mismo que la 0046) y `laboratorio/agentes.py`. 15 pruebas nuevas | — |
 | **I3 · Prueba automática** ✅ | `hipotesis.yml`, `laboratorio/hipotesis.py` (veredicto y percentil creciente), `AzarAgente`, `laboratorio/concordancia.py` y el resultado en las pestañas de Agentes y Administración. La estrategia `agente` precalcula confluencia y niveles para que las tiradas al azar sean rápidas. 18 pruebas nuevas | I1 e I2 |
-| **I4 · Registro de descartes y H3** | Guardar qué señal se descartó y por qué (con retención, como los eventos) | I1 |
+| **I4 · Registro de descartes y H3** ✅ | 0047: `agente_descartes` (120 días, en cada ciclo), `fn_registrar_descartes` y la H3 en el generador. En el laboratorio, `fuerza_minima`. Invariante I97 | I1 |
 | **I5 · LLM** | Proveedor de hipótesis con el mismo contrato | I3 y la decisión del dueño |
 
 ## 9. Decisiones abiertas

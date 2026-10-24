@@ -5062,6 +5062,92 @@ end
 $i96$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I97 · Qué descartan los agentes y la fuente H3 (0047).
+--
+-- Un agente que solo admite la fuerza alta descarta una señal media por
+-- «fuerza» y una alta con R:R 0,5 por «rr»; registrarlo dos veces el mismo
+-- día deja una fila por motivo. H3: seis criptos que suben 10 cada 10
+-- días (ATR 2), y 36 descartes por R:R justo antes de cada salto (+5 ATR
+-- en 5 sesiones, frente a +2,14 de media en el universo: 15 de sus 35
+-- días con cierre 5 sesiones después están justo antes de un salto) → «bajar el R:R
+-- mínimo de 1,5 a 1,3». Todo dentro de un bloque que se deshace.
+-- ═════════════════════════════════════════════════════════════════════
+do $i97$
+declare
+    v_ag     bigint;
+    v_b      bigint;
+    v_media  bigint;
+    v_rr     bigint;
+    v_act    bigint;
+    v_id     bigint;
+    v_h      public.agente_hipotesis;
+    v_inicio date := current_date - 40;
+begin
+    begin
+        update public.activos set estado = 'suspendido' where clase = 'cripto' and estado = 'activo';
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+        values ('prueba-desc', 2, 'activo', '{"clases_admitidas": ["cripto"]}') returning id into v_ag;
+        perform public.fn_crear_cuenta_agente(v_ag);
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('zzdm', 'cripto', 'coingecko', 'zzdm', 'activo', 100, now()) returning id into v_media;
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('zzdr', 'cripto', 'coingecko', 'zzdr', 'activo', 100, now()) returning id into v_rr;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_media, true, 5, 3, 's9', 100, 90, 130, 1, 'alcista', 'largo', 'media', 'atr', 2, 2, 0, now()),
+               (v_rr, true, 5, 3, 's9', 100, 99, 100.5, 1, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0, now());
+        perform public.fn_registrar_descartes(v_ag);
+        perform public.fn_registrar_descartes(v_ag);
+        if (select count(*) from public.agente_descartes where agente_id = v_ag) <> 2
+           or not exists (select 1 from public.agente_descartes where agente_id = v_ag and activo_id = v_media and motivo = 'fuerza')
+           or not exists (select 1 from public.agente_descartes where agente_id = v_ag and activo_id = v_rr and motivo = 'rr') then
+            raise exception 'I97 FALLO: debía quedar un descarte por «fuerza» y otro por «rr», sin repetir: %',
+                  (select jsonb_agg(to_jsonb(d)) from public.agente_descartes d where agente_id = v_ag);
+        end if;
+
+        -- H3.
+        update public.activos set estado = 'suspendido' where id in (v_media, v_rr);
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, creado_en)
+        values ('prueba-h3', 2, 'pausado', '{"clases_admitidas": ["cripto"], "fuerzas_admitidas": ["media", "alta"], "rr_minimo": 1.5}',
+                now() - interval '60 days')
+        returning id into v_b;
+        for i in 1..6 loop
+            insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+            values ('zzh3' || i, 'cripto', 'coingecko', 'zzh3' || i, 'activo') returning id into v_act;
+            insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, volumen, origen)
+            select v_act, v_inicio + d, c, c + 1, c - 1, c, 1000, 'coingecko_market_chart'
+              from (select d, 100 + 10 * (d / 10) as c from generate_series(0, 39) d) x;
+            insert into public.indicadores_diarios (activo_id, fecha, sma_50, sma_200, rsi_14, macd, macd_signal,
+                                                    macd_hist, atr_14, version_motor)
+            select v_act, v_inicio + d, 50, 200, 45, 0, 0, -1, 2, 's9' from generate_series(0, 39) d;
+            insert into public.agente_descartes (agente_id, activo_id, fecha, motivo, precio, fuerza, ratio_rr, atr_pct)
+            select v_b, v_act, v_inicio + d, 'rr', 100, 'alta', 1.2, 2 from unnest(array[5, 6, 15, 16, 25, 26]) d;
+        end loop;
+
+        v_id := public.fn_generar_hipotesis(v_b);
+        select * into v_h from public.agente_hipotesis where id = v_id;
+        if v_h.clave is distinct from 'descarte:rr' or v_h.origen <> 'descarte' or v_h.estado <> 'propuesta'
+           or v_h.experimento -> 'cambio' <> '{"rr_minimo": 1.30}'::jsonb
+           or (v_h.evidencia ->> 'descartes')::int <> 36
+           or (v_h.evidencia ->> 'atr_en_5_medio')::numeric <> 5
+           or (v_h.evidencia ->> 'atr_en_5_universo')::numeric <> 2.143 then
+            raise exception 'I97 FALLO: H3 debía proponer bajar el R:R mínimo a 1,3: % / % / %',
+                  v_h.clave, v_h.experimento, v_h.evidencia;
+        end if;
+
+        raise exception 'I97 OK';
+    exception when others then
+        if sqlerrm <> 'I97 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I97 descartes del perfil registrados una vez al día, y H3 propone relajar el filtro que quitaba lo que más subía';
+end
+$i97$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — 0047: qué descartan los agentes y la fuente H3 (I4)
+
+### Añadido
+- **`agente_descartes`**: en cada ciclo, las señales que cada agente descarta por un filtro de su perfil (fuerza, origen de los niveles, R:R, ATR alto o bajo). Una fila por agente, activo, día y motivo, con el precio y los datos de la señal; se conservan 120 días. Lo registra `fn_registrar_descartes`, llamado desde `fn_ciclo_agentes`: si falla, avisa sin deshacer el ciclo. Hasta ahora solo se contaba el número por motivo.
+- **H3, descartes que subieron**: un motivo con al menos 30 descartes en 5 activos cuya subida media en 5 sesiones (en ATR) supera, con el intervalo del 90 %, en 0,25 ATR a la de su universo. Propone relajar el filtro: R:R mínimo 0,2 más bajo, una fuerza menos, el tope de ATR × 1,5 o el suelo × 0,5. El origen de los niveles queda `no_ejecutable`.
+- Laboratorio: `fuerza_minima` en la estrategia `agente`, traducida desde `fuerzas_admitidas`.
+- Invariante I97. Respaldo semanal de `agente_descartes`.
+
+### Planificado
+- Operaciones en corto y otros mercados entran en el plan de la Fase 3 (E8 y E9) como decisiones del dueño. Estaban previstas desde la Fase 2 (D6 y la 0019), pero sin fecha.
+
 ## [Sin publicar] - 2026-10-24 — I3: el laboratorio prueba las hipótesis de los agentes
 
 ### Añadido

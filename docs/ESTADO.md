@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (268 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I96), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (269 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I97), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -109,7 +109,9 @@ punto ⏭️ de la lista de control»*.
 | ✅ | I2: el laboratorio reproduce a los agentes | Estrategia `agente`: banda de volatilidad, deterioro en dos lecturas, toma parcial, stop que sigue y condición del catálogo. El motor admite la toma parcial, y `laboratorio/agentes.py` traduce la estrategia de producción. No reproduce la rotación ni el reparto. 250 pruebas del motor en verde |
 | ✅ | I3: prueba automática con `hipotesis.yml` y concordancia con producción | Los lunes a las 02:00 UTC, el agente actual frente al agente con el cambio, y 20 tiradas al azar con las mismas salidas. El percentil exigido sube un punto por prueba anterior. Escribe el veredicto y deja un evento del agente. Pasada real, sin escribir: «entrar también con el MACD positivo» queda refutada para Prudencia (+0,10 R → +0,006 R; percentil 65 frente al 90 exigido) |
 | 🗓️ | Revisar la primera pasada de `hipotesis.yml` (lunes 26-10, tras las 02:00 UTC) | Que las 3 hipótesis queden `validada` o `refutada`, con el informe enlazado, y ver la concordancia de cada agente. Si el `schedule` de GitHub no llega, lanzarlo a mano desde Actions |
-| 🗓️ | I4: registro de descartes y H3 | Doc fase-3/01 §8 |
+| ✅ | I4: registro de descartes y H3 (0047) | `agente_descartes`: en cada ciclo, una fila por agente, activo, día y motivo, para los filtros del perfil (fuerza, origen de los niveles, R:R y ATR alto o bajo); se conservan 120 días. La H3 propone relajar el filtro cuyos descartes subieron claramente más que su universo. En el laboratorio, `fuerza_minima`. Invariante I97 |
+| ⏭️ 👤 | **Aplicar la 0047** | Los descartes empiezan a registrarse en el primer ciclo. La H3 necesita al menos 30 descartes de un motivo en 5 activos: no saltará hasta dentro de unos días |
+| 👤 | Operaciones en corto y otros mercados (doc fase-3/00, E8 y E9) | Previstos desde la Fase 2, pero sin fecha. La plantilla «Operar en corto» no ha saltado nunca. Propuesta para los cortos: probarlos primero en el laboratorio con coste de financiación. Para otros mercados, primero saber qué permite QuantFury |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
 | 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 
@@ -196,7 +198,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0046_hipotesis_de_los_agentes.sql`. La siguiente es la 0047 |
+| Migración más reciente | `0047_descartes_y_fuente_h3.sql`. La siguiente es la 0048 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

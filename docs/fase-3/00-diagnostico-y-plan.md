@@ -125,6 +125,8 @@ Principios:
 | **E4 · Primeras operaciones de Tendencia cripto** | Comparar las 5 primeras con el laboratorio en las mismas fechas (ya previsto en ESTADO §3.1) | Cuando las haya |
 | **E5 · Calibración de las prácticas** (doc 05 §9, la antigua entrega E) | Medir horizontes y resultados observados frente a lo estimado | Cuando haya semanas de datos (lleva la 0031 desde el 10-10) |
 | **E7 · Agentes investigadores** | Los agentes proponen hipótesis con su propia evidencia y el laboratorio las prueba ([doc 01](01-agentes-investigadores.md)) | Diseño decidido el 2026-10-24; entregas I1–I5 |
+| **E8 · Operaciones en corto** 👤 | Previstas para la Fase 3 desde la D6 (doc fase-2/00): quedaron fuera por la regla protegida nº2 porque el simulador no modela el coste del préstamo ni la financiación. Lo que iba a decidirlo, que los agentes las pidieran, no ha pasado: la plantilla «Operar en corto» no ha saltado nunca (exige tres días seguidos sin ninguna señal alcista). Propuesta: primero en el laboratorio (estrategias bajistas con coste de financiación) y contra el azar; solo si hay ventaja, en el simulador | Decisión del dueño |
+| **E9 · Otros mercados** 👤 | Previsto como proyecto «multimercado» desde la 0019: conversión de divisas, horario por bolsa y lotes mínimos. Hoy todo es USD con el horario de Nueva York, y el alta rechaza las acciones en otra moneda. Antes hace falta saber qué mercados permite operar QuantFury | Decisión del dueño |
 | **E6 · Lo que decida el veredicto** | Agente de cartera, ampliar el universo cripto, fin del experimento (`consecuencias_semanales = true`) | ⏸️ Hasta el veredicto |
 
 ---

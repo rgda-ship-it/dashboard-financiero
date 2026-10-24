@@ -48,7 +48,7 @@ PERCENTIL_TECHO = 99
 # Lo que admite la estrategia `agente`: un cambio con otra clave (p. ej. la
 # rotación) no se puede probar todavía.
 CAMBIOS_ADMITIDOS = {"rr_minimo", "atr_min", "atr_max", "condicion", "deterioro",
-                     "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr"}
+                     "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr", "fuerza_minima"}
 
 
 def percentil_exigido(criterio: dict) -> int:
