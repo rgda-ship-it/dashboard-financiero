@@ -21,6 +21,9 @@ async function llamar(consulta) {
   return data;
 }
 
+/** Salud del sistema (0045, solo admin): disparos del ETL, señales y ciclos. */
+export const leerSalud = () => llamar(supabase.rpc("rpc_salud_sistema"));
+
 export const leerRanking = () =>
   llamar(supabase.from("v_ranking_agentes").select("*").order("agente_id"));
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Marca from "../components/ui/Marca.jsx";
 import Panel from "../components/ui/Panel.jsx";
+import Chip from "../components/ui/Chip.jsx";
 import Navegacion from "../components/Navegacion.jsx";
 import { supabase } from "../supabase.js";
 import { useSesion } from "../auth/sesion.jsx";
@@ -14,6 +15,7 @@ import {
   revertirFase,
   leerBacklog,
   leerRanking,
+  leerSalud,
   reiniciarAgente,
   revisarBacklog,
 } from "../datos/agentes.js";
@@ -134,6 +136,90 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
           ))}
       </div>
     </li>
+  );
+}
+
+// ── Salud del sistema (0045) ─────────────────────────────────────────
+// Lo que el 2026-10-24 nadie vio a tiempo: GitHub rechazando los disparos
+// del ETL y un ciclo de agente fallando un día entero. Todo sale de
+// `rpc_salud_sistema`, que solo responde a un admin.
+const NOMBRE_WORKFLOW = { "etl-acciones.yml": "ETL de acciones", "etl-cripto.yml": "ETL de cripto" };
+const NOMBRE_CLASE = { accion: "Señales de acciones", cripto: "Señales de cripto" };
+
+function FilaSalud({ titulo, chip, detalle }) {
+  return (
+    <li className="admin__fila">
+      <div className="admin__quien">
+        <p className="admin__email">{titulo}</p>
+        {detalle && <p className="admin__meta">{detalle}</p>}
+      </div>
+      {chip}
+    </li>
+  );
+}
+
+function PanelSalud({ salud }) {
+  if (!salud) return null;
+  const despachos = salud.despachos ?? [];
+  const agentes = salud.agentes ?? [];
+  const problemas =
+    despachos.filter((d) => d.fallando_desde).length + agentes.filter((a) => a.en_fallo).length;
+
+  return (
+    <Panel
+      titulo="Salud del sistema"
+      flush
+      meta={problemas ? `${problemas} con fallos` : "todo responde"}
+    >
+      <ul className="admin__lista">
+        {despachos.map((d) => (
+          <FilaSalud
+            key={d.workflow}
+            titulo={NOMBRE_WORKFLOW[d.workflow] ?? d.workflow}
+            chip={
+              d.fallando_desde ? (
+                <Chip etiqueta="GitHub" valor={`falla · ${d.estado_http ?? "sin respuesta"}`} tono="neg" />
+              ) : (
+                <Chip etiqueta="GitHub" valor={d.estado_http ? `responde ${d.estado_http}` : "sin revisar"} />
+              )
+            }
+            detalle={
+              d.fallando_desde
+                ? `Falla desde ${fechaHora(d.fallando_desde)}${d.estado_http === 401 ? " · el token github_pat_altas de Vault ha caducado: renuévalo (RUNBOOK-sprint-4)" : ""}`
+                : `Último disparo ${tiempoRelativo(d.ultimo)}`
+            }
+          />
+        ))}
+        {(salud.senales ?? []).map((s) => (
+          <FilaSalud
+            key={s.clase}
+            titulo={NOMBRE_CLASE[s.clase] ?? s.clase}
+            chip={<Chip etiqueta="Última" valor={tiempoRelativo(s.ultima)} />}
+            detalle={`${s.con_senal} de ${s.activos} activos con señal · la más vieja ${tiempoRelativo(s.primera)}`}
+          />
+        ))}
+        {agentes.map((a) => (
+          <FilaSalud
+            key={a.agente_id}
+            titulo={
+              <>
+                <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
+                Ciclo de {a.nombre}
+              </>
+            }
+            chip={
+              a.en_fallo ? (
+                <Chip etiqueta="Ciclo" valor="fallando" tono="neg" />
+              ) : (
+                <Chip etiqueta="Ciclo" valor={a.fallos_24h ? `${a.fallos_24h} fallos en 24 h` : "sin fallos"}
+                      tono={a.fallos_24h ? "warn" : "neutro"} />
+              )
+            }
+            detalle={a.ultimo_fallo ? `Último fallo ${tiempoRelativo(a.ultimo_fallo)}: ${a.ultimo_mensaje}` : null}
+          />
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -288,6 +374,7 @@ export default function Admin() {
   const [auditoria, setAuditoria] = useState([]);
   const [agentes, setAgentes] = useState([]);
   const [backlog, setBacklog] = useState([]);
+  const [salud, setSalud] = useState(null);
   const [filtro, setFiltro] = useState("pendiente");
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
@@ -307,9 +394,12 @@ export default function Admin() {
     setUsuarios(u.data ?? []);
     setAuditoria(a.data ?? []);
     try {
-      const [ag, bl] = await Promise.all([leerRanking(), leerBacklog()]);
+      const [ag, bl, sa] = await Promise.all([leerRanking(), leerBacklog(),
+        // Sin la 0045 aplicada el RPC no existe: el panel no sale, el resto sí.
+        leerSalud().catch(() => null)]);
       setAgentes(ag ?? []);
       setBacklog(bl ?? []);
+      setSalud(sa);
     } catch (err) {
       setError(err.message);
     }
@@ -373,6 +463,8 @@ export default function Admin() {
 
       <main className="main">
         <Navegacion />
+
+        <PanelSalud salud={salud} />
 
         <Panel
           titulo="Solicitudes de acceso"

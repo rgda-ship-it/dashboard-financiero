@@ -4747,6 +4747,164 @@ end
 $i92$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I93 · La toma parcial no rompe el ciclo con 1 acción (0045).
+--
+-- La regla es la de `fn_cerrar_parcial`. Si la bolsa está abierta al
+-- correr la prueba, además se recorre `fn_agente_tomas_parciales` con una
+-- posición de 1 acción en su nivel: no lanza y la deja entera. Con la
+-- bolsa cerrada el monitor no ve acciones y esa parte no aplica.
+-- ═════════════════════════════════════════════════════════════════════
+do $i93$
+declare
+    v_ag    bigint;
+    v_cta   bigint;
+    v_act   bigint;
+    v_senal bigint;
+    v_orden bigint;
+    v_n     int;
+begin
+    if public.fn_parcial_divisible('accion', 1, 0.5) or not public.fn_parcial_divisible('accion', 3, 0.5)
+       or public.fn_parcial_divisible('accion', 2, 0.4) or not public.fn_parcial_divisible('cripto', 1, 0.5) then
+        raise exception 'I93 FALLO: 1 acción no se parte, 3 sí (1 entera), 2 al 40 %% no, y la cripto siempre';
+    end if;
+
+    if public.fn_mercado_abierto(now()) then
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia) values
+            ('prueba-parcial-1accion', 50, 'pausado', '{"clases_admitidas": ["accion"], "fuerzas_admitidas": ["alta"],
+              "rr_minimo": 1.2, "margen_comprometido_max_pct": 60, "riesgo_pct_operacion": 2,
+              "tp_parcial": {"recorrido": 0.5, "fraccion": 0.5, "mover_stop": true}}')
+        returning id into v_ag;
+        v_cta := public.fn_crear_cuenta_agente(v_ag);
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+        values ('ZZP1', 'accion', 'yahoo', 'ZZP1', 'activo', 100, now()) returning id into v_act;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+             niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+        values (v_act, true, 5, 3, 's7', 100, 90, 130, 1, 'alcista', 'largo', 'alta', 'atr', 2, 3, 0, now())
+        returning id into v_senal;
+        v_orden := (public.rpc_abrir_orden(v_cta, v_senal, null, null, 1, 2, 'agente', null, 1) ->> 'orden_id')::bigint;
+        update public.activos set ultimo_precio = 120, ultimo_precio_en = now() where id = v_act;
+        v_n := public.fn_agente_tomas_parciales(v_ag);
+        if v_n <> 0 or (select cantidad from public.ordenes where id = v_orden) <> 1
+           or (select sl from public.ordenes where id = v_orden) <> 90 then
+            raise exception 'I93 FALLO: con 1 acción la toma parcial debía saltarse la posición sin mover el stop';
+        end if;
+    end if;
+    raise notice 'PASS  I93 la toma parcial del agente se salta la posición que no se parte en unidades enteras';
+end
+$i93$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I94 · Los disparos del ETL miran la respuesta (0045).
+--
+-- En la CI no hay pg_net: se crea una `net._http_response` mínima. Un 401
+-- deja un solo `fallo` por episodio (no uno por pasada) y guarda desde
+-- cuándo falla; un 204 lo da por resuelto con un evento `etl`.
+-- ═════════════════════════════════════════════════════════════════════
+do $i94$
+declare
+    v_d public.control_despachos;
+begin
+    create schema if not exists net;
+    create table net._http_response (id bigint primary key, status_code int, timed_out boolean,
+                                     error_msg text, content text, created timestamptz default now());
+    insert into net._http_response (id, status_code, content) values
+        (9001, 401, '{"message": "Bad credentials", "status": "401"}'),
+        (9002, 401, '{"message": "Bad credentials", "status": "401"}'),
+        (9003, 204, null);
+
+    insert into public.control_despachos (clave, ultimo, peticion_id)
+    values ('etl-acciones.yml', now() - interval '30 minutes', 9001)
+    on conflict (clave) do update set ultimo = excluded.ultimo, peticion_id = 9001,
+                                      estado_http = null, respuesta = null, fallando_desde = null;
+    perform public.fn_revisar_despachos();
+    update public.control_despachos set peticion_id = 9002, estado_http = null where clave = 'etl-acciones.yml';
+    perform public.fn_revisar_despachos();
+
+    select * into v_d from public.control_despachos where clave = 'etl-acciones.yml';
+    if v_d.estado_http <> 401 or v_d.fallando_desde is null
+       or (select count(*) from public.eventos_sistema
+            where tipo = 'fallo' and datos ->> 'donde' = 'disparar etl-acciones.yml') <> 1
+       or not exists (select 1 from public.eventos_sistema
+                       where tipo = 'fallo' and mensaje like '%401 (Bad credentials)%github_pat_altas%') then
+        raise exception 'I94 FALLO: dos 401 seguidos debían dejar un solo fallo con el aviso del token: % / %',
+              v_d.estado_http, v_d.fallando_desde;
+    end if;
+
+    update public.control_despachos set peticion_id = 9003, estado_http = null where clave = 'etl-acciones.yml';
+    perform public.fn_revisar_despachos();
+    select * into v_d from public.control_despachos where clave = 'etl-acciones.yml';
+    if v_d.estado_http <> 204 or v_d.fallando_desde is not null
+       or not exists (select 1 from public.eventos_sistema
+                       where tipo = 'etl' and datos ->> 'donde' = 'disparar etl-acciones.yml'
+                         and datos ->> 'recuperado' = 'true') then
+        raise exception 'I94 FALLO: un 204 debía dar el fallo por resuelto: % / %', v_d.estado_http, v_d.fallando_desde;
+    end if;
+
+    drop schema net cascade;
+    delete from public.control_despachos where clave = 'etl-acciones.yml';
+    raise notice 'PASS  I94 un disparo rechazado deja un aviso por episodio, y la recuperación otro';
+end
+$i94$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I95 · Salud del sistema y rol de solo lectura (0045).
+--
+-- `rpc_salud_sistema` solo responde a un admin. `analista_lectura` lee
+-- todas las tablas y vistas de `public` (con `limit 0`, que planifica la
+-- lista de selección y comprueba el EXECUTE de sus funciones, ver I40) y
+-- no puede escribir en ninguna.
+-- ═════════════════════════════════════════════════════════════════════
+do $i95$
+declare
+    v_admin  uuid;
+    v_otro   uuid;
+    v_json   jsonb;
+    v_fallo  boolean := false;
+    v_rel    text;
+    v_fallos text := '';
+begin
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+    select id into v_otro from public.perfiles where rol <> 'admin' and estado = 'aprobado' limit 1;
+
+    perform pg_temp.como(v_admin);
+    v_json := public.rpc_salud_sistema();
+    perform pg_temp.como(v_otro);
+    begin
+        perform public.rpc_salud_sistema();
+        v_fallo := true;
+    exception when insufficient_privilege then null;
+    end;
+    perform pg_temp.como_dueno();
+    if v_fallo or jsonb_typeof(v_json -> 'agentes') <> 'array' or jsonb_typeof(v_json -> 'senales') <> 'array'
+       or jsonb_typeof(v_json -> 'despachos') <> 'array' then
+        raise exception 'I95 FALLO: la salud del sistema es solo para el admin y trae agentes, señales y despachos: %', v_json;
+    end if;
+
+    for v_rel in select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                  where n.nspname = 'public' and c.relkind in ('r', 'v', 'm', 'p') order by 1
+    loop
+        if has_table_privilege('analista_lectura', format('public.%I', v_rel), 'insert, update, delete, truncate') then
+            v_fallos := v_fallos || v_rel || ' (escribe); ';
+        end if;
+        begin
+            execute 'set local role analista_lectura';
+            execute format('select * from public.%I limit 0', v_rel);
+            execute 'reset role';
+        exception when others then
+            execute 'reset role';
+            v_fallos := v_fallos || format('%s (%s); ', v_rel, sqlerrm);
+        end;
+    end loop;
+    if v_fallos <> '' then
+        raise exception 'I95 FALLO: analista_lectura -> %', v_fallos;
+    end if;
+    raise notice 'PASS  I95 la salud del sistema solo para el admin; analista_lectura lee todo public y no escribe';
+end
+$i95$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

@@ -91,7 +91,12 @@ dashboard-financiero/
 │       ├── 0037_agente_tendencia_cripto.sql # Agente experimental «Tendencia cripto»: sin meta, stop que sigue, decisión diaria (D24)
 │       ├── 0038_precios_para_la_decision_diaria.sql # El monitor pide el precio del universo del agente en su ventana de decisión
 │       ├── 0039_caida_maxima_35.sql # La pausa por caída de «Tendencia cripto» pasa del 15 % al 35 %
-│       └── 0040_comparativa_agentes.sql # Panel comparativo: las mismas medidas en R para los cuatro agentes
+│       ├── 0040_comparativa_agentes.sql # Panel comparativo: las mismas medidas en R para los cuatro agentes
+│       ├── 0041_spread_sin_nasdaq.sql # El spread de Nasdaq no se mide (cotización congelada en Yahoo)
+│       ├── 0042_sin_cuarentena_en_el_experimento.sql # Agentes con metas fuera de la cuarentena durante el experimento
+│       ├── 0043_deterioro_confirmado_y_espera_tras_stop.sql # Deterioro en dos lecturas; 48 h sin volver tras un stop
+│       ├── 0044_backlog_revisado.sql # Backlog revisado; «Ampliar el universo» más exigente
+│       └── 0045_salud_del_sistema.sql # FASE 3 — Disparos que miran la respuesta, toma parcial de 1 acción, salud y rol de lectura
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -101,7 +106,8 @@ dashboard-financiero/
 ├── docs/                      # Análisis y propuestas técnicas (no código)
 │   ├── ESTADO.md              # Estado del proyecto y lista de control (empezar aquí)
 │   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
-│   └── fase-2/                # Análisis completo de la Fase 2 (docs 00–07 y runbooks)
+│   ├── fase-2/                # Análisis completo de la Fase 2 (docs 00–07 y runbooks)
+│   └── fase-3/                # Fase 3: diagnóstico del 2026-10-24 y plan (doc 00)
 │
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt
