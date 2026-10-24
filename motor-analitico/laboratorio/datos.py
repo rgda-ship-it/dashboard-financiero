@@ -44,6 +44,14 @@ def financiacion_de(clase: str) -> float:
     return FINANCIACION_CORTO_PCT.get(clase, 0.0)
 
 
+def con_spread(df: pd.DataFrame, simbolo: str, clase: str) -> pd.DataFrame:
+    """Añade SPREAD: el spread completo en $ al cierre de cada día, para las
+    estrategias que filtran por él (`objetivo_min_spread`)."""
+    df = df.copy()
+    df["SPREAD"] = df["Close"].map(spread_de(simbolo, clase))
+    return df
+
+
 def spread_de(simbolo: str, clase: str):
     """Función precio → spread completo en $ para un activo."""
     if clase == "accion":

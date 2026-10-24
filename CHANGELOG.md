@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — Laboratorio: precio mínimo y objetivo frente al spread (doc fase-3/02 §5)
+
+### Añadido
+- La estrategia `agente` admite `precio_min` y `objetivo_min_spread`. Este último lee la columna `SPREAD`, que `datos.con_spread` añade en `ejecutar` y en la prueba de hipótesis. El resumen de cada prueba incluye el peso de los costes (`coste_pct`).
+
+### Hallazgo
+- **Sin las acciones de menos de 10 $, Audacia mejora de +0,30 a +0,39 R** en validación (68 operaciones, IC [+0,11, +0,70], percentil 100 frente al azar). En Prudencia y Cadencia no ayuda, y el objetivo mínimo frente al spread no actúa en ninguno. Se probaron 9 variantes. Audacia es grupo de control: no se le aplica.
+
+### Corregido
+- En el doc fase-3/02 §3, el spread de Audacia: pagó 16,02 $, no 47,94 $. Las operaciones anteriores a la 0034 no pagaban spread.
+
 ## [Sin publicar] - 2026-10-24 — Cortos en el laboratorio: sin ventaja (doc fase-3/02)
 
 ### Añadido
@@ -13,7 +24,7 @@ Claude Code) para no perder contexto entre sesiones.
 
 ### Hallazgo
 - **Ninguna estrategia bajista tiene ventaja**: ni con 5 ni con 10 años, ni en acciones ni en cripto, ni frente al azar. La regla protegida nº2 se mantiene.
-- **Operar al revés que Audacia** daría −16,82 $ con spread y financiación, no +84,78 $. Más de la mitad de sus pérdidas (47,94 $) es spread de acciones baratas. En el laboratorio, su contraria acierta el 52–68 % de las veces y aun así pierde.
+- **Operar al revés que Audacia** daría unos +7 $ con spread y financiación, no +84,78 $. En el laboratorio, su contraria acierta el 52–68 % de las veces y aun así pierde. (Corregido el mismo día: la primera cifra, −16,82 $, cobraba spread a operaciones anteriores a la 0034, que no lo pagaron.)
 
 ## [Sin publicar] - 2026-10-24 — 0047: qué descartan los agentes y la fuente H3 (I4)
 

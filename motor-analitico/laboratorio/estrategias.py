@@ -438,7 +438,11 @@ class Agente(Actual):
       `parcial_mover`, stop a la entrada;
     · `sigue_atr` > 0: stop que sigue al mejor cierre a esa distancia en ATR;
     · `fuerza_minima`: 2 = media o alta (como los tres agentes), 3 = solo
-      alta, 1 = también la baja (fuente H3).
+      alta, 1 = también la baja (fuente H3);
+    · `precio_min` > 0: no entra en activos más baratos (doc fase-3/02 §4);
+    · `objetivo_min_spread` > 0: el recorrido hasta el objetivo tiene que
+      ser al menos ese múltiplo del spread del activo (columna `SPREAD`,
+      que añade `datos.con_spread`; sin ella el filtro no actúa).
 
     La confluencia y los niveles de cada día se calculan una vez, en
     `preparar` (`evaluar_confluencia` solo lee la última fila, y el soporte
@@ -454,8 +458,9 @@ class Agente(Actual):
     def __init__(self, rr_minimo: float = 1.2, atr_min: float = 0.0, atr_max: float = 0.0,
                  condicion: str = "", deterioro: int = 0, parcial_recorrido: float = 0.0,
                  parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0,
-                 fuerza_minima: int = 2):
+                 fuerza_minima: int = 2, precio_min: float = 0.0, objetivo_min_spread: float = 0.0):
         super().__init__(rr_minimo=rr_minimo)
+        self.precio_min, self.objetivo_min_spread = precio_min, objetivo_min_spread
         self.fuerza_minima = int(fuerza_minima)
         self.atr_min, self.atr_max = atr_min, atr_max
         self.condicion = str(condicion or "")
@@ -484,10 +489,11 @@ class Agente(Actual):
         return df
 
     def _niveles(self, df: pd.DataFrame, t: int) -> tuple[float, float] | None:
-        """Stop y objetivo del día si pasa la banda de volatilidad y el R:R."""
+        """Stop y objetivo del día si pasa la banda de volatilidad, el precio
+        mínimo, el R:R y el objetivo mínimo frente al spread."""
         fila = df.iloc[t]
         precio, atr = float(fila["Close"]), fila["ATR_14"]
-        if pd.isna(atr) or atr <= 0:
+        if pd.isna(atr) or atr <= 0 or (self.precio_min and precio < self.precio_min):
             return None
         atr_pct = atr / precio * 100
         if (self.atr_min and atr_pct < self.atr_min) or (self.atr_max and atr_pct > self.atr_max):
@@ -497,6 +503,9 @@ class Agente(Actual):
             soporte, resistencia = precio - 2 * atr, precio + 2 * atr
         sl, tp = calcular_niveles_operativos(precio, float(soporte), float(resistencia), float(atr))
         if (tp - precio) / (precio - sl) < self.rr_minimo:
+            return None
+        spread = fila.get("SPREAD", np.nan)
+        if self.objetivo_min_spread and not pd.isna(spread) and tp - precio < self.objetivo_min_spread * spread:
             return None
         return float(sl), float(tp)
 

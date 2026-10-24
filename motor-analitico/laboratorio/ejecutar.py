@@ -22,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import UNIVERSOS, cargar, financiacion_de, spread_de, universo, universo_nombrado  # noqa: E402
+from laboratorio.datos import (  # noqa: E402
+    UNIVERSOS, cargar, con_spread, financiacion_de, spread_de, universo, universo_nombrado)
 from laboratorio.estrategias import ESTRATEGIAS, anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
@@ -166,7 +167,7 @@ def main() -> int:
         if df is None or len(df) < 260:
             sin_datos.append(simbolo)
             continue
-        datos[(simbolo, clase)] = con_regimen(df)
+        datos[(simbolo, clase)] = con_spread(con_regimen(df), simbolo, clase)
         n += 1
         desde = df.index[0] if desde is None else min(desde, df.index[0])
         hasta = df.index[-1] if hasta is None else max(hasta, df.index[-1])

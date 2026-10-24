@@ -39,7 +39,7 @@ import numpy as np  # noqa: E402
 from laboratorio import metricas  # noqa: E402
 from laboratorio.agentes import parametros_de_agente  # noqa: E402
 from laboratorio.concordancia import concordancia_agente  # noqa: E402
-from laboratorio.datos import cargar, spread_de, universo  # noqa: E402
+from laboratorio.datos import cargar, con_spread, spread_de, universo  # noqa: E402
 from laboratorio.estrategias import Agente, AzarAgente  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
@@ -48,7 +48,8 @@ PERCENTIL_TECHO = 99
 # Lo que admite la estrategia `agente`: un cambio con otra clave (p. ej. la
 # rotación) no se puede probar todavía.
 CAMBIOS_ADMITIDOS = {"rr_minimo", "atr_min", "atr_max", "condicion", "deterioro",
-                     "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr", "fuerza_minima"}
+                     "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr", "fuerza_minima",
+                     "precio_min", "objetivo_min_spread"}
 
 
 def percentil_exigido(criterio: dict) -> int:
@@ -61,7 +62,8 @@ def _resumen(m: metricas.Medidas | None) -> dict | None:
         return None
     return {"operaciones": m.operaciones, "expectativa_r": round(m.expectativa_r, 4),
             "ic90": [round(m.ic90[0], 4), round(m.ic90[1], 4)], "aciertos_pct": round(m.aciertos_pct, 1),
-            "factor_beneficio": None if not np.isfinite(m.factor_beneficio) else round(m.factor_beneficio, 3)}
+            "factor_beneficio": None if not np.isfinite(m.factor_beneficio) else round(m.factor_beneficio, 3),
+            "coste_pct": round(m.coste_pct, 1)}
 
 
 class _Preparada:
@@ -86,10 +88,12 @@ class _Preparada:
 
 class _Cache:
     def __init__(self, datos: dict):
-        self.datos, self.columnas = datos, {}
+        self.datos = {k: con_spread(df, *k) for k, df in datos.items()}
+        self.columnas = {}
 
     def preparado(self, clave_activo, estrategia):
-        clave = (clave_activo, estrategia.rr_minimo, estrategia.atr_min, estrategia.atr_max)
+        clave = (clave_activo, estrategia.rr_minimo, estrategia.atr_min, estrategia.atr_max,
+                 estrategia.precio_min, estrategia.objetivo_min_spread)
         if clave not in self.columnas:
             self.columnas[clave] = estrategia.preparar(self.datos[clave_activo])
         return self.columnas[clave]

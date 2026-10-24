@@ -80,24 +80,26 @@ saltan los stops.
 La pregunta del dueño era: con sus pérdidas, operar al contrario que el
 escáner habría ganado casi 90 $, más que Prudencia. El número sin costes
 es exacto: Audacia pierde 84,78 $ en 55 operaciones, así que al revés y
-sin costes se ganarían 84,78 $. Con costes, no:
+sin costes se ganarían 84,78 $. Pero el corto pagaría su propio spread y
+la financiación:
 
-| Agente | Resultado real | Lo que movió el precio | Spread pagado | Al revés (spread y financiación) |
+| Agente | Resultado real | Spread que pagó | Lo que movió el precio | Al revés, con spread y financiación |
 |---|---|---|---|---|
-| Audacia | −84,78 $ (25 % de aciertos) | −36,84 $ | 47,94 $ | **−16,82 $** (40 % de aciertos) |
-| Cadencia | −10,17 $ | +28,45 $ | 38,62 $ | −72,62 $ |
-| Prudencia | +21,78 $ | +27,21 $ | 5,43 $ | −35,26 $ |
+| Audacia | −84,78 $ (25 % de aciertos) | 16,02 $ (9 de 55 operaciones) | −68,76 $ | **+6,85 $** |
+| Cadencia | −10,17 $ | 2,73 $ (4 de 61) | −7,44 $ | −37,96 $ |
+| Prudencia | +21,78 $ | 8,05 $ (10 de 20) | +29,83 $ | −42,06 $ |
 
-(Cálculo sobre todas las operaciones cerradas, con el spread configurado
-de la 0034 y la financiación del §1. Es aproximado: el spread real de cada
-orden puede ser algo mayor.)
+El spread solo se cobra desde la 0034 (11-10): las operaciones anteriores
+no lo pagaron. Al revés, en cambio, se le aplica a todas con la regla de
+hoy (0,03 $ por acción, 0,1 % en cripto, y lo observado cuando la orden lo
+tiene), más la financiación del §1. Audacia al revés ganaría unos 7 $ en
+55 operaciones, 0,12 $ por operación: nada que distinguir del ruido.
 
-**Más de la mitad de lo que pierde Audacia es spread**, no dirección.
-Opera muchas acciones baratas (F, AGNC, NLY, QFIN, de 5 a 18 $) en las
-que 0,03 $ de spread son un 0,2–0,6 % por ida y vuelta. Al revés pagaría
-el mismo spread otra vez, más la financiación, y el precio solo le «quitó»
-37 $ en 55 operaciones (−0,67 $ de media, con un intervalo que incluye el
-cero).
+**Corrección (2026-10-24)**: una primera versión de esta tabla aplicaba el
+spread a las 55 operaciones como si todas lo hubieran pagado, y concluía
+que más de la mitad de las pérdidas de Audacia eran spread. No es así:
+pagó 16,02 $, una quinta parte. Con la regla de hoy aplicada a todo su
+historial, el spread sí habría sido de unos 56 $.
 
 **En el laboratorio** (`agente_contrario` con los parámetros de Audacia,
 universo de respaldo de 35 activos):
@@ -130,7 +132,34 @@ decir que la señal aporta algo que no aporta entrar en cualquier día.
   media de 200 a la baja en el índice), que aún no se ha probado. Las
   herramientas ya están: `lado="corto"` en el motor y `--clase` en
   `contra_azar`.
-- **Lo que sí sale de aquí**: el spread pesa mucho en las acciones baratas
-  que opera Audacia. Una hipótesis para el lunes (H1/H3) o para el dueño:
-  excluir las acciones de menos de 10 $, o exigir un objetivo mínimo en
-  múltiplos del spread.
+- **No se tocan los agentes**: son el grupo de control (§5).
+
+## 5. Excluir acciones baratas o exigir un objetivo frente al spread
+
+Pregunta del dueño (2026-10-24): ¿mejoraría cada agente sin las acciones
+de menos de 10 $, o exigiendo que el objetivo valga al menos N veces el
+spread? Se probó con la estrategia `agente` y los parámetros reales de
+cada uno (`precio_min` y `objetivo_min_spread`, nuevos), 45 activos del
+universo de producción, 5 años, y el criterio de las hipótesis: mejora de
++0,05 R, intervalo por encima de cero y percentil ≥ 90 frente a 20
+tiradas al azar.
+
+| Agente | Sin acciones < 10 $ (solo acciones) | Objetivo ≥ 10 spreads | Objetivo ≥ 20 spreads |
+|---|---|---|---|
+| Prudencia | ❌ +0,07 → +0,05 R (p75) | ❌ sin efecto | ❌ −0,04 → −0,05 R |
+| Cadencia | ❌ +0,03 → +0,00 R (p60) | ❌ sin efecto | ❌ +0,01 → −0,05 R |
+| **Audacia** | ✅ **+0,30 → +0,39 R** (68 operaciones, IC [+0,11, +0,70], p100) | ❌ +0,21 R, IC con el cero | ❌ +0,21 → +0,19 R |
+
+- **El objetivo frente al spread casi no actúa**: con niveles de 2 a 5 ATR,
+  el objetivo ya vale muchas veces el spread. Descartado.
+- **El precio mínimo solo ayuda a Audacia**, que es la que opera más
+  acciones baratas por su suelo de volatilidad (ATR ≥ 2,3 %). En
+  producción apunta en la misma dirección, con muy pocos datos: desde la
+  0034, sus 3 operaciones de menos de 10 $ dejaron −42,60 $, y sus 6 de
+  10 $ o más, +4,82 $.
+- **Ojo con las pruebas múltiples: se probaron 9 variantes y pasa una**. El intervalo de esa
+  una queda lejos del cero, y supera a todas las tiradas al azar, pero
+  sigue siendo una de nueve.
+- **No se aplica a Audacia**: es parte del grupo de control (ESTADO §1).
+  Queda como cambio validado para cuando acabe el experimento o, si el
+  dueño lo prefiere, como base de un agente experimental nuevo.

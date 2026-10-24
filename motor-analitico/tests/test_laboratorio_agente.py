@@ -194,3 +194,23 @@ def test_los_parametros_llegan_enteros_a_la_estrategia():
     a = crear("agente", como_texto(parametros_de_agente(PRUDENCIA, "accion")))
     assert a.rr_minimo == 1.5 and a.atr_max == 3.0 and a.deterioro
     assert a.parcial == Parcial(0.5, 0.5, True)
+
+
+def test_el_precio_minimo_y_el_objetivo_frente_al_spread_filtran_entradas():
+    from laboratorio.datos import con_spread
+
+    df = con_spread(_serie_aleatoria(), "X", "accion")
+    dias = range(200, len(df) - 1)
+
+    def entradas(agente, datos=df):
+        p = agente.preparar(datos)
+        return {t for t in dias if agente.entrada(p, t)}
+
+    todas = entradas(Agente())
+    assert todas and not entradas(Agente(precio_min=1e9))
+    # Con un spread de 0,03 $ en acciones de ~100 $, 10 spreads son 0,30 $:
+    # casi todos los objetivos pasan; 10.000 spreads (300 $), ninguno.
+    assert entradas(Agente(objetivo_min_spread=10)) <= todas
+    assert not entradas(Agente(objetivo_min_spread=10_000))
+    # Sin la columna SPREAD el filtro no actúa.
+    assert entradas(Agente(objetivo_min_spread=10_000), _serie_aleatoria()) == todas
