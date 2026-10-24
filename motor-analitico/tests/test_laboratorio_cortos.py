@@ -155,3 +155,27 @@ def test_el_corto_mide_en_r_igual_que_el_largo():
     assert corto.r == pytest.approx(largo.r) == pytest.approx(2.0)
     assert corto.pct == pytest.approx(largo.pct)
     assert isinstance(corto.fecha_salida, pd.Timestamp)
+
+
+def test_contra_azar_avisa_si_supera_al_azar_perdiendo_dinero(monkeypatch):
+    from laboratorio import contra_azar
+
+    # La estrategia pierde un 0,5 % al mes y el azar, entre un 1 y un 3 %.
+    tiradas = iter([(-1.0 - s / 10, -1.0 - s / 10) for s in range(20)])
+    monkeypatch.setattr(contra_azar, "mes_por_tramo",
+                        lambda datos, e, corte: (-0.5, -0.5) if e.nombre == "tendencia_corta" else next(tiradas))
+    texto = contra_azar.informe("tendencia_corta", {}, pd.Timestamp("2025-01-01"), semillas=20)
+    assert "aporta selección" in texto and "Pero pierde dinero" in texto
+
+
+def test_el_contrario_de_un_agente_invierte_sus_niveles():
+    from laboratorio.estrategias import Agente, AgenteContrario
+    from tests.test_laboratorio import _serie_aleatoria
+
+    df = _serie_aleatoria()
+    agente, contrario = Agente(), AgenteContrario()
+    p = agente.preparar(df)
+    pares = [(agente.entrada(p, t), contrario.entrada(p, t)) for t in range(200, len(df) - 1)]
+    pares = [(a, b) for a, b in pares if a or b]
+    assert pares and all(a and b for a, b in pares)
+    assert all(b.lado == "corto" and b.sl == a.tp and b.tp == a.sl for a, b in pares)

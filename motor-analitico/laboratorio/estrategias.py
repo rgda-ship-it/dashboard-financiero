@@ -643,10 +643,28 @@ class ConfluenciaCorta(Actual):
         return Entrada(sl=sl, tp=tp, lado="corto")
 
 
+class AgenteContrario(Agente):
+    """Lo contrario de un agente con metas (pregunta del dueño, 2026-10-24):
+    vende en corto cuando el agente compraría, con el stop en su objetivo y
+    el objetivo en su stop. Mismos filtros; las salidas por deterioro, la
+    parcial y el stop que sigue no se invierten (se apagan)."""
+
+    nombre = "agente_contrario"
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        largo = super().entrada(df, t)
+        if largo is None:
+            return None
+        return Entrada(sl=largo.tp, tp=largo.sl, lado="corto")
+
+    def actualizar(self, df, t, pos: Posicion):
+        return pos.sl, False
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
                "azar": Azar, "momento": Momento, "azar_momento": AzarMomento,
                "agente": Agente, "azar_agente": AzarAgente,
                "tendencia_corta": TendenciaCorta, "azar_corto": AzarCorto,
-               "confluencia_corta": ConfluenciaCorta}
+               "confluencia_corta": ConfluenciaCorta, "agente_contrario": AgenteContrario}

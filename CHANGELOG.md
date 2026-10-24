@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-24 — Cortos en el laboratorio: sin ventaja (doc fase-3/02)
+
+### Añadido
+- **El laboratorio opera en corto**, con la misma disciplina al revés (venta al entrar, compra al salir, stop por encima, hueco por encima del stop, stop que solo baja) y la **financiación del corto** por día natural: 8 % anual en acciones y 15 % en cripto. Es un supuesto pesimista, no la tarifa de QuantFury.
+- **Estrategias**: `tendencia_corta`, `azar_corto`, `confluencia_corta` y `agente_contrario`.
+- `contra_azar --clase`, también en el workflow del laboratorio. Ahora avisa cuando una estrategia supera al azar perdiendo dinero.
+
+### Hallazgo
+- **Ninguna estrategia bajista tiene ventaja**: ni con 5 ni con 10 años, ni en acciones ni en cripto, ni frente al azar. La regla protegida nº2 se mantiene.
+- **Operar al revés que Audacia** daría −16,82 $ con spread y financiación, no +84,78 $. Más de la mitad de sus pérdidas (47,94 $) es spread de acciones baratas. En el laboratorio, su contraria acierta el 52–68 % de las veces y aun así pierde.
+
 ## [Sin publicar] - 2026-10-24 — 0047: qué descartan los agentes y la fuente H3 (I4)
 
 ### Añadido

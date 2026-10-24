@@ -71,7 +71,7 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         "| Tramo | Estrategia | Azar: mediana | Azar: p5 – p95 | Supera al |",
         "|---|---|---|---|---|",
     ]
-    veredicto = None
+    veredicto, en_validacion = None, None
     for i, tramo in enumerate(("Diseño", "**Validación**")):
         az = np.array([t[i] for t in tiradas if t[i] is not None])
         if propia[i] is None or not len(az):
@@ -81,8 +81,13 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         lineas.append(f"| {tramo} | {propia[i]:+.2f} % | {np.median(az):+.2f} % | "
                       f"{np.quantile(az, 0.05):+.2f} – {np.quantile(az, 0.95):+.2f} % | {pct:.0f} % |")
         if i == 1:
-            veredicto = pct >= PERCENTIL_MINIMO
+            veredicto, en_validacion = pct >= PERCENTIL_MINIMO, propia[i]
     lineas += ["", "✅ **aporta selección**" if veredicto else "❌ **no aporta selección frente al azar**", ""]
+    if veredicto and en_validacion is not None and en_validacion <= 0:
+        # Superar al azar perdiendo dinero es ser menos malo, no tener ventaja
+        # (cortos en acciones, doc fase-3/02).
+        lineas += [f"⚠️ **Pero pierde dinero** ({en_validacion:+.2f} % al mes en validación): "
+                   "es menos mala que el azar, no una ventaja.", ""]
     return "\n".join(lineas)
 
 
