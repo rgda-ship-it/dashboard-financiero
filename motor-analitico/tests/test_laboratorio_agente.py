@@ -151,7 +151,9 @@ def test_el_catalogo_de_condiciones():
         cumple(fila, "inventada")
     # El mismo catálogo que fn_condiciones_dia (0046).
     assert set(CONDICIONES) == {"sobre_sma50", "sobre_sma200", "cruce_medias", "macd_positivo",
-                                "rsi_50_70", "rsi_bajo_35", "ruptura_20", "volumen_alto"}
+                                "rsi_50_70", "rsi_bajo_35", "ruptura_20", "volumen_alto",
+                                "adx_fuerte", "adx_debil", "cerca_media_20", "sobreextendido",
+                                "no_sobreextendido"}
 
 
 def test_la_fuerza_minima_decide_que_confluencia_entra(monkeypatch):
@@ -214,3 +216,44 @@ def test_el_precio_minimo_y_el_objetivo_frente_al_spread_filtran_entradas():
     assert not entradas(Agente(objetivo_min_spread=10_000))
     # Sin la columna SPREAD el filtro no actúa.
     assert entradas(Agente(objetivo_min_spread=10_000), _serie_aleatoria()) == todas
+
+
+def test_adx_y_media_de_20_en_el_catalogo():
+    fila = pd.Series({"Close": 105, "SMA_20": 104.5, "ATR_14": 1.0, "ADX_14": 30})
+    assert cumple(fila, "adx_fuerte+cerca_media_20+no_sobreextendido")
+    assert not cumple(fila, "adx_debil") and not cumple(fila, "sobreextendido")
+    lejos = fila.copy(); lejos["Close"] = 107.5
+    assert cumple(lejos, "sobreextendido") and not cumple(lejos, "cerca_media_20")
+    assert not cumple(fila.drop("ADX_14").reindex(fila.index), "adx_fuerte")
+
+
+def test_el_filtro_solo_quita_entradas():
+    df = _serie_aleatoria()
+    prep = Agente().preparar(df)
+    assert {"SMA_20", "ADX_14"} <= set(prep.columns) and prep["ADX_14"].notna().sum() > 600
+    dias = range(200, len(df) - 1)
+
+    def entradas(agente):
+        return {t for t in dias if agente.entrada(prep, t)}
+
+    todas, fuertes = entradas(Agente()), entradas(Agente(filtro="adx_fuerte"))
+    assert fuertes < todas
+    assert all(prep["ADX_14"].iloc[t] >= 25 for t in fuertes)
+
+
+def test_el_catalogo_sql_es_el_mismo_que_el_del_laboratorio():
+    """`v_condiciones_dia` y el generador de hipótesis (SQL) y `CONDICIONES`
+    (Python) tienen que nombrar las mismas condiciones: lo que la H2 mide en
+    producción es lo que el laboratorio sabe probar."""
+    import re
+    raiz = Path(__file__).resolve().parents[2] / "supabase" / "migrations"
+    textos = [f.read_text(encoding="utf-8") for f in sorted(raiz.glob("*.sql"))]
+    vista = [t for t in textos if "view public.v_condiciones_dia" in t][-1]
+    vista = vista[vista.index("view public.v_condiciones_dia"):]
+    vista = vista[: vista.index("  from d;")]
+    en_vista = set(re.findall(r"then '([a-z_0-9]+)' end", vista))
+    generador = [t for t in textos if "function public.fn_generar_hipotesis" in t][-1]
+    bloque = generador[generador.index("with cat(n) as (values"):]
+    bloque = bloque[: bloque.index("cand as")]
+    en_generador = set(re.findall(r"\('([a-z_0-9]+)'\)", bloque))
+    assert en_vista == set(CONDICIONES) == en_generador

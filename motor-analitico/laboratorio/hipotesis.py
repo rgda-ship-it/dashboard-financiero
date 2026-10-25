@@ -50,7 +50,7 @@ PERCENTIL_TECHO = 99
 CAMBIOS_ADMITIDOS = {"rr_minimo", "atr_min", "atr_max", "condicion", "deterioro",
                      "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr", "fuerza_minima",
                      "precio_min", "objetivo_min_spread", "sl_min_atr", "sl_max_atr", "tp_max_atr",
-                     "escalonar"}
+                     "escalonar", "filtro"}
 
 
 def percentil_exigido(criterio: dict) -> int:

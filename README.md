@@ -100,7 +100,8 @@ dashboard-financiero/
 │       ├── 0045_salud_del_sistema.sql # FASE 3 — Disparos que miran la respuesta, toma parcial de 1 acción, salud y rol de lectura
 │       ├── 0046_hipotesis_de_los_agentes.sql # FASE 3 — Los agentes proponen hipótesis con su propia evidencia (doc fase-3/01)
 │       ├── 0047_descartes_y_fuente_h3.sql # FASE 3 — Qué descarta cada agente y la fuente H3 (descartes que subieron)
-│       └── 0048_seguimiento_de_stops.sql # FASE 3 — Qué pasa después de cada stop, con las velas de las 10 sesiones siguientes
+│       ├── 0048_seguimiento_de_stops.sql # FASE 3 — Qué pasa después de cada stop, con las velas de las 10 sesiones siguientes
+│       └── 0049_adx_y_media_20.sql # FASE 3 — ADX y media de 20 en el catálogo de condiciones (doc fase-3/05)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -111,7 +112,7 @@ dashboard-financiero/
 │   ├── ESTADO.md              # Estado del proyecto y lista de control (empezar aquí)
 │   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
 │   ├── fase-2/                # Análisis completo de la Fase 2 (docs 00–07 y runbooks)
-│   └── fase-3/                # Fase 3: plan (00), agentes investigadores (01), cortos (02), stops (03), escáner y guía (04)
+│   └── fase-3/                # Fase 3: plan (00), agentes investigadores (01), cortos (02), stops (03), escáner y guía (04), indicadores (05)
 │
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt

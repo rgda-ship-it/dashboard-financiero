@@ -411,6 +411,12 @@ CONDICIONES = {
     "rsi_bajo_35": lambda f: f["RSI_14"] < 35,
     "ruptura_20": lambda f: f["Close"] > f["MAX_20"],
     "volumen_alto": lambda f: f["Volumen_relativo"] > 1.5,
+    # 0049 (doc fase-3/05): fuerza de la tendencia y sobreextensión.
+    "adx_fuerte": lambda f: f["ADX_14"] >= 25,
+    "adx_debil": lambda f: f["ADX_14"] < 20,
+    "cerca_media_20": lambda f: 0 <= f["Close"] - f["SMA_20"] <= f["ATR_14"],
+    "sobreextendido": lambda f: f["Close"] - f["SMA_20"] > 2 * f["ATR_14"],
+    "no_sobreextendido": lambda f: f["Close"] - f["SMA_20"] <= 2 * f["ATR_14"],
 }
 
 _RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}
@@ -431,6 +437,7 @@ class Agente(Actual):
       % del precio; 0 = sin límite);
     · `condicion`: entra TAMBIÉN cuando se cumple una condición del
       catálogo (fuente H2), con los mismos niveles y filtros;
+    · `filtro`: entra SOLO si además se cumple (p. ej. `adx_fuerte`);
     · `deterioro`: sale en la apertura siguiente tras DOS cierres seguidos
       con la señal peor que al entrar (0043): menos indicadores alcistas
       que bajistas, o menos fuerza;
@@ -465,8 +472,9 @@ class Agente(Actual):
                  parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0,
                  fuerza_minima: int = 2, precio_min: float = 0.0, objetivo_min_spread: float = 0.0,
                  sl_min_atr: float = 1.0, sl_max_atr: float = 2.0, tp_max_atr: float = 2.0,
-                 escalonar: int = 0):
+                 escalonar: int = 0, filtro: str = ""):
         super().__init__(rr_minimo=rr_minimo)
+        self.filtro = str(filtro or "")
         self.escalonar = int(escalonar)
         self.sl_min_atr, self.sl_max_atr, self.tp_max_atr = sl_min_atr, sl_max_atr, tp_max_atr
         self.precio_min, self.objetivo_min_spread = precio_min, objetivo_min_spread
@@ -534,6 +542,8 @@ class Agente(Actual):
             return None
         conf = self._confluencia(df, t)
         if not self._quiere_entrar(df, t, conf):
+            return None
+        if self.filtro and not cumple(df.iloc[t], self.filtro):
             return None
         alcista = conf.indicadores_alcistas > conf.indicadores_bajistas
         sl, tp = float(df["NIVEL_SL"].iloc[t]), float(df["NIVEL_TP"].iloc[t])
