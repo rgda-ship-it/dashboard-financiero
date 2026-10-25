@@ -1166,3 +1166,72 @@
   color: var(--warn-500);
   line-height: 1.25;
 }
+
+/* ── Escáner: qué hacer (Fase 3, doc fase-3/04) ─────────────────────
+   El veredicto lleva el color de lo que hay que hacer: comprar en verde,
+   esperar en ámbar, no comprar en gris (no es un error, es la regla de
+   solo largos) y sin datos en rojo. La fila entera lleva una marca a la
+   izquierda del mismo color, para leer la tabla de un vistazo. */
+.tbl--escaner tbody tr.row td:first-child { box-shadow: inset 3px 0 0 transparent; }
+.tbl--escaner tbody tr.row--comprar td:first-child { box-shadow: inset 3px 0 0 var(--pos-500); }
+.tbl--escaner tbody tr.row--esperar td:first-child { box-shadow: inset 3px 0 0 var(--warn-500); }
+.tbl--escaner tbody tr.row--sin_datos td:first-child { box-shadow: inset 3px 0 0 var(--neg-500); }
+
+.col-que-hacer { min-width: 220px; max-width: 320px; }
+
+.veredicto { display: flex; flex-direction: column; gap: var(--sp-1); }
+
+.veredicto__accion {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--sp-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-xs);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--tx-2);
+}
+
+.veredicto__motivo { font-size: var(--fs-xs); color: var(--tx-3); line-height: 1.4; }
+
+.veredicto--comprar .veredicto__accion,
+.veredicto__accion.veredicto--comprar { color: var(--pos-500); background: var(--pos-soft); border-color: var(--pos-line); }
+.veredicto--esperar .veredicto__accion,
+.veredicto__accion.veredicto--esperar { color: var(--warn-500); background: var(--warn-soft); border-color: var(--warn-line); }
+.veredicto--no_comprar .veredicto__accion,
+.veredicto__accion.veredicto--no_comprar { color: var(--tx-3); }
+.veredicto--sin_datos .veredicto__accion { color: var(--neg-500); background: var(--neg-soft); border-color: var(--neg-line); }
+
+.niveles {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.niveles > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.niveles dt { font-size: 10px; color: var(--tx-4); text-transform: uppercase; letter-spacing: 0.04em; }
+.niveles dd { margin: 0; font-size: var(--fs-xs); color: var(--tx-1); white-space: nowrap; }
+.niveles dd small { color: inherit; opacity: 0.8; }
+.niveles__vacio { color: var(--tx-4); }
+
+.quien { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); margin-top: var(--sp-2); }
+.quien__agente { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--tx-2); }
+.quien__agente--no { color: var(--tx-4); text-decoration: line-through; }
+
+.resumen-veredictos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4) 0;
+}
+.resumen-veredictos__nota { font-size: var(--fs-xs); color: var(--tx-3); }
+
+@media (max-width: 720px) {
+  .col-que-hacer { min-width: 180px; }
+  .niveles { grid-template-columns: max-content; }
+}

@@ -22,6 +22,7 @@ const PENDIENTE_MIGRACION =
 
 export function useEscaner() {
   const [senales, setSenales] = useState([]);
+  const [agentes, setAgentes] = useState([]);
   const [desdeCache, setDesdeCache] = useState(false);
   const [mensaje, setMensaje] = useState(null);
   const [ultimaActualizacion, setUltimaActualizacion] = useState(null);
@@ -34,6 +35,7 @@ export function useEscaner() {
     try {
       const resultado = await leerSenalesVigentes();
       setSenales(resultado.senales);
+      setAgentes(resultado.agentes ?? []);
       // `desdeCache` pasa a significar "el dato es añejo". Se reutiliza el
       // campo a propósito: StatusBar y ScannerTable ya saben pintar ese
       // estado con su propio tratamiento visual, y en la Fase 1 significaba
@@ -63,6 +65,7 @@ export function useEscaner() {
 
   return {
     senales,
+    agentes,
     desdeCache,
     mensaje,
     ultimaActualizacion,

@@ -4,6 +4,31 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-25 — Los stops y la entrada escalonada, en el laboratorio (doc fase-3/03)
+
+### Añadido
+- El motor del laboratorio admite la **entrada escalonada** (`escalon`): media posición a la entrada y la otra media en el stop previsto, con un stop nuevo debajo. El resultado en R se mide contra la pérdida máxima.
+- La estrategia `agente` admite `escalonar` (siempre o solo bajo la media de 200) y los límites en ATR del stop y del objetivo (`sl_min_atr`, `sl_max_atr`, `tp_max_atr`). `calcular_niveles_operativos` los acepta como parámetros opcionales; producción sigue con 1, 2 y 2.
+
+### Hallazgo
+- **El stop actual hace su trabajo**: por cada stop que corta una ganancia, de 3 a 6 evitan una pérdida mayor. Cifras a 5 y 10 años, con la estrategia de cada agente.
+- **No cambia la regla general**: los stops de 2 a 3 ATR apuntan a mejorar a Prudencia y a Cadencia, pero a 10 años no se demuestra, y empeoran a Audacia.
+- **Promediar a la baja no aporta**: sube los aciertos (del 44–48 % al 52–60 %), pero no la expectativa, en ningún agente.
+
+## [Sin publicar] - 2026-10-25 — El escáner dice qué hacer; guía rehecha (doc fase-3/04)
+
+### Cambiado
+- **Escáner**:
+  - Columna **«Qué hacer»** (Comprar, Esperar, No comprar o Sin datos), con el motivo en una frase y los agentes que la tomarían con sus filtros reales.
+  - Columna **«Niveles»**: comprar hasta, stop y objetivo con su %, y el R:R tras el spread medido.
+  - Resumen de veredictos arriba, «Solo para comprar» en vez de «Solo alta», y lo accionable primero.
+  - El apalancamiento y el soporte y la resistencia (ya sin el rótulo «SL»/«TP», que desde la D21 no les corresponde) pasan al detalle.
+  - Las reglas están en `datos/veredicto.js`, con 10 pruebas: no añaden criterios, explican los que ya aplican el simulador y los agentes.
+- **Guía**:
+  - Secciones nuevas: «Cómo usarla» y «Cómo leer el laboratorio» (R, aciertos frente a expectativa, intervalo, percentil frente al azar).
+  - El escáner, reescrito.
+  - Corregido que Prudencia «solo opera acciones», y el trailing stop.
+
 ## [Sin publicar] - 2026-10-24 — Laboratorio: precio mínimo y objetivo frente al spread (doc fase-3/02 §5)
 
 ### Añadido

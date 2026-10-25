@@ -49,7 +49,8 @@ PERCENTIL_TECHO = 99
 # rotación) no se puede probar todavía.
 CAMBIOS_ADMITIDOS = {"rr_minimo", "atr_min", "atr_max", "condicion", "deterioro",
                      "parcial_recorrido", "parcial_fraccion", "parcial_mover", "sigue_atr", "fuerza_minima",
-                     "precio_min", "objetivo_min_spread"}
+                     "precio_min", "objetivo_min_spread", "sl_min_atr", "sl_max_atr", "tp_max_atr",
+                     "escalonar"}
 
 
 def percentil_exigido(criterio: dict) -> int:
@@ -93,7 +94,8 @@ class _Cache:
 
     def preparado(self, clave_activo, estrategia):
         clave = (clave_activo, estrategia.rr_minimo, estrategia.atr_min, estrategia.atr_max,
-                 estrategia.precio_min, estrategia.objetivo_min_spread)
+                 estrategia.precio_min, estrategia.objetivo_min_spread,
+                 estrategia.sl_min_atr, estrategia.sl_max_atr, estrategia.tp_max_atr)
         if clave not in self.columnas:
             self.columnas[clave] = estrategia.preparar(self.datos[clave_activo])
         return self.columnas[clave]

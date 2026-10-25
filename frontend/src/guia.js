@@ -1,5 +1,6 @@
 /**
- * Contenido de la guía de lectura.
+ * Contenido de la guía de lectura (rehecha en la Fase 3: recorrido de
+ * uso, escáner con «qué hacer» y cómo leer el laboratorio).
  *
  * Vive separado del componente a propósito: es texto que se corrige y se
  * amplía a menudo, y no debería obligar a tocar JSX. Cada fórmula está
@@ -11,15 +12,55 @@
 
 export const SECCIONES = [
   {
+    id: "uso",
+    titulo: "Cómo usarla",
+    resumen: "El recorrido de una decisión, de la señal a la operación, en cuatro pasos.",
+    items: [
+      {
+        termino: "1 · El escáner dice qué hacer",
+        formula: "Comprar     · todo encaja: alcista, confirmada, R:R suficiente tras el spread\nEsperar     · casi: falta confirmación, R:R, un dato fresco o la bolsa\nNo comprar  · bajista, sin dirección o sin volatilidad conocida\nSin datos   · el proveedor falló",
+        lectura:
+          "Cada fila lleva un veredicto con su motivo en una frase, y la tabla se ordena para que lo que se puede comprar salga primero. No es una opinión nueva: aplica las mismas reglas que el simulador y los agentes, y te dice cuál falla.",
+      },
+      {
+        termino: "2 · Los niveles dicen cuánto se arriesga",
+        formula: null,
+        lectura:
+          "«Comprar hasta» es el precio de compra con el spread; el stop y el objetivo son los del motor, con lo que se pierde o se gana en %. Si el R:R no llega, no hay que forzarlo: la siguiente lectura puede cambiarlo.",
+      },
+      {
+        termino: "3 · El simulador decide el tamaño",
+        formula: null,
+        lectura:
+          "En Simulador eliges cuánto estás dispuesto a perder por operación y el tamaño sale de ahí; el servidor impone los límites. Nada se opera con dinero real.",
+      },
+      {
+        termino: "4 · Los agentes y el laboratorio aprenden",
+        formula: null,
+        lectura:
+          "En Agentes ves qué hacen tres perfiles automáticos con las mismas señales, qué les cuesta dinero y qué proponen probar. Ningún cambio llega a las reglas sin pasar por el laboratorio y sin tu decisión: así evoluciona el sistema.",
+      },
+    ],
+  },
+
+  {
     id: "escaner",
     titulo: "Escáner de mercado",
-    resumen: "Qué mira el motor en cada activo, columna por columna.",
+    resumen: "Qué hacer con cada activo y por qué, columna por columna.",
     items: [
       {
         termino: "Activo",
         formula: null,
         lectura:
-          "EQ es una acción (Yahoo Finance) y CRP una cripto (CoinGecko). Debajo del ticker va el último cierre disponible, siempre en USD.",
+          "EQ es una acción (Yahoo Finance) y CRP una cripto (CoinGecko). Debajo del ticker va el último precio disponible, siempre en USD. La marca de color a la izquierda de la fila repite el veredicto: verde comprar, ámbar esperar.",
+      },
+      {
+        termino: "Qué hacer",
+        formula:
+          "1. sin datos fiables o sin volatilidad   → no se opera\n2. lectura bajista o sin dirección       → no comprar (solo largos)\n3. confluencia baja                     → esperar\n4. R:R tras el spread < 1,2              → esperar\n5. dato atrasado, o acción con la bolsa cerrada → esperar\n6. si no                                → comprar",
+        lectura:
+          "Las reglas van en ese orden y el motivo dice la primera que falla. 1,2 es el R:R mínimo más permisivo de los agentes (Audacia); tu cuenta puede pedir más. Debajo aparecen los agentes: en color los que la tomarían con sus filtros reales, tachados los que no; despliega la fila para ver por qué.",
+        nota: "Con la bolsa de Nueva York cerrada, una acción espera aunque todo encaje: su lectura es la del último cierre y el precio de apertura puede cambiarla. La cripto opera 24 horas.",
       },
       {
         termino: "Confluencia",
@@ -27,15 +68,13 @@ export const SECCIONES = [
           "dominante = máx(indicadores alcistas, indicadores bajistas)\n\nalta   → dominante ≥ 3\nmedia  → dominante = 2\nbaja   → el resto (incluido 0)",
         lectura:
           "La flecha da la dirección; los tres segmentos, cuántos indicadores la sostienen. El motor nunca dispara por un indicador aislado: «baja» significa señal no confirmada, no que el activo vaya a caer. Despliega la fila para ver qué indicador aporta qué.",
-        nota: "La dirección ya no solo colorea la fila: determina si el motor la encuadra como operación y, por tanto, si emite apalancamiento y niveles con rol. Ver «Sesgo operativo».",
       },
       {
-        termino: "Sesgo operativo",
+        termino: "Solo en largo",
         formula:
           "alcistas > bajistas  → largo      · el motor sí encuadra operación\nalcistas < bajistas  → corto      · no encuadra\nalcistas = bajistas  → sin sesgo  · no encuadra",
         lectura:
-          "Es la diferencia entre lo que dice el mercado y lo que el sistema está dispuesto a dimensionar. Este terminal solo encuadra operaciones en largo: no modela coste de préstamo ni funding, y la máquina de fases razona sobre capital comprometido en una sola dirección. Por eso, fuera del sesgo largo, no emite apalancamiento operable ni asigna roles de stop y objetivo — las filas siguen mostrando su estructura de precio, pero sin disfraz de orden.",
-        nota: "«Corto» NO es una sugerencia de vender en corto, ni existe un setup de corto calculado: es la constatación de que la lectura dominante es bajista y de que el sistema no la dimensiona. Si operas en corto, lo haces por tu cuenta y la referencia de volatilidad es lo único que el motor aporta.",
+          "Este sistema solo compra. Una lectura bajista no es una invitación a vender en corto: el laboratorio probó los cortos con su coste de financiación (cinco y diez años, acciones y cripto, frente al azar) y ninguna estrategia bajista tuvo ventaja, ni siquiera hacer lo contrario que un agente que pierde. Por eso, fuera del sesgo largo, no hay niveles ni apalancamiento operables.",
       },
       {
         termino: "Los cuatro indicadores",
@@ -45,26 +84,26 @@ export const SECCIONES = [
           "Un RSI entre 30 y 70 no aporta señal: no cuenta ni a favor ni en contra. Un RSI extremo anticipa un giro que aún no ha empezado, así que solo vota si el MACD no lo contradice: sobreventa con el MACD bajista es un precio que sigue cayendo, y se muestra en gris, sin voto. El volumen es el único que no vota — solo entra si supera 1.5× su media y solo para confirmar la dirección que ya domina, nunca para decidirla ni para desempatar.",
       },
       {
+        termino: "Niveles: comprar hasta, stop, objetivo y R:R",
+        formula:
+          "soporte     = mínimo de los últimos 20 mínimos\nresistencia = máximo de los últimos 20 máximos\n\nSi la ventana no describe estructura\n(resistencia − soporte < ATR, o ≤ 0):\n  soporte     = precio − 2 × ATR\n  resistencia = precio + 2 × ATR\n\nSolo con sesgo largo:\n  SL = soporte, entre 1 y 2 ATR por debajo del precio\n  TP = resistencia, como mucho 2 ATR por encima\n       (y al menos 0,5 ATR)\n\ncomprar hasta = precio + spread / 2\nR:R = (objetivo − compra) / (compra − stop)",
+        lectura:
+          "El stop y el objetivo se anclan a la estructura de precio pero se acotan en ATR: un stop a menos de un día típico de movimiento lo salta el ruido de la propia sesión, y un objetivo a más de 2 ATR está a semanas de distancia. Por eso el R:R va como mucho hasta 2, y con el spread un poco menos. El % junto a cada nivel es lo que se pierde o se gana desde el precio de compra. En el detalle, el riel muestra el soporte y la resistencia de 20 velas, sin rol: desde la D21 ya no coinciden con el stop y el objetivo.",
+        nota: "El spread es el medido para ese activo cuando hay medidas suficientes, y si no el supuesto (0,03 $ por acción, 0,10 % en cripto). En acciones baratas pesa: 0,03 $ en una acción de 5 $ es un 0,6 % por ida y vuelta.",
+      },
+      {
         termino: "Volatilidad (ATR %)",
         formula: "ATR(14) / precio actual × 100\n\nalta ≥ 6 %   ·   media 3–6 %   ·   baja < 3 %",
         lectura:
-          "Cuánto se mueve el activo en un día típico, en porcentaje de su precio. Es el dato que más pesa en el apalancamiento: por eso está junto a él y no escondido en el detalle.",
+          "Cuánto se mueve el activo en un día típico, en porcentaje de su precio. Decide la distancia de los niveles, el apalancamiento y qué agente puede tomarla: Cadencia opera lo tranquilo y Audacia lo que se mueve.",
       },
       {
-        termino: "Apalancamiento",
+        termino: "Apalancamiento (en el detalle)",
         formula:
           "base = 1.0×  si ATR % ≥ 6\n       2.0×  si ATR % ≥ 3\n       3.0×  si ATR % < 3\n\nSolo con sesgo largo:\n  ajuste = +2.0× alta · +1.0× media · +0.0× baja\n  recomendado = mín(base + ajuste, tope duro), nunca < 1.0×\n\nCon sesgo corto o sin sesgo:\n  recomendado = ninguno\n  referencia de volatilidad = base",
         lectura:
-          "La volatilidad manda sobre la señal: una confluencia alta sobre un activo muy volátil sigue dando poco apalancamiento. El remache de latón al final de la barra es el tope duro del sistema (5× en Fase 1, 3× en Fase 2) — el mín() del motor garantiza que la barra no lo cruce nunca, venga la señal que venga.",
-        nota: "Si la fila no es operable no verás una cifra recomendada, sino la referencia de volatilidad en gris: la base sin el bonus de confluencia. El bonus premia que los indicadores estén alineados con la operación implícita, así que aplicarlo a una lectura bajista sería premiar la convicción y apuntarla en la dirección contraria. Una fila también puede quedar no operable si el proveedor no dio volatilidad utilizable.",
-      },
-      {
-        termino: "Riesgo / objetivo (SL – TP · Sop. – Res.)",
-        formula:
-          "soporte     = mínimo de los últimos 20 mínimos\nresistencia = máximo de los últimos 20 máximos\n\nSi la ventana no describe estructura\n(resistencia − soporte < ATR, o ≤ 0):\n  soporte     = precio − 2 × ATR\n  resistencia = precio + 2 × ATR\n\nSolo con sesgo largo:\n  SL = soporte, entre 1 y 2 ATR por debajo del precio\n  TP = resistencia, como mucho 2 ATR por encima\n       (y al menos 0,5 ATR)",
-        lectura:
-          "Los mismos dos números tienen dos lecturas. Con sesgo largo llevan rol: SL en rojo es lo que se pierde, TP en verde lo que se busca. Sin sesgo largo aparecen en gris como «Sop.» y «Res.» — estructura de precio, válida en cualquier dirección, pero sin ninguna operación propuesta detrás. El punto es el precio actual entre ambos: pegado a la resistencia queda poco recorrido al alza; pegado al soporte, casi todo el rango está por debajo. El SL y el TP se anclan a esa estructura pero se acotan en ATR: un stop a menos de un día típico de movimiento lo salta el ruido de la propia sesión, y un objetivo a más de 2 ATR está a semanas de distancia. Por eso el R:R va como mucho hasta 2.",
-        nota: "Nunca se invierten los roles para una lectura bajista. Emitir un SL arriba y un TP abajo sería entregar un setup de corto completo justo después de negarse a apalancarlo, y sin modelar el coste de mantener un corto eso sería engañoso. El detalle de la fila indica si los niveles vienen de la estructura o del fallback por ATR.",
+          "Lo usa el simulador. La volatilidad manda sobre la señal: una confluencia alta sobre un activo muy volátil sigue dando poco apalancamiento. El remache de latón al final de la barra es el tope duro del sistema (5× en Fase 1, 3× en Fase 2).",
+        nota: "El apalancamiento cambia el margen, no lo que se pierde si salta el stop: eso lo fija el riesgo por operación.",
       },
     ],
   },
@@ -284,7 +323,7 @@ export const SECCIONES = [
         formula:
           "            meta   riesgo/op   R:R mín   fuerza\nPrudencia    2 %     1,5 %      2,0     media o alta\nCadencia     5 %     3,0 %      1,5     media o alta\nAudacia      7 %     5,0 %      1,2     media o alta\n\nlos tres: hasta el 100 % de su saldo para operar",
         lectura:
-          "Prudencia solo opera acciones, con niveles de estructura, ATR por debajo del 3 % y como mucho 3×. Cadencia y Audacia se reparten el mercado por volatilidad: Cadencia opera lo tranquilo (ATR hasta el 2,3 %) y Audacia lo que se mueve (ATR desde el 2,3 %), porque necesita recorrido. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Lo que no los diferencia es el saldo: los tres pueden usar su saldo para operar entero; lo que los limita es la meta que persiguen y el riesgo que aceptan en cada operación. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
+          "Prudencia opera con niveles de estructura, ATR por debajo del 3 % en acciones (12 % en cripto) y como mucho 3×. Cadencia y Audacia se reparten el mercado por volatilidad: Cadencia opera lo tranquilo (ATR hasta el 2,3 %) y Audacia lo que se mueve (ATR desde el 2,3 %), porque necesita recorrido. Los tres operan acciones y cripto, con el riesgo de cripto escalado por su volatilidad. Si los tres compartieran parámetros y solo cambiara la meta, abrirían las mismas órdenes y el experimento no compararía nada. Lo que no los diferencia es el saldo: los tres pueden usar su saldo para operar entero; lo que los limita es la meta que persiguen y el riesgo que aceptan en cada operación. Los tres empiezan con 500 $ ficticios y deciden sin ningún modelo de lenguaje: con el mismo estado toman siempre la misma decisión, y por eso un mal día se puede reproducir paso a paso.",
       },
       {
         termino: "Tendencia cripto: el agente sin meta",
@@ -367,6 +406,49 @@ export const SECCIONES = [
     ],
   },
   {
+    id: "laboratorio",
+    titulo: "Cómo leer el laboratorio",
+    resumen: "Las cifras con las que se decide si una idea funciona, y las que engañan.",
+    items: [
+      {
+        termino: "R: el resultado en riesgos",
+        formula: "R = resultado de la operación ÷ lo que se arriesgaba (entrada − stop)\n\n−1 R = saltó el stop · +2 R = ganó el doble de lo arriesgado",
+        lectura:
+          "Medir en R pone en la misma escala una acción de 5 $ y un bitcoin, y una operación grande y una pequeña. Una regla con ventaja es la que suma R a la larga, no la que gana más veces.",
+      },
+      {
+        termino: "Aciertos no es ganar",
+        formula: "expectativa = % aciertos × ganancia media − % fallos × pérdida media\n\n40 % de aciertos que ganan 2 R y pierden 1 R → +0,2 R por operación\n65 % de aciertos que ganan 0,5 R y pierden 1,5 R → −0,2 R",
+        lectura:
+          "Un porcentaje alto de aciertos puede perder dinero si cada acierto es pequeño y cada fallo grande; y uno bajo puede ganar. Lo que decide es la expectativa en R: cuánto deja de media cada operación. Hacer lo contrario que un agente que pierde acierta más a menudo y aun así pierde.",
+      },
+      {
+        termino: "Diseño y validación",
+        formula: "70 % primero del histórico → diseño\n30 % final                  → validación (no se usó para ajustar nada)",
+        lectura:
+          "Una regla se juzga en el tramo que no se miró al diseñarla. Si gana en el diseño y no en la validación, probablemente se ajustó al ruido del pasado.",
+      },
+      {
+        termino: "El intervalo del 90 %",
+        formula: "expectativa +0,20 R, intervalo [−0,05, +0,45] → no demostrada\nexpectativa +0,20 R, intervalo [+0,05, +0,35] → por encima de cero",
+        lectura:
+          "Con pocas operaciones, la expectativa medida puede ser suerte. El intervalo dice entre qué valores estaría la expectativa real nueve de cada diez veces: si incluye el cero, no se puede afirmar que la regla gane.",
+      },
+      {
+        termino: "Percentil frente al azar",
+        formula: "supera al 90 % = rinde más que 90 de cada 100 tiradas al azar\n               con las MISMAS salidas, entrando en días al azar",
+        lectura:
+          "No es un porcentaje de aciertos. Es la prueba de que la señal aporta algo: si entrar en cualquier día con el mismo stop y la misma salida rinde igual, lo que gana es el mercado o la salida, no la señal. Superar al azar perdiendo dinero tampoco vale: solo es ser menos malo.",
+      },
+      {
+        termino: "Qué se ha descartado ya",
+        formula: null,
+        lectura:
+          "Con estos criterios: tendencia en cripto pasó y es un agente experimental; la ruptura con volumen y el momento en acciones no superaron al azar; los cortos no tienen ventaja; las salidas por deterioro con una sola lectura costaban dinero (se cambiaron a dos). Cada resultado está en la carpeta docs del proyecto, con sus informes.",
+      },
+    ],
+  },
+  {
     id: "limites",
     titulo: "Límites que conviene conocer",
     resumen: "Lo que el sistema no puede ver hoy, por el origen de los datos.",
@@ -422,10 +504,10 @@ export const SECCIONES = [
           "Ni tú ni los agentes operáis sobre el mercado de este segundo, sino sobre el último escaneo. Por eso una señal de más de 90 minutos no abre posiciones: describe un mercado que ya no existe.",
       },
       {
-        termino: "Sin trailing stop ni órdenes limitadas",
+        termino: "Sin trailing stop ni órdenes limitadas en el simulador",
         formula: null,
         lectura:
-          "Una posición se abre a mercado y se cierra en el objetivo, en el stop, por liquidación, a mano o por partes. No hay órdenes limitadas ni stops que sigan al precio: lo más parecido es la toma parcial con el stop a la entrada. Los agentes piden el trailing stop solos en su backlog cuando lo echan en falta, con las órdenes que lo demuestran.",
+          "Una posición se abre a mercado y se cierra en el objetivo, en el stop, por liquidación, a mano o por partes. El simulador no tiene órdenes limitadas ni stops que sigan al precio: lo más parecido es la toma parcial con el stop a la entrada. El laboratorio sí sabe probarlos, y un agente lo propone como hipótesis cuando sus operaciones lo piden; solo llega al simulador si el laboratorio lo valida y se decide adoptarlo.",
       },
       {
         termino: "Esto no es asesoramiento",

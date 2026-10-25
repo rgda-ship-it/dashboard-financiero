@@ -440,6 +440,11 @@ class Agente(Actual):
     · `fuerza_minima`: 2 = media o alta (como los tres agentes), 3 = solo
       alta, 1 = también la baja (fuente H3);
     · `precio_min` > 0: no entra en activos más baratos (doc fase-3/02 §4);
+    · `escalonar`: 1 = compra la mitad y la otra mitad en el stop previsto,
+      con un stop nuevo a la misma distancia por debajo; 2 = solo si el
+      cierre está bajo su media de 200 (tendencia bajista); 0 = como hoy;
+    · `sl_min_atr`, `sl_max_atr`, `tp_max_atr`: los límites en ATR del stop
+      y del objetivo de la D21 (1, 2 y 2 en producción; doc fase-3/03);
     · `objetivo_min_spread` > 0: el recorrido hasta el objetivo tiene que
       ser al menos ese múltiplo del spread del activo (columna `SPREAD`,
       que añade `datos.con_spread`; sin ella el filtro no actúa).
@@ -458,8 +463,12 @@ class Agente(Actual):
     def __init__(self, rr_minimo: float = 1.2, atr_min: float = 0.0, atr_max: float = 0.0,
                  condicion: str = "", deterioro: int = 0, parcial_recorrido: float = 0.0,
                  parcial_fraccion: float = 0.5, parcial_mover: int = 0, sigue_atr: float = 0.0,
-                 fuerza_minima: int = 2, precio_min: float = 0.0, objetivo_min_spread: float = 0.0):
+                 fuerza_minima: int = 2, precio_min: float = 0.0, objetivo_min_spread: float = 0.0,
+                 sl_min_atr: float = 1.0, sl_max_atr: float = 2.0, tp_max_atr: float = 2.0,
+                 escalonar: int = 0):
         super().__init__(rr_minimo=rr_minimo)
+        self.escalonar = int(escalonar)
+        self.sl_min_atr, self.sl_max_atr, self.tp_max_atr = sl_min_atr, sl_max_atr, tp_max_atr
         self.precio_min, self.objetivo_min_spread = precio_min, objetivo_min_spread
         self.fuerza_minima = int(fuerza_minima)
         self.atr_min, self.atr_max = atr_min, atr_max
@@ -501,7 +510,8 @@ class Agente(Actual):
         soporte, resistencia = calcular_soporte_resistencia(df.iloc[: t + 1])
         if (pd.isna(soporte) or pd.isna(resistencia) or resistencia - soporte < atr):
             soporte, resistencia = precio - 2 * atr, precio + 2 * atr
-        sl, tp = calcular_niveles_operativos(precio, float(soporte), float(resistencia), float(atr))
+        sl, tp = calcular_niveles_operativos(precio, float(soporte), float(resistencia), float(atr),
+                                             self.sl_min_atr, self.sl_max_atr, self.tp_max_atr)
         if (tp - precio) / (precio - sl) < self.rr_minimo:
             return None
         spread = fila.get("SPREAD", np.nan)
@@ -526,7 +536,17 @@ class Agente(Actual):
         if not self._quiere_entrar(df, t, conf):
             return None
         alcista = conf.indicadores_alcistas > conf.indicadores_bajistas
-        return Entrada(sl=float(df["NIVEL_SL"].iloc[t]), tp=float(df["NIVEL_TP"].iloc[t]), parcial=self.parcial,
+        sl, tp = float(df["NIVEL_SL"].iloc[t]), float(df["NIVEL_TP"].iloc[t])
+        escalon = None
+        fila = df.iloc[t]
+        if self.escalonar == 1 or (self.escalonar == 2 and not pd.isna(fila["SMA_200"])
+                                   and fila["Close"] < fila["SMA_200"]):
+            # La segunda mitad en el stop previsto; el stop nuevo, a la misma
+            # distancia por debajo.
+            escalon, sl = sl, sl - (float(fila["Close"]) - sl)
+            if sl <= 0:
+                escalon, sl = None, escalon
+        return Entrada(sl=sl, tp=tp, parcial=self.parcial, escalon=escalon,
                        datos={"fuerza_entrada": conf.fuerza if alcista else "baja"})
 
     def actualizar(self, df, t, pos: Posicion):

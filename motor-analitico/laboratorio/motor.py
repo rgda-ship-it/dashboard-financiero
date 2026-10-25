@@ -19,6 +19,12 @@ futuro, con las mismas reglas de ejecución que el simulador (doc 06 §3.1).
       el objetivo por debajo; el hueco es abrir por ENCIMA del stop. Cada
       día natural abierto cuesta la financiación del corto
       (`financiacion_corto_pct`, anual), que se suma al precio de salida.
+    · Entrada escalonada (doc fase-3/03, idea del dueño): con `escalon`, se
+      compra la MITAD en la apertura y la otra mitad si el precio de compra
+      baja hasta `escalon` (o en la apertura, si abre por debajo); el stop
+      de la posición es `sl`, por debajo del escalón. El resultado en R se
+      mide contra la pérdida máxima (las dos mitades compradas y el stop),
+      y si la segunda mitad no llega, la operación es de media posición.
 
 Una posición por activo y estrategia a la vez. El laboratorio mide la
 ventaja de una regla de entrada y salida, no la gestión de una cartera.
@@ -49,6 +55,7 @@ class Entrada:
     parcial: Parcial | None = None
     datos: dict = field(default_factory=dict)   # pasa a Posicion.datos
     lado: str = "largo"                         # largo | corto
+    escalon: float | None = None                # compra la segunda mitad aquí (solo en largo)
 
 
 @dataclass
@@ -66,6 +73,8 @@ class Posicion:
     parcial: Parcial | None = None
     precio_parcial: float | None = None     # a qué precio se cerró la parcial
     lado: str = "largo"
+    escalon: float | None = None
+    precio_segunda: float | None = None     # a qué precio se compró la segunda mitad
 
 
 @dataclass
@@ -86,6 +95,9 @@ class Operacion:
     regimen: str = ""       # régimen al dar la señal (columna REGIMEN), si lo hay
     parcial: bool = False   # hubo toma parcial: `precio_salida` es la media ponderada
     lado: str = "largo"     # en corto, `precio_salida` ya incluye la financiación
+    r_fijo: float | None = None     # entrada escalonada: R contra la pérdida máxima
+    pct_fijo: float | None = None
+    escalonada: str = ""    # "" | media (solo la primera mitad) | completa
 
     @property
     def signo(self) -> int:
@@ -98,10 +110,14 @@ class Operacion:
     @property
     def r(self) -> float:
         """Resultado en múltiplos del riesgo inicial (R)."""
+        if self.r_fijo is not None:
+            return self.r_fijo
         return self.signo * (self.precio_salida - self.precio_entrada) / self.riesgo
 
     @property
     def pct(self) -> float:
+        if self.pct_fijo is not None:
+            return self.pct_fijo
         return self.signo * (self.precio_salida / self.precio_entrada - 1) * 100
 
 
@@ -162,6 +178,21 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
         regimen = ""
         if regimenes is not None and pos.fecha_senal in regimenes.index:
             regimen = str(regimenes.loc[pos.fecha_senal])
+        r_fijo = pct_fijo = None
+        escalonada = ""
+        if pos.escalon is not None:
+            # Media posición a la entrada y, si llegó, media al escalón.
+            maxima = 0.5 * (pos.entrada - pos.sl_inicial) + 0.5 * (pos.escalon - pos.sl_inicial)
+            pnl = 0.5 * (precio - pos.entrada)
+            invertido = 0.5 * pos.entrada
+            coste = pos.datos.get("coste_entrada", 0.0) * 0.5 + spread(precio) / 2 * 0.5
+            if pos.precio_segunda is not None:
+                pnl += 0.5 * (precio - pos.precio_segunda)
+                invertido += 0.5 * pos.precio_segunda
+                coste += pos.datos.get("coste_segunda", 0.0) * 0.5 + spread(precio) / 2 * 0.5
+            r_fijo, pct_fijo = pnl / maxima, pnl / invertido * 100
+            riesgo = maxima
+            escalonada = "completa" if pos.precio_segunda is not None else "media"
         ops.append(Operacion(
             activo=activo, clase=clase, estrategia=estrategia.nombre,
             fecha_senal=pos.fecha_senal, fecha_entrada=pos.fecha_entrada,
@@ -169,7 +200,8 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             sl_inicial=pos.sl_inicial, tp=pos.tp, precio_salida=precio,
             motivo=motivo, dias=t - pos.indice_entrada,
             coste_r=coste / riesgo if riesgo > 0 else 0.0, regimen=regimen,
-            parcial=pos.precio_parcial is not None, lado=pos.lado))
+            parcial=pos.precio_parcial is not None, lado=pos.lado,
+            r_fijo=r_fijo, pct_fijo=pct_fijo, escalonada=escalonada))
         pos = None
 
     for t in range(inicio, n):
@@ -197,7 +229,9 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
                                fecha_senal=fechas[t_senal], fecha_entrada=fechas[t],
                                indice_entrada=t, mejor_cierre=c[t],
                                datos={**ent.datos, "coste_entrada": spread(o[t]) / 2},
-                               parcial=ent.parcial if ent.tp is not None else None, lado=ent.lado)
+                               parcial=ent.parcial if ent.tp is not None else None, lado=ent.lado,
+                               escalon=ent.escalon if ent.lado == "largo" and ent.escalon is not None
+                               and ent.sl < ent.escalon < precio else None)
                 entra_hoy = True
 
         # 2. Con la posición abierta: salida por regla, hueco, stop, objetivo.
@@ -223,6 +257,13 @@ def simular(df: pd.DataFrame, estrategia: Estrategia, spread: Spread,
             if pos.salir_en_apertura and not entra_hoy:
                 cerrar(t, venta(o[t]), "regla")
             else:
+                # Entrada escalonada: la segunda mitad, antes de mirar el stop
+                # (que está por debajo del escalón). Si el mismo día baja hasta
+                # el stop, también salta: el stop gana el empate.
+                if pos.escalon is not None and pos.precio_segunda is None and compra(l[t]) <= pos.escalon:
+                    abre = o[t] if not entra_hoy else pos.escalon
+                    pos.precio_segunda = min(compra(abre), pos.escalon)
+                    pos.datos["coste_segunda"] = spread(pos.precio_segunda) / 2
                 v_open, v_low, v_high = venta(o[t]), venta(l[t]), venta(h[t])
                 if not entra_hoy and v_open <= pos.sl:
                     cerrar(t, v_open, "hueco")                 # M3'
