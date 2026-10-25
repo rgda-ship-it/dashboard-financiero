@@ -270,6 +270,9 @@ def fila_indicadores(activo_id: int, df_indicadores, version_motor: str) -> dict
         "macd_signal": col_por_prefijo("MACDs_"),
         "macd_hist": col_por_prefijo("MACDh_"),
         "atr_14": col("ATR_14"),
+        # 0049: catálogo de condiciones (ADX y sobreextensión). No votan.
+        "sma_20": col("SMA_20"),
+        "adx_14": col("ADX_14"),
         "version_motor": version_motor,
     }
 

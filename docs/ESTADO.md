@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (304 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I99), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (305 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I99), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -121,7 +121,7 @@ punto ⏭️ de la lista de control»*.
 | 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |
 | ✅ | El escáner dice qué hacer; guía rehecha (doc fase-3/04), 2026-10-25 | Veredicto por activo (Comprar, Esperar, No comprar, Sin datos) con su motivo, niveles con el spread y qué agentes la tomarían. Guía: «Cómo usarla», «Cómo leer el laboratorio» y el escáner reescrito |
 | ✅ | ADX y media de 20 en el catálogo de condiciones (0049, doc fase-3/05) | No votan en la confluencia: entran en el catálogo de la H2 y del laboratorio (`filtro` y `condicion`). Hallazgo: el 97 % de las entradas de los agentes están por debajo de su media de 20 (compran retrocesos, por el R:R mínimo), así que los filtros de sobreextensión no aportan. El ADX ≥ 25 ayuda a Cadencia (a 10 años, +0,04 → +0,33 R, IC [+0,06, +0,61], 39 operaciones) y no a Prudencia ni a Audacia. Invariante I99 y prueba de que los catálogos de SQL y Python coinciden |
-| ⏭️ 👤 | **Aplicar la 0049** | Después, un PR pequeño para que el ETL escriba `sma_20` y `adx_14` (antes de aplicarla, el ETL fallaría) |
+| ✅ 👤 | Aplicar la 0049 (aplicada el 2026-10-25) y que el ETL escriba `sma_20` y `adx_14` | Columnas, vista y generador comprobados en producción. El ETL las escribe desde este PR. En cripto el ADX sale con solo 30 días de rango real, así que es más ruidoso |
 | ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Mismo trato que los otros dos cambios validados |
 | 🗓️ | Siguientes indicadores: fuerza relativa frente al mercado y ancho de Bollinger | La fuerza relativa necesita la serie del índice (S&P 500, bitcoin) en el motor |
 | 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |

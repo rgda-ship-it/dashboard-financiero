@@ -250,6 +250,16 @@ def test_indicadores_sin_columnas_de_macd_devuelve_nulos_sin_romper():
     assert fila["atr_14"] == 1.0
 
 
+def test_indicadores_escribe_la_media_de_20_y_el_adx():
+    indice = pd.date_range("2026-10-24", periods=2, freq="D")
+    df = pd.DataFrame({"SMA_20": [100.0, 101.5], "ADX_14": [22.0, 27.5], "ATR_14": [1.0, 1.1]}, index=indice)
+    fila = fila_indicadores(5, df, "abc1234")
+    assert fila["sma_20"] == 101.5 and fila["adx_14"] == 27.5
+    # Sin las columnas (un marco antiguo), nulos: la condición no se cumple.
+    fila = fila_indicadores(5, df.drop(columns=["SMA_20", "ADX_14"]), "abc1234")
+    assert fila["sma_20"] is None and fila["adx_14"] is None
+
+
 def test_indicadores_con_marco_vacio_devuelve_none():
     assert fila_indicadores(5, pd.DataFrame(), "abc1234") is None
     assert fila_indicadores(5, None, "abc1234") is None

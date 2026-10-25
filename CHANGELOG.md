@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-25 — El ETL escribe la media de 20 y el ADX
+
+### Cambiado
+- `fila_indicadores` añade `sma_20` y `adx_14` a `indicadores_diarios`, una vez aplicada la 0049. Desde ahora, las condiciones de ADX y de sobreextensión se pueden cumplir en producción.
+
 ## [Sin publicar] - 2026-10-25 — 0049: ADX y media de 20 en el catálogo de condiciones (doc fase-3/05)
 
 ### Añadido
