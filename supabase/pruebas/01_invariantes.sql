@@ -5148,6 +5148,92 @@ end
 $i97$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I98 · Qué pasa después de un stop (0048).
+--
+-- Cinco órdenes compradas a 100 con stop 90 y objetivo 120 que salen por
+-- el stop a 90 (riesgo 10). Con las velas siguientes: llega a 121 →
+-- «corto»; cae a 79 → «salvo»; las dos el mismo día → «ambiguo»; 12
+-- sesiones planas → «ninguno»; solo 2 sesiones → sin veredicto todavía.
+-- Dentro de un bloque que se deshace.
+-- ═════════════════════════════════════════════════════════════════════
+do $i98$
+declare
+    v_ag     bigint;
+    v_cta    bigint;
+    v_act    bigint;
+    v_senal  bigint;
+    v_orden  bigint;
+    v_casos  text[] := array['corto', 'salvo', 'ambiguo', 'ninguno', 'pendiente'];
+    v_caso   text;
+    v_salida date;
+    v_ids    jsonb := '{}';
+    v_v      record;
+begin
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+        values ('prueba-stops', 2, 'activo', '{}') returning id into v_ag;
+        v_cta := public.fn_crear_cuenta_agente(v_ag);
+        foreach v_caso in array v_casos loop
+            insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+            values ('zzst' || v_caso, 'cripto', 'coingecko', 'zzst' || v_caso, 'activo', 100, now()) returning id into v_act;
+            insert into public.senales
+                (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+                 precio_actual, sl, tp, leverage_recomendado, direccion, sesgo_operativo, fuerza,
+                 niveles_origen, atr_pct, indicadores_alcistas, indicadores_bajistas, calculado_en)
+            values (v_act, true, 5, 2, 's9', 100, 90, 120, 1, 'alcista', 'largo', 'alta', 'estructura', 2, 3, 0, now())
+            returning id into v_senal;
+            v_orden := (public.rpc_abrir_orden(v_cta, v_senal, 100, null, 1, 1, 'agente', null, 1) ->> 'orden_id')::bigint;
+            perform public.rpc_cerrar_orden(v_orden, 90, 'sl', 90);
+            v_salida := current_date - case when v_caso = 'pendiente' then 3 else 15 end;
+            update public.ordenes set fecha_salida = v_salida + time '20:00' where id = v_orden;
+            insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, origen)
+            select v_act, v_salida + d,
+                   95,
+                   case when v_caso = 'corto' and d = 3 then 121 when v_caso = 'ambiguo' and d = 1 then 125 else 96 end,
+                   case when v_caso = 'salvo' and d = 2 then 79 when v_caso = 'ambiguo' and d = 1 then 75 else 94 end,
+                   95, 'coingecko_market_chart'
+              from generate_series(1, case when v_caso = 'pendiente' then 2 else 12 end) d;
+            v_ids := v_ids || jsonb_build_object(v_caso, v_orden);
+        end loop;
+
+        perform public.fn_seguir_stops();
+        for v_v in
+            select k.key as caso, o.post_stop_evento as evento, o.post_stop_sesiones as sesiones,
+                   s.r_real, s.caida_r, s.rebote_r
+              from jsonb_each_text(v_ids) k
+              join public.ordenes o on o.id = k.value::bigint
+              join public.v_seguimiento_stops s on s.orden_id = o.id
+        loop
+            if v_v.r_real <> -1
+               or (v_v.caso <> 'pendiente' and v_v.evento is distinct from v_v.caso)
+               or (v_v.caso = 'pendiente' and (v_v.evento is not null or v_v.sesiones <> 2))
+               or (v_v.caso = 'ninguno' and v_v.sesiones <> 10)
+               or (v_v.caso = 'corto' and (v_v.sesiones <> 3 or v_v.rebote_r <> 3.1))
+               or (v_v.caso = 'salvo' and v_v.caida_r <> 1.1) then
+                raise exception 'I98 FALLO: caso % → evento %, % sesiones, R %, caída %, rebote %',
+                      v_v.caso, v_v.evento, v_v.sesiones, v_v.r_real, v_v.caida_r, v_v.rebote_r;
+            end if;
+        end loop;
+        -- Lo ya resuelto no se vuelve a tocar; lo pendiente, sí.
+        update public.ordenes set post_stop_revisado_en = '2000-01-01' where id in
+            ((v_ids ->> 'corto')::bigint, (v_ids ->> 'pendiente')::bigint);
+        perform public.fn_seguir_stops();
+        if (select post_stop_revisado_en from public.ordenes where id = (v_ids ->> 'corto')::bigint) <> '2000-01-01'
+           or (select post_stop_revisado_en from public.ordenes where id = (v_ids ->> 'pendiente')::bigint) = '2000-01-01' then
+            raise exception 'I98 FALLO: la segunda pasada debía revisar la pendiente y no la resuelta';
+        end if;
+
+        raise exception 'I98 OK';
+    exception when others then
+        if sqlerrm <> 'I98 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I98 tras un stop: corto, salvo, ambiguo, ninguno o pendiente, con las velas de las 10 sesiones siguientes';
+end
+$i98$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

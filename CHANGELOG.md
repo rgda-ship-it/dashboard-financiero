@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-25 — 0048: qué pasa después de cada stop, con operaciones reales
+
+### Añadido
+- Cada orden cerrada por stop o liquidación se sigue con las velas diarias de las 10 sesiones siguientes, con la regla del laboratorio. `post_stop_evento` vale «corto» (llegó al objetivo original), «salvo» (cayó otro riesgo entero), «ambiguo» o «ninguno». También se guardan el máximo y el mínimo vistos y las sesiones.
+- `fn_seguir_stops` corre cada hora (:45) sobre los stops de los últimos 30 días sin veredicto, y al aplicarse rellena los que ya hay.
+- `v_seguimiento_stops` (en R) y la sección `6_stops` de `scripts/revision_agentes.sql`, que separa los stops de antes y de después de la 0030.
+- Invariante I98.
+
 ## [Sin publicar] - 2026-10-25 — Los stops y la entrada escalonada, en el laboratorio (doc fase-3/03)
 
 ### Añadido

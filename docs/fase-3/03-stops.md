@@ -101,6 +101,13 @@ y el stop nuevo, 1,5 veces el riesgo de una entrada normal.
   el precio medio. Pero las que no se recuperan pierden 1,5 veces el
   riesgo, y la expectativa no mejora en ningún agente. Es el mismo patrón
   que el agente contrario del doc 02: más aciertos no es ganar.
-- **Lo que falta en producción**: guardar el precio después de un stop,
-  como ya se hace después de un objetivo, para medir esto con operaciones
-  reales a partir de ahora.
+- **En producción, desde la 0048**: cada orden cerrada por stop se sigue
+  con las velas de las 10 sesiones siguientes, con la misma regla que el
+  laboratorio (`post_stop_evento`: corto, salvo, ambiguo o ninguno), y se
+  lee en `v_seguimiento_stops` y en la sección `6_stops` de
+  `scripts/revision_agentes.sql`. Solo los stops de entradas desde la 0030
+  (10-10) juzgan la regla de hoy: los anteriores iban a 0,1 ATR y casi
+  todos dan «salvo» porque su riesgo era diminuto. Una simulación de solo
+  lectura antes de aplicarla: 60 de los 64 stops de los agentes en los
+  últimos 30 días saldrían «salvo» y 4 pendientes, casi todos de antes de
+  la 0030.

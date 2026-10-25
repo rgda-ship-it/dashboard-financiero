@@ -99,7 +99,8 @@ dashboard-financiero/
 │       ├── 0044_backlog_revisado.sql # Backlog revisado; «Ampliar el universo» más exigente
 │       ├── 0045_salud_del_sistema.sql # FASE 3 — Disparos que miran la respuesta, toma parcial de 1 acción, salud y rol de lectura
 │       ├── 0046_hipotesis_de_los_agentes.sql # FASE 3 — Los agentes proponen hipótesis con su propia evidencia (doc fase-3/01)
-│       └── 0047_descartes_y_fuente_h3.sql # FASE 3 — Qué descarta cada agente y la fuente H3 (descartes que subieron)
+│       ├── 0047_descartes_y_fuente_h3.sql # FASE 3 — Qué descarta cada agente y la fuente H3 (descartes que subieron)
+│       └── 0048_seguimiento_de_stops.sql # FASE 3 — Qué pasa después de cada stop, con las velas de las 10 sesiones siguientes
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions

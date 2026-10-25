@@ -4,7 +4,7 @@
 --
 -- Una sola consulta y una sola tabla (el editor de Supabase solo devuelve
 -- el resultado de la última sentencia), de solo lectura. Columnas:
---   seccion  1_estado | 2_comparativa | 3_dias | 4_ordenes | 5_tendencia
+--   seccion  1_estado | 2_comparativa | 3_dias | 4_ordenes | 5_tendencia | 6_stops
 --   agente   nombre del agente
 --   clave    fecha, símbolo u orden, según la sección
 --   detalle  JSON con los datos
@@ -85,5 +85,17 @@ select '5_tendencia', ag.nombre, d.fecha_vela::text,
          group by agente_id, fecha_vela, accion) d
   join ag on ag.id = d.agente_id
  group by ag.nombre, d.fecha_vela
+
+union all
+-- 0048: qué pasó después de cada stop. Solo cuentan para la regla de hoy
+-- los de entradas desde la 0030 (10-10): antes, el stop iba a 0,1 ATR.
+select '6_stops', coalesce(s.agente, 'usuario'),
+       case when s.fecha_entrada >= timestamptz '2026-10-10' then 'desde la 0030' else 'antes de la 0030' end
+         || ' · ' || coalesce(s.evento, 'pendiente'),
+       jsonb_build_object('stops', count(*), 'r_real', round(avg(s.r_real), 3),
+                          'caida_r', round(avg(s.caida_r), 3), 'rebote_r', round(avg(s.rebote_r), 3))::text
+  from public.v_seguimiento_stops s
+ where s.fecha_salida >= (select desde from p)
+ group by s.agente, s.fecha_entrada >= timestamptz '2026-10-10', s.evento
 
 order by 1, 2, 3;

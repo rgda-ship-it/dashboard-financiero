@@ -32,7 +32,7 @@ punto ⏭️ de la lista de control»*.
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
 | Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (295 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I97), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (301 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I98), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
 
 **Reglas que no se saltan**:
 
@@ -116,7 +116,9 @@ punto ⏭️ de la lista de control»*.
 | ⏸️ 👤 | «Audacia sin acciones de menos de 10 $»: se guarda para el final del experimento (decisión del dueño, 2026-10-25) | Validada en el laboratorio (+0,30 → +0,39 R). Se aplica cuando acabe el experimento, junto con `consecuencias_semanales = true` |
 | ✅ | Los stops: qué salvan y qué cortan; stops alternativos y entrada escalonada (doc fase-3/03), 2026-10-25 | En el laboratorio, por cada stop que corta una ganancia hay de 3 a 6 que evitan una pérdida mayor (Prudencia 58/21 %, Cadencia 68/12 %, Audacia 52/11 %). No cambia la regla general: ensanchar el stop apunta a ayudar a Prudencia y Cadencia (sin demostrarse a 10 años) y empeora a Audacia. Promediar a la baja sube los aciertos pero no la expectativa, en ningún agente |
 | 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
-| 🗓️ | Guardar el precio después de un stop en producción | Como `precio_max_post_cierre` tras un objetivo. Hoy solo se puede medir en el laboratorio (doc fase-3/03 §2) |
+| ✅ | Seguir el precio después de cada stop (0048) | Velas de las 10 sesiones siguientes, con la regla del laboratorio: `post_stop_evento` (corto, salvo, ambiguo o ninguno) y `v_seguimiento_stops`. `fn_seguir_stops`, cada hora a los :45; al aplicarse rellena los stops de los últimos 30 días. Sección `6_stops` en `scripts/revision_agentes.sql`, que separa los de antes y después de la 0030. Invariante I98 |
+| ⏭️ 👤 | **Aplicar la 0048** | Sin efecto en cómo operan los agentes: solo observa |
+| 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |
 | ✅ | El escáner dice qué hacer; guía rehecha (doc fase-3/04), 2026-10-25 | Veredicto por activo (Comprar, Esperar, No comprar, Sin datos) con su motivo, niveles con el spread y qué agentes la tomarían. Guía: «Cómo usarla», «Cómo leer el laboratorio» y el escáner reescrito |
 | 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
@@ -205,7 +207,7 @@ punto ⏭️ de la lista de control»*.
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0047_descartes_y_fuente_h3.sql`. La siguiente es la 0048 |
+| Migración más reciente | `0048_seguimiento_de_stops.sql`. La siguiente es la 0049 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |
