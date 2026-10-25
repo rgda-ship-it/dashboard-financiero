@@ -322,7 +322,8 @@ TP_MAX_ATR = 2.0
 
 
 def calcular_niveles_operativos(
-    precio_actual: float, soporte: float, resistencia: float, atr: float
+    precio_actual: float, soporte: float, resistencia: float, atr: float,
+    sl_min_atr: float = SL_MIN_ATR, sl_max_atr: float = SL_MAX_ATR, tp_max_atr: float = TP_MAX_ATR,
 ) -> tuple[float, float]:
     """(stop, objetivo) de una operación en largo, anclados a la estructura
     y acotados en ATR. El llamador garantiza `atr > 0` y un precio válido.
@@ -332,11 +333,14 @@ def calcular_niveles_operativos(
     actúa con el precio ya en la resistencia o por encima: el R:R resultante
     (≤ 0,5) lo descarta cualquier filtro, pero el par sigue cumpliendo
     stop < precio < objetivo, que es lo que exige el contrato.
+
+    Los límites en ATR se pueden cambiar solo para el laboratorio (doc
+    fase-3/03): producción usa siempre los de arriba.
     """
-    distancia_sl = min(max(precio_actual - soporte, SL_MIN_ATR * atr), SL_MAX_ATR * atr)
+    distancia_sl = min(max(precio_actual - soporte, sl_min_atr * atr), sl_max_atr * atr)
     # Solo con un ATR de más del 45 % del precio: el stop no puede bajar de 0.
     distancia_sl = min(distancia_sl, 0.9 * precio_actual)
-    distancia_tp = min(max(resistencia - precio_actual, TP_MIN_ATR * atr), TP_MAX_ATR * atr)
+    distancia_tp = min(max(resistencia - precio_actual, TP_MIN_ATR * atr), tp_max_atr * atr)
     return precio_actual - distancia_sl, precio_actual + distancia_tp
 
 

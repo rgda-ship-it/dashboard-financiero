@@ -110,7 +110,7 @@ dashboard-financiero/
 │   ├── ESTADO.md              # Estado del proyecto y lista de control (empezar aquí)
 │   ├── propuesta-velas-ventanas.md  # Velas diarias coherentes entre acciones y cripto
 │   ├── fase-2/                # Análisis completo de la Fase 2 (docs 00–07 y runbooks)
-│   └── fase-3/                # Fase 3: diagnóstico y plan (00), agentes investigadores (01), cortos (02)
+│   └── fase-3/                # Fase 3: plan (00), agentes investigadores (01), cortos (02), stops (03), escáner y guía (04)
 │
 ├── motor-analitico/           # Python — el "cerebro" del sistema
 │   ├── requirements.txt

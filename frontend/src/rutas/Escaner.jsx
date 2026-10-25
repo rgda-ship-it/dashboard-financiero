@@ -66,6 +66,7 @@ export default function Escaner() {
           <div className="workspace__primary">
             <ScannerTable
               senales={escaner.senales}
+              agentes={escaner.agentes}
               desdeCache={escaner.desdeCache}
               mensaje={escaner.mensaje}
               cargando={escaner.cargando}

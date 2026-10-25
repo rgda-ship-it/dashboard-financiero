@@ -18,6 +18,9 @@ import {
   formatearTope,
   tiempoRelativo,
 } from "../formato.js";
+import { minutosDesdeAperturaNY } from "../datos/frescura.js";
+import { colorDe } from "../datos/agentes.js";
+import { RANGO_ACCION, RR_MINIMO, veredicto } from "../datos/veredicto.js";
 
 const FILTROS = [
   { id: "todos", texto: "Todos" },
@@ -27,18 +30,24 @@ const FILTROS = [
 
 const COLUMNAS = [
   { id: "ticker", texto: "Activo", numerica: false },
+  { id: "accion", texto: "Qué hacer", numerica: false },
   { id: "fuerza", texto: "Confluencia", numerica: false },
+  { id: "rr", texto: "Niveles", numerica: false },
   { id: "atr", texto: "Volatilidad", numerica: true },
-  { id: "leverage", texto: "Apalancamiento", numerica: true },
 ];
 
-function valorDeOrden(senal, campo) {
+function valorDeOrden(fila, campo) {
+  const { senal, v } = fila;
   if (campo === "ticker") return simboloVisible(senal.ticker);
+  // Lo accionable primero y, dentro de cada grupo, la confluencia más fuerte.
+  if (campo === "accion") return -(RANGO_ACCION[v.accion] * 10 - segmentosDeFuerza(senal.fuerza));
   if (campo === "fuerza") return segmentosDeFuerza(senal.fuerza);
+  if (campo === "rr") return Number.isFinite(v.rr) ? v.rr : -1;
   if (campo === "atr") return senal.atr_pct ?? -1;
-  if (campo === "leverage") return senal.leverage_recomendado ?? -1;
   return 0;
 }
+
+const pct = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(1)} %`;
 
 function FilasEsqueleto() {
   return Array.from({ length: 6 }, (_, i) => (
@@ -50,8 +59,67 @@ function FilasEsqueleto() {
   ));
 }
 
+/** El veredicto: qué hacer, en una palabra y una frase. */
+function QueHacer({ v }) {
+  return (
+    <div className={`veredicto veredicto--${v.accion}`}>
+      <span className="veredicto__accion">{v.titulo}</span>
+      <span className="veredicto__motivo">{v.motivo}</span>
+    </div>
+  );
+}
+
+/** Comprar hasta, stop y objetivo, con lo que se arriesga y se gana. */
+function Niveles({ v }) {
+  if (!Number.isFinite(v.compra)) return <span className="niveles__vacio">—</span>;
+  return (
+    <dl className="niveles">
+      <div>
+        <dt>Comprar hasta</dt>
+        <dd>{formatearPrecio(v.compra)}</dd>
+      </div>
+      <div>
+        <dt>Stop</dt>
+        <dd className="neg">
+          {formatearPrecio(v.stop)} <small>{pct(-v.riesgoPct)}</small>
+        </dd>
+      </div>
+      <div>
+        <dt>Objetivo</dt>
+        <dd className="pos">
+          {formatearPrecio(v.objetivo)} <small>{pct(v.gananciaPct)}</small>
+        </dd>
+      </div>
+      <div>
+        <dt>R:R</dt>
+        <dd className={v.rr >= RR_MINIMO ? undefined : "warn"}>{Number.isFinite(v.rr) ? v.rr.toFixed(2) : "—"}</dd>
+      </div>
+    </dl>
+  );
+}
+
+/** Qué agentes la tomarían, y por qué no los demás. */
+function Agentes({ v }) {
+  if (!v.agentes.length) return null;
+  return (
+    <div className="quien">
+      {v.agentes.map((a) => (
+        <span
+          key={a.nombre}
+          className={`quien__agente${a.motivo ? " quien__agente--no" : ""}`}
+          title={a.motivo ? `${a.nombre} no la tomaría: ${a.motivo}` : `${a.nombre} la tomaría`}
+        >
+          <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
+          {a.nombre}
+          {a.motivo ? <span className="sr-only">: no, {a.motivo}</span> : <span className="sr-only">: sí</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /** Una fila del escáner, más su detalle desplegable. */
-function FilaSenal({ senal, abierta, alAbrir }) {
+function FilaSenal({ senal, v, abierta, alAbrir }) {
   const cripto = esCripto(senal.ticker, senal.clase);
   const direccion = direccionConfluencia(senal);
   const apoyos =
@@ -64,7 +132,7 @@ function FilaSenal({ senal, abierta, alAbrir }) {
 
   return (
     <>
-      <tr className={`row${abierta ? " row--abierta" : ""}`}>
+      <tr className={`row row--${v.accion}${abierta ? " row--abierta" : ""}`}>
         <td>
           <div className="asset">
             <span className={`asset__kind${cripto ? " asset__kind--cripto" : ""}`}>
@@ -86,6 +154,11 @@ function FilaSenal({ senal, abierta, alAbrir }) {
           </div>
         </td>
 
+        <td className="col-que-hacer">
+          <QueHacer v={v} />
+          <Agentes v={v} />
+        </td>
+
         <td>
           <MedidorConfluencia
             direccion={direccion}
@@ -97,28 +170,14 @@ function FilaSenal({ senal, abierta, alAbrir }) {
         </td>
 
         <td>
+          <Niveles v={v} />
+        </td>
+
+        <td>
           <div className="vol">
             <p className="vol__val">{formatearMagnitudPct(senal.atr_pct)}</p>
             <p className="vol__tag">{tramoVolatilidad(senal.atr_pct)}</p>
           </div>
-        </td>
-
-        <td>
-          <BarraApalancamiento
-            recomendado={senal.leverage_recomendado}
-            tope={senal.leverage_tope}
-            referencia={senal.leverage_referencia_volatilidad}
-            operable={operable}
-          />
-        </td>
-
-        <td>
-          <RielRiesgo
-            inferior={niveles.inferior}
-            superior={niveles.superior}
-            precio={senal.precio_actual}
-            operable={operable}
-          />
         </td>
 
         <td style={{ width: 44 }}>
@@ -153,10 +212,51 @@ function FilaSenal({ senal, abierta, alAbrir }) {
                 ) : (
                   <p className="detail__motivo">{senal.resumen_confluencia}</p>
                 )}
+                <p className="label">Soporte y resistencia de 20 velas</p>
+                {/* Soporte y resistencia, sin rol: desde la D21 el stop y el
+                    objetivo ya no coinciden con ellos (están en «Niveles»). */}
+                <RielRiesgo
+                  inferior={niveles.inferior}
+                  superior={niveles.superior}
+                  precio={senal.precio_actual}
+                  operable={false}
+                />
               </div>
 
               <div className="detail__col">
-                <p className="label">Criterio de apalancamiento</p>
+                <p className="label">Por qué estos niveles</p>
+                <p className="detail__motivo">
+                  El stop va al soporte, pero a no menos de 1 ATR ni a más de 2 del precio; el
+                  objetivo, a la resistencia, como mucho a 2 ATR (D21). Se compra al precio de
+                  compra (el intermedio más medio spread
+                  {Number.isFinite(senal.spread_cobrado) ? `, ${formatearPrecio(senal.spread_cobrado)} medido` : ", supuesto"}
+                  ) y el stop salta al de venta.
+                </p>
+                <p className="detail__motivo dim">
+                  Niveles{" "}
+                  {senal.niveles_origen === "atr"
+                    ? "por volatilidad (ATR), sin estructura clara en la ventana"
+                    : "por estructura: mínimos y máximos de las últimas 20 velas"}
+                  {" · "}Origen: {cripto ? `CoinGecko · ${senal.ticker}` : `Yahoo Finance · ${senal.ticker}`}
+                </p>
+                {v.agentes.some((a) => a.motivo) && (
+                  <>
+                    <p className="label">Por qué no la tomarían</p>
+                    <p className="detail__motivo">
+                      {v.agentes.filter((a) => a.motivo).map((a) => `${a.nombre}: ${a.motivo}`).join(" · ")}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="detail__col">
+                <p className="label">Apalancamiento (simulador)</p>
+                <BarraApalancamiento
+                  recomendado={senal.leverage_recomendado}
+                  tope={senal.leverage_tope}
+                  referencia={senal.leverage_referencia_volatilidad}
+                  operable={operable}
+                />
                 <p className="detail__motivo">
                   {senal.leverage_motivo ?? "—"}
                   {operable && Number.isFinite(senal.leverage_recomendado) && (
@@ -167,14 +267,6 @@ function FilaSenal({ senal, abierta, alAbrir }) {
                       que el motor nunca supera.
                     </>
                   )}
-                </p>
-                <p className="detail__motivo dim">
-                  Niveles{" "}
-                  {senal.niveles_origen === "atr"
-                    ? "por volatilidad (ATR), sin estructura clara en la ventana"
-                    : "por estructura: mínimos y máximos de las últimas 20 velas"}
-                  <br />
-                  Origen: {cripto ? `CoinGecko · ${senal.ticker}` : `Yahoo Finance · ${senal.ticker}`}
                 </p>
               </div>
             </div>
@@ -187,6 +279,7 @@ function FilaSenal({ senal, abierta, alAbrir }) {
 
 export default function ScannerTable({
   senales,
+  agentes = [],
   desdeCache,
   mensaje,
   cargando,
@@ -195,20 +288,36 @@ export default function ScannerTable({
 }) {
   const [filtro, setFiltro] = useState("todos");
   const [busqueda, setBusqueda] = useState("");
-  const [soloAltas, setSoloAltas] = useState(false);
-  // Por defecto se ordena por fuerza de confluencia descendente: es la
-  // pregunta que trae al analista a esta tabla.
-  const [orden, setOrden] = useState({ campo: "fuerza", dir: "desc" });
+  const [soloComprar, setSoloComprar] = useState(false);
+  // Por defecto, lo que se puede comprar primero.
+  const [orden, setOrden] = useState({ campo: "accion", dir: "desc" });
   const [abierta, setAbierta] = useState(null);
+
+  const bolsaAbierta = minutosDesdeAperturaNY() !== null;
+
+  const filas = useMemo(
+    () =>
+      senales.map((senal) => ({
+        senal,
+        v: veredicto(senal, { spread: senal.spread_cobrado, agentes, bolsaAbierta }),
+      })),
+    [senales, agentes, bolsaAbierta]
+  );
+
+  const cuentas = useMemo(() => {
+    const c = { comprar: 0, esperar: 0, no_comprar: 0, sin_datos: 0 };
+    filas.forEach((f) => (c[f.v.accion] += 1));
+    return c;
+  }, [filas]);
 
   const visibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
 
-    const filtradas = senales.filter((s) => {
+    const filtradas = filas.filter(({ senal: s, v }) => {
       const cripto = esCripto(s.ticker, s.clase);
       if (filtro === "cripto" && !cripto) return false;
       if (filtro === "acciones" && cripto) return false;
-      if (soloAltas && s.fuerza !== "alta") return false;
+      if (soloComprar && v.accion !== "comprar") return false;
       if (termino && !`${s.ticker} ${simboloVisible(s.ticker)}`.toLowerCase().includes(termino)) {
         return false;
       }
@@ -217,8 +326,8 @@ export default function ScannerTable({
 
     // Las filas con error se ordenan aparte y siempre van al final: no
     // compiten con las señales reales por la atención del analista.
-    const ok = filtradas.filter((s) => !s.error);
-    const fallidas = filtradas.filter((s) => s.error);
+    const ok = filtradas.filter((f) => !f.senal.error);
+    const fallidas = filtradas.filter((f) => f.senal.error);
 
     ok.sort((a, b) => {
       const va = valorDeOrden(a, orden.campo);
@@ -228,7 +337,7 @@ export default function ScannerTable({
     });
 
     return [...ok, ...fallidas];
-  }, [senales, filtro, busqueda, soloAltas, orden]);
+  }, [filas, filtro, busqueda, soloComprar, orden]);
 
   function alternarOrden(campo) {
     setOrden((prev) =>
@@ -238,7 +347,7 @@ export default function ScannerTable({
     );
   }
 
-  const hayCripto = visibles.some((s) => esCripto(s.ticker, s.clase) && !s.error);
+  const hayCripto = visibles.some((f) => esCripto(f.senal.ticker, f.senal.clase) && !f.senal.error);
 
   return (
     <Panel
@@ -257,6 +366,15 @@ export default function ScannerTable({
         ) : null
       }
     >
+      {!cargando && !error && senales.length > 0 && (
+        <div className="resumen-veredictos" aria-live="polite">
+          <span className="veredicto__accion veredicto--comprar">{cuentas.comprar} para comprar</span>
+          <span className="veredicto__accion veredicto--esperar">{cuentas.esperar} en espera</span>
+          <span className="veredicto__accion veredicto--no_comprar">{cuentas.no_comprar} no comprar</span>
+          {!bolsaAbierta && <span className="resumen-veredictos__nota">Bolsa de Nueva York cerrada: las acciones esperan a la apertura.</span>}
+        </div>
+      )}
+
       <div className="toolbar">
         <div className="segmented" role="group" aria-label="Filtrar por tipo de activo">
           {FILTROS.map((f) => (
@@ -277,11 +395,11 @@ export default function ScannerTable({
             type="button"
             className="segmented__opt"
             role="switch"
-            aria-checked={soloAltas}
-            aria-pressed={soloAltas}
-            onClick={() => setSoloAltas((v) => !v)}
+            aria-checked={soloComprar}
+            aria-pressed={soloComprar}
+            onClick={() => setSoloComprar((v) => !v)}
           >
-            Solo alta
+            Solo para comprar
           </button>
         </div>
 
@@ -306,15 +424,12 @@ export default function ScannerTable({
         <div style={{ padding: "var(--sp-4)" }}>
           <p className="notice">
             <IconoAlerta />
-            <span>
-              {error}. El motor analítico (puerto 8001) y el backend (puerto 3000) tienen que
-              estar corriendo para que el escáner reciba señales.
-            </span>
+            <span>{error}. No se han podido leer las señales de la base de datos.</span>
           </p>
         </div>
       ) : (
         <div className="tbl-wrap">
-          <table className="tbl">
+          <table className="tbl tbl--escaner">
             <thead>
               <tr>
                 {COLUMNAS.map((c) => (
@@ -331,7 +446,6 @@ export default function ScannerTable({
                     </button>
                   </th>
                 ))}
-                <th>Riesgo / objetivo</th>
                 <th>
                   <span className="sr-only">Detalle</span>
                 </th>
@@ -346,15 +460,19 @@ export default function ScannerTable({
                   <td colSpan={6}>
                     <div className="empty">
                       <IconoRadar />
-                      <strong>Ningún activo coincide con el filtro</strong>
-                      <span>Limpia la búsqueda o vuelve a “Todos” para ver el universo completo.</span>
+                      <strong>{soloComprar ? "Ahora mismo no hay nada para comprar" : "Ningún activo coincide con el filtro"}</strong>
+                      <span>
+                        {soloComprar
+                          ? "Ningún activo cumple todas las condiciones. Quita «Solo para comprar» para ver qué falta en cada uno."
+                          : "Limpia la búsqueda o vuelve a “Todos” para ver el universo completo."}
+                      </span>
                     </div>
                   </td>
                 </tr>
               )}
 
               {!cargando &&
-                visibles.map((s) =>
+                visibles.map(({ senal: s, v }) =>
                   s.error ? (
                     <tr key={s.ticker} className="row row--error">
                       <td>
@@ -378,6 +496,7 @@ export default function ScannerTable({
                     <FilaSenal
                       key={s.ticker}
                       senal={s}
+                      v={v}
                       abierta={abierta === s.ticker}
                       alAbrir={() => setAbierta((prev) => (prev === s.ticker ? null : s.ticker))}
                     />

@@ -21,6 +21,7 @@ import { senalAtrasada } from "./frescura.js";
 // tabla `senales` se diseñó como ese payload persistido.
 function aFilaDeEscaner(fila) {
   return {
+    activo_id: fila.activo_id,
     ticker: fila.simbolo,
     nombre: fila.nombre,
     clase: fila.clase,
@@ -68,11 +69,19 @@ export async function leerSenalesVigentes() {
     };
   }
 
-  const { data, error } = await supabase
-    .from("v_escaner_usuario")
-    .select("*")
-    .in("estado_activo", ["activo", "suspendido"])
-    .order("simbolo", { ascending: true });
+  // Fase 3: el spread que se cobra de verdad y los filtros de cada agente,
+  // para que el escáner diga qué hacer (datos/veredicto.js). Si alguno
+  // falla, el escáner sigue con el spread supuesto y sin agentes.
+  const [{ data, error }, spreads, agentes] = await Promise.all([
+    supabase
+      .from("v_escaner_usuario")
+      .select("*")
+      .in("estado_activo", ["activo", "suspendido"])
+      .order("simbolo", { ascending: true }),
+    supabase.from("v_spreads").select("activo_id, spread_cobrado"),
+    supabase.from("agentes").select("id, nombre, tipo, estado, estrategia").order("id"),
+  ]);
+  const spreadPorActivo = new Map((spreads.data ?? []).map((f) => [f.activo_id, Number(f.spread_cobrado)]));
 
   if (error) {
     return {
@@ -87,6 +96,7 @@ export async function leerSenalesVigentes() {
   const ahora = new Date();
   const senales = (data ?? []).map((fila) => {
     const s = aFilaDeEscaner(fila);
+    s.spread_cobrado = spreadPorActivo.get(fila.activo_id) ?? null;
     s.suspendido = s.estado_activo === "suspendido";
     // Un suspendido no «se atrasa»: se sabe por qué no se actualiza, y
     // la fila ya lo dice. Contarlo aquí volvería a teñir todo el escáner.
@@ -122,6 +132,7 @@ export async function leerSenalesVigentes() {
 
   return {
     senales,
+    agentes: agentes.data ?? [],
     calculadoEn: masAntigua ? new Date(masAntigua).toISOString() : null,
     anejo,
     aviso,
