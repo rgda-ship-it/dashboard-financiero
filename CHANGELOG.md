@@ -4,6 +4,18 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-25 — 0049: ADX y media de 20 en el catálogo de condiciones (doc fase-3/05)
+
+### Añadido
+- Motor: `SMA_20` y `ADX_14`. El ADX se calcula solo sobre velas con rango real, como el ATR. Ninguno de los dos vota en la confluencia.
+- Catálogo de condiciones (SQL y Python, con una prueba que exige que coincidan): `adx_fuerte`, `adx_debil`, `cerca_media_20`, `sobreextendido` y `no_sobreextendido`.
+- 0049: `indicadores_diarios.sma_20` y `adx_14`, `v_condiciones_dia` y el generador de hipótesis ampliados. Invariante I99.
+- Laboratorio: `filtro` en la estrategia `agente` (entra solo si se cumple).
+
+### Hallazgo
+- **Los agentes compran retrocesos**: el 97 % de sus entradas están por debajo de la media de 20, por el R:R mínimo con el objetivo en la resistencia. Los filtros de sobreextensión no aportan.
+- **El ADX ≥ 25 ayuda a Cadencia**: de +0,04 a +0,33 R a 10 años (IC [+0,06, +0,61], 39 operaciones), en la misma dirección a 5. A Prudencia no le cambia nada y a Audacia la empeora. Cadencia es grupo de control: se guarda para el final del experimento.
+
 ## [Sin publicar] - 2026-10-25 — 0048: qué pasa después de cada stop, con operaciones reales
 
 ### Añadido

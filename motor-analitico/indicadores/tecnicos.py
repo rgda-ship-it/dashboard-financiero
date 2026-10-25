@@ -113,6 +113,24 @@ def _atr_sobre_maximos_y_minimos_reales(marco: pd.DataFrame) -> pd.Series:
     return serie
 
 
+def _adx_sobre_maximos_y_minimos_reales(marco: pd.DataFrame) -> pd.Series:
+    """ADX(14), la fuerza de la tendencia (Fase 3, doc fase-3/05), con la
+    misma disciplina que el ATR: SOLO sobre las filas con máximo y mínimo
+    reales. En cripto eso son ~30 días, y el ADX necesita unas 28 filas
+    para su primer valor: sale para los últimos días o no sale. No vota en
+    la confluencia; lo usan el catálogo de condiciones y el laboratorio."""
+    hay_rango_real = marco["High"].notna() & marco["Low"].notna()
+    subconjunto = marco.loc[hay_rango_real]
+    serie = pd.Series(np.nan, index=marco.index, dtype="float64")
+    if len(subconjunto) <= 2 * LONGITUD_ATR:
+        return serie
+    adx = ta.adx(subconjunto["High"], subconjunto["Low"], subconjunto["Close"], length=LONGITUD_ATR)
+    if adx is None or f"ADX_{LONGITUD_ATR}" not in adx.columns:
+        return serie
+    serie.iloc[np.flatnonzero(hay_rango_real.to_numpy())] = adx[f"ADX_{LONGITUD_ATR}"].to_numpy()
+    return serie
+
+
 def calcular_indicadores(df: pd.DataFrame) -> pd.DataFrame:
     """Añade columnas de indicadores técnicos al DataFrame OHLCV.
 
@@ -128,6 +146,8 @@ def calcular_indicadores(df: pd.DataFrame) -> pd.DataFrame:
     """
     resultado = df.copy()
 
+    # SMA 20 (Fase 3): la sobreextensión frente a la media corta. No vota.
+    resultado["SMA_20"] = ta.sma(resultado["Close"], length=20)
     resultado["SMA_50"] = ta.sma(resultado["Close"], length=50)
     resultado["SMA_200"] = ta.sma(resultado["Close"], length=200)
     resultado["RSI_14"] = ta.rsi(resultado["Close"], length=14)
@@ -141,6 +161,7 @@ def calcular_indicadores(df: pd.DataFrame) -> pd.DataFrame:
         resultado = resultado.join(bbands)
 
     resultado["ATR_14"] = _atr_sobre_maximos_y_minimos_reales(resultado)
+    resultado["ADX_14"] = _adx_sobre_maximos_y_minimos_reales(resultado)
 
     # Históricamente CoinGecko servía /ohlc como [timestamp, open, high,
     # low, close] — sin volumen. Aquí se accedía a resultado["Volume"] sin

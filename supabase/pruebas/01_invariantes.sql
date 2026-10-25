@@ -5234,6 +5234,52 @@ end
 $i98$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I99 · ADX y media de 20 en el catálogo (0049).
+--
+-- Cierre 105 con la media de 20 en 104,5, ATR 1 y ADX 30 → adx_fuerte,
+-- cerca_media_20 y no_sobreextendido. A 107,5 → sobreextendido. Sin ADX
+-- (aún no lo escribe el ETL) → ninguna condición de ADX.
+-- ═════════════════════════════════════════════════════════════════════
+do $i99$
+declare
+    v_act bigint;
+    v_c   text[];
+begin
+    begin
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZADX', 'accion', 'yahoo', 'ZZADX', 'activo') returning id into v_act;
+        insert into public.precios_diarios (activo_id, fecha, apertura, maximo, minimo, cierre, volumen, origen)
+        values (v_act, current_date - 3, 105, 106, 104, 105, 1000, 'yahoo'),
+               (v_act, current_date - 2, 107, 108, 106, 107.5, 1000, 'yahoo'),
+               (v_act, current_date - 1, 105, 106, 104, 105, 1000, 'yahoo');
+        insert into public.indicadores_diarios (activo_id, fecha, sma_20, adx_14, atr_14, version_motor)
+        values (v_act, current_date - 3, 104.5, 30, 1, 's9'),
+               (v_act, current_date - 2, 104.5, 15, 1, 's9'),
+               (v_act, current_date - 1, 104.5, null, 1, 's9');
+        select condiciones into v_c from public.v_condiciones_dia where activo_id = v_act and fecha = current_date - 3;
+        if not (v_c @> array['adx_fuerte', 'cerca_media_20', 'no_sobreextendido'])
+           or v_c && array['adx_debil', 'sobreextendido'] then
+            raise exception 'I99 FALLO: día 1 → %', v_c;
+        end if;
+        select condiciones into v_c from public.v_condiciones_dia where activo_id = v_act and fecha = current_date - 2;
+        if not (v_c @> array['adx_debil', 'sobreextendido']) or v_c && array['cerca_media_20', 'no_sobreextendido'] then
+            raise exception 'I99 FALLO: día 2 → %', v_c;
+        end if;
+        select condiciones into v_c from public.v_condiciones_dia where activo_id = v_act and fecha = current_date - 1;
+        if v_c && array['adx_fuerte', 'adx_debil'] then
+            raise exception 'I99 FALLO: sin ADX no debía haber condiciones de ADX → %', v_c;
+        end if;
+        raise exception 'I99 OK';
+    exception when others then
+        if sqlerrm <> 'I99 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I99 ADX y media de 20 en el catálogo de condiciones';
+end
+$i99$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
