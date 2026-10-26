@@ -4,6 +4,18 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — Lo que faltaba del ADX, en el laboratorio (doc fase-3/06)
+
+### Añadido
+- Filtros solo del laboratorio (`FILTROS_LABORATORIO`): `di_alcista`, `adx_subiendo`, `adx_no_agotado` y `adx_20_40`. La estrategia `agente` los admite en `filtro`.
+- Estrategias `santo_grial` (Raschke) y `giro_adx_rsi`, con sus referencias al azar `azar_grial` y `azar_giro`; `tendencia` admite `adx_min`. Rejilla del Santo Grial en `robustez.py`.
+
+### Hallazgo
+- Ningún filtro de ADX mejora a los agentes con metas, a 5 ni a 10 años. +DI/−DI los deja casi sin entradas: compran retrocesos.
+- El ADX empeora a Tendencia cripto (+0,86 → +0,60 R a 10 años): llega tarde a las rupturas.
+- El giro ADX + RSI no supera a comprar al azar en sobreventa.
+- El Santo Grial pasa en cripto (+0,40 R en validación, supera a todas las tiradas al azar) y 5 de 6 pruebas de robustez, pero pierde con las criptos del top de 2021: real pero no demostrado.
+
 ## [Sin publicar] - 2026-10-26 — Agentes: el saldo que les queda para operar
 
 ### Añadido

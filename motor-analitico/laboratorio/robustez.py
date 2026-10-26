@@ -47,6 +47,7 @@ REJILLAS = {
     "ruptura_volumen": {"factor_volumen": (1.2, 1.5, 2.0), "ruptura": (20, 30, 55)},
     "ruptura_2r": {"objetivo_r": (1.5, 2.0, 3.0), "ruptura": (20, 30, 55)},
     "reversion_bollinger": {"adx_max": (15, 20, 25), "dias_max": (5, 10, 15)},
+    "santo_grial": {"adx_umbral": (25, 30, 35), "espera": (5, 10, 15)},
     "momento": {"mirar": (126, 252), "top": (5, 10, 20), "stop_atr": (3.0, 5.0, 8.0)},
     "azar_momento": {"mirar": (126, 252), "top": (5, 10, 20), "stop_atr": (3.0, 5.0, 8.0)},
 }

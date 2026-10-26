@@ -71,9 +71,13 @@ class Tendencia:
 
     nombre = "tendencia"
 
-    def __init__(self, ruptura: int = 20, salida: int = 10, stop_atr: float = 2.0, sigue_atr: float = 3.0):
+    def __init__(self, ruptura: int = 20, salida: int = 10, stop_atr: float = 2.0, sigue_atr: float = 3.0,
+                 adx_min: float = 0.0):
         self.ruptura, self.salida = ruptura, salida
         self.stop_atr, self.sigue_atr = stop_atr, sigue_atr
+        # Doc fase-3/06: con `adx_min` > 0, la ruptura solo vale si el ADX
+        # supera ese nivel y sube (más alto que hace 3 días).
+        self.adx_min = adx_min
 
     def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -81,13 +85,22 @@ class Tendencia:
         df["ATR_14"] = _atr(df)
         df["MAX_RUPTURA"] = df["High"].rolling(self.ruptura).max().shift(1)
         df["MIN_SALIDA"] = df["Low"].rolling(self.salida).min().shift(1)
+        if self.adx_min:
+            df["ADX_14"] = _adx(df)
         return df
+
+    def _adx_valida(self, df, t) -> bool:
+        if not self.adx_min:
+            return True
+        adx = df["ADX_14"]
+        return t >= 3 and adx.iloc[t] > self.adx_min and adx.iloc[t] > adx.iloc[t - 3]
 
     def entrada(self, df, t):
         fila = df.iloc[t]
         if any(pd.isna(fila[k]) for k in ("SMA_200", "ATR_14", "MAX_RUPTURA")):
             return None
-        if fila["Close"] > fila["MAX_RUPTURA"] and fila["Close"] > fila["SMA_200"]:
+        if (fila["Close"] > fila["MAX_RUPTURA"] and fila["Close"] > fila["SMA_200"]
+                and self._adx_valida(df, t)):
             return Entrada(sl=float(fila["Close"] - self.stop_atr * fila["ATR_14"]))
         return None
 
@@ -141,6 +154,17 @@ def _adx(df: pd.DataFrame, n: int = 14) -> pd.Series:
     if serie is None:
         return pd.Series(np.nan, index=df.index)
     return serie[f"ADX_{n}"]
+
+
+def _adx_y_direccion(df: pd.DataFrame, n: int = 14) -> pd.DataFrame:
+    """ADX, +DI y −DI (doc fase-3/06). Las velas del laboratorio vienen de
+    Yahoo con máximo y mínimo en todas las filas, así que aquí no hace falta
+    la disciplina de rango real del motor de producción."""
+    adx = ta.adx(df["High"], df["Low"], df["Close"], length=n)
+    if adx is None:
+        vacio = pd.Series(np.nan, index=df.index)
+        return pd.DataFrame({"ADX": vacio, "DMP": vacio, "DMN": vacio})
+    return pd.DataFrame({"ADX": adx[f"ADX_{n}"], "DMP": adx[f"DMP_{n}"], "DMN": adx[f"DMN_{n}"]})
 
 
 class Retroceso:
@@ -419,14 +443,25 @@ CONDICIONES = {
     "no_sobreextendido": lambda f: f["Close"] - f["SMA_20"] <= 2 * f["ATR_14"],
 }
 
+# Filtros que solo existen en el laboratorio (doc fase-3/06): lo que falta
+# del ADX según el documento del dueño. No están en el catálogo de SQL
+# porque producción no guarda +DI/−DI; si alguno valida, se sube allí.
+FILTROS_LABORATORIO = {
+    "di_alcista": lambda f: f["DMP_14"] > f["DMN_14"],
+    "adx_subiendo": lambda f: f["ADX_14"] > f["ADX_14_HACE_3"],
+    "adx_no_agotado": lambda f: f["ADX_14"] <= 40,
+    "adx_20_40": lambda f: 20 <= f["ADX_14"] <= 40,
+}
+
 _RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}
 
 
-def cumple(fila: pd.Series, condicion: str) -> bool:
+def cumple(fila: pd.Series, condicion: str, catalogo: dict | None = None) -> bool:
     """¿Cumple la fila todas las condiciones de «a+b»? Sin dato, no (una
     comparación con NaN es falsa). Un nombre fuera del catálogo es un error."""
+    catalogo = CONDICIONES if catalogo is None else catalogo
     nombres = [n for n in condicion.split("+") if n]
-    return bool(nombres) and all(bool(CONDICIONES[n](fila)) for n in nombres)
+    return bool(nombres) and all(bool(catalogo[n](fila)) for n in nombres)
 
 
 class Agente(Actual):
@@ -437,7 +472,8 @@ class Agente(Actual):
       % del precio; 0 = sin límite);
     · `condicion`: entra TAMBIÉN cuando se cumple una condición del
       catálogo (fuente H2), con los mismos niveles y filtros;
-    · `filtro`: entra SOLO si además se cumple (p. ej. `adx_fuerte`);
+    · `filtro`: entra SOLO si además se cumple (p. ej. `adx_fuerte`); admite
+      también los `FILTROS_LABORATORIO` (+DI/−DI, pendiente del ADX…);
     · `deterioro`: sale en la apertura siguiente tras DOS cierres seguidos
       con la señal peor que al entrar (0043): menos indicadores alcistas
       que bajistas, o menos fuerza;
@@ -491,6 +527,9 @@ class Agente(Actual):
         hist = next((c for c in df.columns if c.startswith("MACDh_")), None)
         df["MACD_HIST"] = df[hist] if hist else np.nan
         df["MAX_20"] = df["High"].rolling(20).max().shift(1)
+        direccion = _adx_y_direccion(df)
+        df["DMP_14"], df["DMN_14"] = direccion["DMP"], direccion["DMN"]
+        df["ADX_14_HACE_3"] = df["ADX_14"].shift(3)
         n = len(df)
         alc, baj, fuerza = np.zeros(n), np.zeros(n), np.empty(n, dtype=object)
         sl, tp = np.full(n, np.nan), np.full(n, np.nan)
@@ -543,7 +582,7 @@ class Agente(Actual):
         conf = self._confluencia(df, t)
         if not self._quiere_entrar(df, t, conf):
             return None
-        if self.filtro and not cumple(df.iloc[t], self.filtro):
+        if self.filtro and not cumple(df.iloc[t], self.filtro, {**CONDICIONES, **FILTROS_LABORATORIO}):
             return None
         alcista = conf.indicadores_alcistas > conf.indicadores_bajistas
         sl, tp = float(df["NIVEL_SL"].iloc[t]), float(df["NIVEL_TP"].iloc[t])
@@ -700,10 +739,175 @@ class AgenteContrario(Agente):
         return pos.sl, False
 
 
+# ---------------------------------------------------------------------------
+# ADX (doc fase-3/06): las estrategias del documento del dueño, solo en
+# largo (los cortos no tienen ventaja, doc fase-3/02, y la regla protegida
+# nº2 sigue). Cada una con su referencia al azar: el MISMO contexto y las
+# MISMAS salidas, entrando en días al azar.
+# ---------------------------------------------------------------------------
+
+class SantoGrial:
+    """El «Santo Grial» de Linda Raschke. Contexto: ADX(14) por encima de 30
+    con +DI sobre −DI (durante el retroceso el ADX baja: lo que se exige es
+    que haya cruzado 30). Gatillo: el PRIMER día, desde que el ADX cruzó por
+    encima de 30, en que el mínimo toca la EMA de 20. La orden de compra va
+    en el máximo de la vela y, si no se dispara, baja al máximo de cada vela
+    nueva, durante `espera` días. Con velas diarias y entrada en la apertura
+    se aproxima así: el primer cierre que supera el máximo de la vela
+    anterior compra en la apertura siguiente (como `retroceso`). Stop bajo
+    el mínimo desde el toque (a 0,25 ATR, y al menos a 1 ATR del cierre).
+    Objetivo: el máximo del impulso, el mayor de los 20 días hasta el
+    toque. Si el precio ya lo superó, no entra."""
+
+    nombre = "santo_grial"
+
+    def __init__(self, adx_umbral: float = 30, espera: int = 10):
+        self.adx_umbral, self.espera = adx_umbral, int(espera)
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df["EMA_20"] = df["Close"].ewm(span=20, adjust=False).mean()
+        d = _adx_y_direccion(df)
+        df["ADX_14"], df["DMP_14"], df["DMN_14"] = d["ADX"], d["DMP"], d["DMN"]
+        df["ATR_14"] = _atr(df)
+        df["MAX_IMPULSO"] = df["High"].rolling(20).max()
+        df["CONTEXTO"] = (df["ADX_14"] > self.adx_umbral) & (df["DMP_14"] > df["DMN_14"])
+        # El primer toque de cada episodio con el ADX sobre el umbral.
+        toque = np.zeros(len(df), dtype=bool)
+        encima = ya_toco = False
+        adx, bajo, ema, ctx = (df["ADX_14"].to_numpy(), df["Low"].to_numpy(),
+                               df["EMA_20"].to_numpy(), df["CONTEXTO"].to_numpy())
+        for t in range(len(df)):
+            if np.isnan(adx[t]) or adx[t] <= self.adx_umbral:
+                encima = ya_toco = False
+                continue
+            if not encima:
+                encima, ya_toco = True, False
+            if not ya_toco and ctx[t] and bajo[t] <= ema[t]:
+                toque[t], ya_toco = True, True
+        df["TOQUE"] = toque
+        return df
+
+    def _vela_del_toque(self, df, t) -> int | None:
+        """El toque pendiente: en los `espera` días anteriores y sin que
+        ningún cierre posterior superara el máximo de su vela anterior."""
+        cierres, altos = df["Close"].to_numpy(), df["High"].to_numpy()
+        for k in range(t - 1, max(t - 1 - self.espera, 0), -1):
+            if df["TOQUE"].iloc[k]:
+                disparada = any(cierres[j] > altos[j - 1] for j in range(k + 1, t))
+                return None if disparada else k
+        return None
+
+    def _niveles(self, df, t, k) -> Entrada | None:
+        cierre, atr, objetivo = df["Close"].iloc[t], df["ATR_14"].iloc[t], df["MAX_IMPULSO"].iloc[k]
+        if pd.isna(atr) or pd.isna(objetivo) or atr <= 0 or objetivo <= cierre:
+            return None
+        sl = float(min(df["Low"].iloc[k: t].min() - 0.25 * atr, cierre - atr))
+        return Entrada(sl=sl, tp=float(objetivo))
+
+    def entrada(self, df, t):
+        if t < 60:
+            return None
+        k = self._vela_del_toque(df, t)
+        if k is None or not df["Close"].iloc[t] > df["High"].iloc[t - 1]:
+            return None
+        return self._niveles(df, t, k)
+
+    def actualizar(self, df, t, pos: Posicion):
+        return pos.sl, False
+
+
+class AzarGrial(SantoGrial):
+    """Referencia del Santo Grial: el mismo contexto (ADX > 30, +DI sobre
+    −DI) y los mismos niveles, con la vela de ayer como «vela del toque»,
+    pero en días al azar."""
+
+    nombre = "azar_grial"
+
+    def __init__(self, probabilidad: float = 0.05, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if t < 60 or not df["CONTEXTO"].iloc[t]:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t, t - 1)
+
+
+class GiroAdxRsi:
+    """Doble filtro ADX + RSI, solo el giro alcista: en los últimos 3 días
+    el RSI(14) estuvo por debajo de 30 con el ADX por encima de `adx_min`
+    (capitulación); hoy el ADX baja (deja de acelerar) y el cierre supera el
+    máximo de ayer, en lugar del patrón de velas de reversión. Stop bajo el
+    mínimo de 5 días (el del clímax, a 0,25 ATR, y al menos a 1 ATR);
+    objetivo a 2R. Sale también si el RSI vuelve a 50."""
+
+    nombre = "giro_adx_rsi"
+
+    def __init__(self, adx_min: float = 45, objetivo_r: float = 2.0):
+        self.adx_min, self.objetivo_r = adx_min, objetivo_r
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+        df["ADX_14"] = _adx(df)
+        rsi = ta.rsi(df["Close"], length=14)
+        df["RSI_14"] = rsi if rsi is not None else np.nan
+        df["ATR_14"] = _atr(df)
+        df["MIN_5"] = df["Low"].rolling(5).min()
+        df["CLIMAX"] = ((df["RSI_14"] < 30) & (df["ADX_14"] > self.adx_min)).astype(float).rolling(3).max()
+        return df
+
+    def _niveles(self, df, t) -> Entrada | None:
+        f = df.iloc[t]
+        if pd.isna(f["ATR_14"]) or pd.isna(f["MIN_5"]) or f["ATR_14"] <= 0:
+            return None
+        sl = float(min(f["MIN_5"] - 0.25 * f["ATR_14"], f["Close"] - f["ATR_14"]))
+        return Entrada(sl=sl, tp=float(f["Close"] + self.objetivo_r * (f["Close"] - sl)))
+
+    def entrada(self, df, t):
+        if t < 30:
+            return None
+        f, ayer = df.iloc[t], df.iloc[t - 1]
+        if pd.isna(f["CLIMAX"]) or f["CLIMAX"] < 1:
+            return None
+        if not (f["ADX_14"] < ayer["ADX_14"] and f["Close"] > ayer["High"]):
+            return None
+        return self._niveles(df, t)
+
+    def actualizar(self, df, t, pos: Posicion):
+        rsi = df["RSI_14"].iloc[t]
+        return pos.sl, bool(not pd.isna(rsi) and rsi >= 50)
+
+
+class AzarGiro(GiroAdxRsi):
+    """Referencia del giro: las mismas salidas, entrando al azar en días
+    con el RSI(14) por debajo de 35 (sobreventa, sin exigir el ADX ni la
+    confirmación)."""
+
+    nombre = "azar_giro"
+
+    def __init__(self, probabilidad: float = 0.05, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if t < 30 or pd.isna(df["RSI_14"].iloc[t]) or df["RSI_14"].iloc[t] >= 35:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 ESTRATEGIAS = {"actual": Actual, "tendencia": Tendencia, "reversion": Reversion,
                "retroceso": Retroceso, "ruptura_volumen": RupturaVolumen,
                "ruptura_2r": Ruptura2R, "reversion_bollinger": ReversionBollinger,
                "azar": Azar, "momento": Momento, "azar_momento": AzarMomento,
                "agente": Agente, "azar_agente": AzarAgente,
                "tendencia_corta": TendenciaCorta, "azar_corto": AzarCorto,
-               "confluencia_corta": ConfluenciaCorta, "agente_contrario": AgenteContrario}
+               "confluencia_corta": ConfluenciaCorta, "agente_contrario": AgenteContrario,
+               "santo_grial": SantoGrial, "azar_grial": AzarGrial,
+               "giro_adx_rsi": GiroAdxRsi, "azar_giro": AzarGiro}
