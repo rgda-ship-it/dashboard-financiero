@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — Agentes: el saldo que les queda para operar
+
+### Añadido
+- Las tarjetas de los agentes muestran «Para operar»: el saldo libre para abrir posiciones nuevas y, al lado, cuántas tiene abiertas y el margen que tienen bloqueado. Sustituye a la celda «Abiertas». El 26-10, Audacia tenía 0,92 $ libres y 414,30 $ en 4 posiciones: no podía abrir nada más.
+
 ## [Sin publicar] - 2026-10-26 — 0050: credenciales que no caducan por sorpresa (E2)
 
 ### Añadido
