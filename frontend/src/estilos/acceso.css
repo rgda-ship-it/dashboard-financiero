@@ -210,3 +210,36 @@
   .nav__usuario { margin-left: 0; width: 100%; justify-content: space-between; }
 }
 .admin__error { margin: var(--sp-3) var(--sp-4); }
+
+/* Resumen de lo pendiente y pestañas de la administración */
+.admin__resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-2);
+}
+
+.admin__pendiente {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  background: var(--ink-950);
+  text-align: left;
+  color: var(--tx-2);
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease);
+}
+
+.admin__pendiente:hover { border-color: var(--line-2); }
+.admin__pendiente--neg { border-color: var(--neg-line); background: var(--neg-soft); }
+.admin__pendiente--warn { border-color: var(--warn-line); background: var(--warn-soft); }
+
+.admin__pendiente-n { font-size: var(--fs-xl); color: var(--tx-1); line-height: 1.1; }
+.admin__pendiente-titulo { font-size: var(--fs-sm); color: var(--tx-1); }
+.admin__pendiente-detalle { font-size: var(--fs-xs); color: var(--tx-3); }
+
+.admin__secciones { display: flex; overflow-x: auto; max-width: 100%; }
+

@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-27 — Administración ordenada
+
+### Cambiado
+- La pantalla de Administración, que había crecido panel a panel en una sola columna, se organiza así: arriba, «Pendiente de ti» (problemas de salud, hipótesis validadas, peticiones nuevas, solicitudes de acceso y agentes parados; cada tarjeta lleva a su sección); debajo, cinco pestañas enlazables con `?seccion=`: Sistema, Agentes, Investigación, Usuarios y Auditoría.
+- Sistema parte la salud en tres paneles: datos (ETL y señales), ciclos de los agentes y credenciales.
+- Hipótesis y peticiones abren con lo que está en curso o abierto; lo cerrado queda en su filtro.
+- El aviso de error se ve en cualquier pestaña (antes solo dentro de «Solicitudes de acceso»).
+- La auditoría muestra 50 acciones y nombra bien credenciales, hipótesis y cuentas (antes decía «usuario borrado»).
+
 ## [Sin publicar] - 2026-10-26 — La revisión de los lunes en una consulta (E3)
 
 ### Cambiado
