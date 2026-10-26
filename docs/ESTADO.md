@@ -1,6 +1,6 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-26 (revisión del lunes; E2: caducidad de las credenciales en la 0050)
+> **Última actualización**: 2026-10-26 (revisión del lunes; E2 en la 0050; saldo para operar; ADX completo en el laboratorio)
 > **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
 > contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
 > hace falta para hacerlo y por qué algunas cosas esperan.
@@ -125,6 +125,8 @@ punto ⏭️ de la lista de control»*.
 | ✅ | ADX y media de 20 en el catálogo de condiciones (0049, doc fase-3/05) | No votan en la confluencia: entran en el catálogo de la H2 y del laboratorio (`filtro` y `condicion`). Hallazgo: el 97 % de las entradas de los agentes están por debajo de su media de 20 (compran retrocesos, por el R:R mínimo), así que los filtros de sobreextensión no aportan. El ADX ≥ 25 ayuda a Cadencia (a 10 años, +0,04 → +0,33 R, IC [+0,06, +0,61], 39 operaciones) y no a Prudencia ni a Audacia. Invariante I99 y prueba de que los catálogos de SQL y Python coinciden |
 | ✅ 👤 | Aplicar la 0049 (aplicada el 2026-10-25) y que el ETL escriba `sma_20` y `adx_14` | Columnas, vista y generador comprobados en producción. Comprobado el 26-10: 47 de 47 filas con `sma_20` y 46 con `adx_14` (falta maxlinear, que no tiene historial). En cripto el ADX sale con solo 30 días de rango real, así que es más ruidoso |
 | ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Mismo trato que los otros dos cambios validados |
+| ✅ | Lo que faltaba del ADX, según el documento del dueño (doc fase-3/06), 2026-10-26 | Solo en el laboratorio. **Ningún filtro pasa** en los agentes (+DI/−DI los deja sin entradas porque compran retrocesos; el tope de 40 y la «zona 20–40» empeoran). El ADX **empeora a Tendencia cripto** (+0,86 → +0,60 R a 10 años). El giro ADX + RSI no supera al azar. El **Santo Grial pasa en cripto** (+0,40 R, IC [+0,20, +0,61], supera a todas las tiradas al azar) y 5 de 6 pruebas de robustez, pero **falla con las criptos del top de 2021** (−0,14 R): real pero no demostrado, como Tendencia cripto |
+| 👤 | ¿Segundo experimento en vivo con el Santo Grial en cripto? | Por defecto, no: es la misma apuesta que Tendencia cripto (que el universo de hoy siga en tendencia). Se reconsidera con su veredicto |
 | 🗓️ | Siguientes indicadores: fuerza relativa frente al mercado y ancho de Bollinger | La fuerza relativa necesita la serie del índice (S&P 500, bitcoin) en el motor |
 | 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
