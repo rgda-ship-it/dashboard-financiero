@@ -4,6 +4,16 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — Revisión del lunes: primeras hipótesis, todas refutadas
+
+### Comprobado
+- La 0047 está aplicada desde el 24-10: 52 descartes, 40 de ellos por `rr`. Los tres agentes piden en el backlog relajar ese filtro.
+- Las hipótesis H2 del lunes («entrar también con el MACD positivo») se generaron a las 00:17 UTC y `hipotesis.yml` las refutó las tres (el `schedule` llegó a las 07:08 UTC).
+- El ETL de acciones y de cripto va en verde desde la renovación del token, y ya escribe `sma_20` y `adx_14`.
+
+### Hallazgo
+- **Concordancia baja en Cadencia (12 %) y Audacia (23 %)**: pocas de sus entradas reales tienen gemela en el laboratorio, así que sus veredictos dicen poco del agente real. Queda como tarea en `ESTADO.md`.
+
 ## [Sin publicar] - 2026-10-25 — El ETL escribe la media de 20 y el ADX
 
 ### Cambiado
