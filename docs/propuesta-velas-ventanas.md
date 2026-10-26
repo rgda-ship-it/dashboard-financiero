@@ -1,5 +1,7 @@
 # Propuesta: velas y ventanas históricas coherentes entre acciones y cripto
 
+> **Vigencia (revisada el 2026-10-27)**: **Histórico.** Aprobada e implementada el 2026-09-20.
+
 **Autor:** Especialista en Indicadores Técnicos · **Fecha:** 2026-09-19 · **Estado:** **APROBADA** por el dueño el 2026-09-20 — ver decisiones abajo
 **Alcance:** `motor-analitico/conectores/`, `motor-analitico/indicadores/tecnicos.py` y documentación. No toca umbrales de riesgo. Sí cambia el apalancamiento que ve el usuario, y eso queda cuantificado en §5.
 

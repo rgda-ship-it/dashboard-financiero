@@ -1,5 +1,7 @@
 # Fase 3 — Diagnóstico del 2026-10-24 y plan
 
+> **Vigencia (revisada el 2026-10-27)**: **Foto del 2026-10-24.** El diagnóstico describe el sistema de ese día; el plan (E1–E9) se sigue en [`../ESTADO.md`](../ESTADO.md).
+
 > **Para qué sirve**: deja por escrito cómo se comportaba el sistema al
 > cerrar la Fase 2, qué falla, qué se puede mejorar y en qué orden se
 > hace. Es el punto de partida de la Fase 3.

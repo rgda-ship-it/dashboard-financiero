@@ -9,16 +9,20 @@ licencia ni de infraestructura.
 > Este documento es el mapa del proyecto: qué hace cada carpeta, cómo
 > levantar cada servicio, y dónde va cada nuevo archivo que agregues.
 
-**Estado: en migración a la nube (Fase 2).** El sistema arranca igual que
-siempre en `localhost`, y además se despliega en un entorno cloud de
-coste 0. La diferencia de fondo es la dirección del flujo: el motor
-analítico ha dejado de RESPONDER peticiones para pasar a ESCRIBIR en
-PostgreSQL, y el navegador lee de ahí. El análisis completo está en
-[`docs/fase-2/`](docs/fase-2/); el arranque paso a paso, en
-[`docs/fase-2/RUNBOOK-sprint-1.md`](docs/fase-2/RUNBOOK-sprint-1.md).
+**Estado (2026-10-27): en la nube y en la Fase 3.** Supabase, GitHub
+Actions y Vercel, con coste 0 €. El motor analítico no responde
+peticiones: escribe en PostgreSQL, y el navegador lee de ahí. Cuatro
+agentes operan solos en el simulador y un laboratorio decide qué
+estrategias tienen ventaja.
 
-> **¿Retomas el trabajo?** Empieza por [`docs/ESTADO.md`](docs/ESTADO.md):
-> qué está hecho, en curso, previsto y en espera, con la lista de control.
+> **¿Retomas el trabajo?** Empieza por [`docs/README.md`](docs/README.md):
+> el índice de la documentación. Cómo funciona hoy:
+> [`docs/SISTEMA-HOY.md`](docs/SISTEMA-HOY.md); qué falta:
+> [`docs/ESTADO.md`](docs/ESTADO.md); desde cuándo son comparables los
+> datos: [`docs/CRONOLOGIA.md`](docs/CRONOLOGIA.md).
+>
+> Las secciones de este README sobre el arranque en `localhost` son de la
+> Fase 1 y se conservan como referencia.
 
 ---
 
@@ -33,8 +37,8 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 133 casos como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 40 invariantes + concurrencia + cuadre
+│   ├── tests.yml              # Los 320 casos del motor como puerta de merge
+│   ├── migraciones.yml        # El esquema desde cero + 101 invariantes + concurrencia + cuadre
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -48,7 +52,7 @@ dashboard-financiero/
 │   ├── config.toml
 │   ├── pruebas/               # Lo que sustituye al staging que el tier gratuito no da
 │   │   ├── 00_stubs_supabase.sql   # auth.users y los tres roles, para un Postgres limpio
-│   │   ├── 01_invariantes.sql      # 40 invariantes del esquema
+│   │   ├── 01_invariantes.sql      # 101 invariantes del esquema (I1–I101)
 │   │   ├── 02_concurrencia.sh      # 10 cierres simultáneos de la misma orden (riesgo R4)
 │   │   └── 03_cuadre_saldos.sql    # 50 operaciones y el cuadre del libro mayor
 │   └── migrations/
@@ -101,7 +105,9 @@ dashboard-financiero/
 │       ├── 0046_hipotesis_de_los_agentes.sql # FASE 3 — Los agentes proponen hipótesis con su propia evidencia (doc fase-3/01)
 │       ├── 0047_descartes_y_fuente_h3.sql # FASE 3 — Qué descarta cada agente y la fuente H3 (descartes que subieron)
 │       ├── 0048_seguimiento_de_stops.sql # FASE 3 — Qué pasa después de cada stop, con las velas de las 10 sesiones siguientes
-│       └── 0049_adx_y_media_20.sql # FASE 3 — ADX y media de 20 en el catálogo de condiciones (doc fase-3/05)
+│       ├── 0049_adx_y_media_20.sql # FASE 3 — ADX y media de 20 en el catálogo de condiciones (doc fase-3/05)
+│       ├── 0050_caducidad_de_credenciales.sql # FASE 3 — Qué secretos hay y cuándo caducan; aviso a 14 días (E2)
+│       └── 0051_backlog_revisado_e3.sql # FASE 3 — Respuesta al backlog de los agentes y disparadores (E3)
 │
 ├── scripts/
 │   ├── resumen_tests.py       # Resumen de la suite para el job summary de Actions
@@ -576,8 +582,8 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Cada archivo imprime una línea `PASS`/`FAIL` por caso; hoy son **133 casos**
-y todos pasan — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
+Hoy la suite completa (`python -m pytest -q`) son **320 casos** y todos
+pasan. Cuando se escribió esta sección eran 133 — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
 (`test_escritor_supabase.py` y `test_ventana_mercado.py`) 17 del Sprint 2
 (`test_seleccion_universo.py` y `test_etl_seleccion.py`), 6 del Sprint 4
 (`test_altas.py` y uno más en `test_etl_seleccion.py`) y 15 del Sprint 5

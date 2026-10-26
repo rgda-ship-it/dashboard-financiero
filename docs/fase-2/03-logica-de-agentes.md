@@ -1,5 +1,7 @@
 # C. Lógica de los agentes y reglas de negocio
 
+> **Vigencia (revisada el 2026-10-27)**: **Parcialmente superado.** Sin G4 desde la 0023; stops y objetivos con la D21 (0030); cuarentena suspendida (0042); deterioro en dos lecturas (0043). Las reglas vigentes, en [`../SISTEMA-HOY.md`](../SISTEMA-HOY.md) §2, y cuándo cambió cada una, en [`../CRONOLOGIA.md`](../CRONOLOGIA.md).
+
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual), con Backend Developer
 > **Fecha**: 2026-09-20
 > **Estado**: Propuesta

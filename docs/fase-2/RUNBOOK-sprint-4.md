@@ -1,5 +1,7 @@
 # Runbook del Sprint 4 — activar las altas automáticas
 
+> **Vigencia (revisada el 2026-10-27)**: **Vigente la sección «Renovación»** (el token `github_pat_altas`). El resto fue un paso único.
+
 > Para Daniel. Se hace **una vez**, después de fusionar el PR del Sprint 4
 > y de aplicar la migración 0010 con `scripts\aplicar-migraciones.cmd`.
 

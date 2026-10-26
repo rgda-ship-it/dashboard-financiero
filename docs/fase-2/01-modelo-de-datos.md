@@ -1,5 +1,7 @@
 # A. Modelo de datos de la Fase 2
 
+> **Vigencia (revisada el 2026-10-27)**: **Parcialmente vigente.** El modelo base sigue, pero desde entonces hay 51 migraciones. La fuente de verdad del esquema son `supabase/migrations/` y las invariantes de `supabase/pruebas/01_invariantes.sql`.
+
 > **Autor**: Data Engineer (equipo virtual), revisado por Arquitecto y Seguridad
 > **Fecha**: 2026-09-20
 > **Estado**: Propuesta

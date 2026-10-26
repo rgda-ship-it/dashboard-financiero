@@ -1,84 +1,83 @@
 # Estado del proyecto y lista de control
 
-> **Última actualización**: 2026-10-26 (revisión del lunes; E2 en la 0050; saldo para operar; ADX en el laboratorio; E3: backlog en la 0051)
-> **Para qué sirve**: retomar el trabajo en un chat nuevo sin perder
-> contexto. Dice qué está hecho, qué está en curso, qué viene después, qué
-> hace falta para hacerlo y por qué algunas cosas esperan.
-> **Cómo mantenerlo**: quien cierre una tarea (dueño o Claude) la marca
-> aquí en el mismo PR y añade la entrada en el `CHANGELOG.md`.
+> **Última actualización**: 2026-10-27 (documentación reordenada: `SISTEMA-HOY.md` y `CRONOLOGIA.md`; Administración en pestañas)
+> **Para qué sirve**: retomar el trabajo sin perder contexto. Arriba, lo
+> abierto (lo siguiente, lo previsto, lo que espera y por qué); abajo, lo
+> hecho. Cómo funciona el sistema hoy está en
+> [`SISTEMA-HOY.md`](SISTEMA-HOY.md); desde cuándo son comparables los
+> datos, en [`CRONOLOGIA.md`](CRONOLOGIA.md).
+> **Cómo mantenerlo**: quien cierre una tarea (dueño o Claude) la mueve al
+> §4 en el mismo PR y añade la entrada en el `CHANGELOG.md`.
 
 ---
 
 ## 1. Cómo retomar en otro chat
 
-Pega esto al empezar: *«Lee `docs/ESTADO.md` y continúa por el primer
-punto ⏭️ de la lista de control»*.
+Pega esto al empezar: *«Lee `docs/README.md` y `docs/ESTADO.md` y
+continúa por el primer punto ⏭️»*.
 
-**Orden de lectura** (de lo más reciente a lo más general):
+**Orden de lectura**:
 
-1. Este documento.
-2. [`fase-3/00-diagnostico-y-plan.md`](fase-3/00-diagnostico-y-plan.md): el diagnóstico del 2026-10-24 y el plan de la Fase 3; [`fase-3/01-agentes-investigadores.md`](fase-3/01-agentes-investigadores.md): los agentes como medio para evolucionar el sistema.
-3. [`fase-2/07-agente-tendencia-cripto.md`](fase-2/07-agente-tendencia-cripto.md): el agente experimental.
-4. [`fase-2/06-laboratorio-y-agentes-con-ventaja.md`](fase-2/06-laboratorio-y-agentes-con-ventaja.md): el laboratorio y su veredicto.
-5. [`fase-2/05-agentes-conscientes-del-tiempo.md`](fase-2/05-agentes-conscientes-del-tiempo.md): las mejoras a los agentes con metas.
-6. [`../CHANGELOG.md`](../CHANGELOG.md): la bitácora, entrada por entrada.
-7. [`fase-2/03-logica-de-agentes.md`](fase-2/03-logica-de-agentes.md) (guardarraíles G1–G6, monitor M1–M4) y [`fase-2/04-sprint-backlog.md`](fase-2/04-sprint-backlog.md) (decisiones D1–D24).
+1. [`SISTEMA-HOY.md`](SISTEMA-HOY.md): las reglas vigentes de cada agente y las tareas programadas.
+2. Este documento: lo abierto (§3).
+3. [`CRONOLOGIA.md`](CRONOLOGIA.md): **antes de analizar datos**, desde qué fecha son comparables.
+4. El documento de diseño del tema que toque: el índice, con la vigencia de cada uno, está en [`README.md`](README.md).
+5. [`../CHANGELOG.md`](../CHANGELOG.md): la bitácora, entrada por entrada.
 
 **Cómo trabajamos**:
 
 | Paso | Quién | Cómo |
 |---|---|---|
-| Cambios de código y migraciones | Claude | Rama de trabajo, PR y merge a `master` |
+| Cambios de código y migraciones | Claude | Rama de trabajo, PR, CI en verde y merge a `master` |
 | Aplicar migraciones en producción | Dueño | `scripts/aplicar-migraciones.cmd` |
-| Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, pooler `aws-1-eu-west-1`, sesión en solo lectura). Claude no usa la URL de administrador. Si hace falta, el dueño puede seguir con el editor SQL de Supabase y la URL *raw* de GitHub |
-| Laboratorio | Claude | Lanza `laboratorio.yml` en GitHub Actions y lee el informe del job |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (305 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I99), en la CI de migraciones. En local se aplican sobre un PostgreSQL 16 desde cero (migraciones, invariantes, concurrencia y cuadre) |
+| Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
+| Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
+| Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I101), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
-- Nunca se pegan en el chat tokens, claves ni contraseñas. Las consultas
-  van con el rol de solo lectura `analista_lectura`.
-- Los agentes actuales **no se tocan mientras dure el experimento** (son el
-  grupo de control, §3).
+- Nunca se pegan en el chat tokens, claves ni contraseñas.
+- Los agentes con metas **no se cambian a mano mientras dure el
+  experimento** (grupo de control). Ojo: sus ajustes automáticos siguen
+  activos (`CRONOLOGIA.md` §4).
 - Los parámetros de una estrategia validada no se cambian sin repetir el
   laboratorio y la prueba de robustez.
+- Un análisis de datos de producción dice desde qué fecha los toma
+  (`CRONOLOGIA.md` §1).
 
 ---
 
-## 2. La situación en una página
+## 2. La situación en una página (2026-10-27)
 
-- **Fase 3 (desde el 2026-10-24)**: mantener el sistema fiable mientras
-  corre el experimento. El diagnóstico encontró que **el ETL no se lanza
-  desde el 23-10 a las 19:07 UTC** (GitHub responde 401: el token de Vault
-  ha caducado) y que la toma parcial de 1 acción deshacía el ciclo del
-  agente. La 0045 arregla lo segundo y hace visibles los dos (panel «Salud
-  del sistema»). El token lo renueva el dueño (doc fase-3/00 §4).
-- **Hay tres agentes con metas diarias**: Prudencia (2 %), Cadencia (5 %) y
-  Audacia (7 %). Entre el 2026-10-10 y el 2026-10-11 se corrigió lo que
-  los hacía perder por diseño:
-  - stops dentro del ruido y objetivos inalcanzables (D21);
-  - votos contradictorios;
-  - cripto bloqueada (D22);
-  - huecos sin modelar (M3');
-  - spread ignorado (D23);
-  - riesgo abierto sin límite (G6).
-- **Las metas son inalcanzables de forma sostenida**: 2 % diario compuesto
-  son × 147 al año. Las señales actuales **no tienen ventaja demostrada**:
-  en el laboratorio, la estrategia «actual» queda en +0,14 R en acciones,
-  con un intervalo que incluye el cero.
-- **Decisión del dueño (doc 06)**: los tres agentes siguen como **grupo de
-  control** y se crean agentes nuevos, uno por cada estrategia con ventaja.
-- **El laboratorio** (velas diarias de 5 años, sin mirar el futuro, con
-  spread y huecos) probó tres estrategias. **Solo tendencia en cripto
-  pasó**, y la prueba de robustez la dejó en «real pero no demostrada»: sin
-  zcash, el intervalo incluye el cero.
-- **Decisión D24 (2026-10-11)**: se crea el **agente experimental
-  «Tendencia cripto»**, con criterio de retirada fijado de antemano (doc 07
-  §6). **Implementado en la 0037; falta aplicarlo y activarlo.**
+- **El experimento corre desde el 2026-10-11**: tres agentes con metas
+  como grupo de control (Prudencia, Cadencia y Audacia) y un agente
+  experimental, **Tendencia cripto**, con la única estrategia que pasó el
+  laboratorio.
+- **Resultados desde el inicio del experimento** (26-10): Prudencia
+  +2,74 R en 10 cierres; Cadencia −0,98 R en 4; Audacia −0,55 R en 9.
+  Tendencia cripto, 0 operaciones: ninguna cripto ha roto su máximo de 20
+  días estando sobre su media de 200 (la más cerca, zcash, a 1,6 ATR).
+- **Las metas diarias son inalcanzables por diseño** (doc fase-2/05) y las
+  señales de los agentes con metas **no tienen ventaja demostrada**: en el
+  laboratorio rinden entre −0,02 y +0,07 R a 10 años.
+- **El laboratorio**: en acciones, nada ha superado a entrar al azar con
+  las mismas salidas. En cripto, la tendencia (y el Santo Grial) funcionan
+  con el universo de hoy, pero no con las criptos del top de 2021: «real
+  pero no demostrada». Tres cambios validados esperan al final del
+  experimento: Audacia sin acciones de menos de 10 $, Cadencia solo con
+  ADX ≥ 25 (con pocas operaciones) y volver a poner
+  `consecuencias_semanales = true`.
+- **Los agentes investigan**: cada lunes proponen una hipótesis y el
+  laboratorio la prueba. Las tres primeras (MACD positivo) se refutaron.
+  Su backlog está revisado y respondido (0051).
+- **Fiabilidad (Fase 3)**: panel «Salud del sistema» (ETL, señales, ciclos
+  y credenciales), revisión de los lunes en una consulta y Administración
+  organizada en pestañas. El ETL va en verde desde el 24-10.
 
 ---
 
-## 3. Lista de control
+## 3. Lo abierto
 
 **Leyenda**:
 
@@ -92,7 +91,62 @@ punto ⏭️ de la lista de control»*.
 | 👤 | Lo tiene que hacer o decidir el dueño |
 | ❌ | Descartado, con el motivo |
 
+Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
+
 ### 3.0 Fase 3 (doc fase-3/00)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| 🗓️ | Revisión del lunes 2-11 con la consulta nueva | Primera vez con la H3 posible (ya hay una semana de descartes con la que comparar) |
+| 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
+| 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 (7 el 26-10: 3 «salvo» y 4 pendientes) | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |
+| 🗓️ | Siguientes indicadores: fuerza relativa frente al mercado y ancho de Bollinger | La fuerza relativa necesita la serie del índice (S&P 500, bitcoin) en el motor |
+| 👤 | ¿Segundo experimento en vivo con el Santo Grial en cripto? | Por defecto, no: es la misma apuesta que Tendencia cripto (que el universo de hoy siga en tendencia). Se reconsidera con su veredicto |
+| 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
+| 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
+| ⏸️ 👤 | «Audacia sin acciones de menos de 10 $»: se guarda para el final del experimento (decisión del dueño, 2026-10-25) | Validada en el laboratorio (+0,30 → +0,39 R). Se aplica cuando acabe el experimento, junto con `consecuencias_semanales = true` |
+| ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Mismo trato que los otros dos cambios validados |
+| ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
+
+### 3.1 Agente experimental «Tendencia cripto» (doc 07)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
+| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
+| 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
+
+### 3.2 Laboratorio de estrategias (doc 06)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| 🗓️ | Otras ideas para acciones | Solo datos fundamentales (calidad, valor), siempre contra la distribución de tiradas al azar. El momento ya se probó (§3.11) |
+| 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
+| 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
+| ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
+
+### 3.3 Agentes con metas: mejoras del doc 05 (grupo de control)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| ⏸️ | Entrega C: noches y fines de semana caso a caso (§5.4) | **Esperamos** por tres razones: <br>• los agentes con metas son el grupo de control, y cambiarlos a mitad del experimento ensucia la comparación; <br>• sin ventaja demostrada, afinar *cuándo* operar solo cambia la velocidad a la que se pierde; <br>• necesita semanas de datos en `v_huecos_activos`. <br>Se retoma si el dueño lo decide o cuando acabe el experimento |
+| ⏸️ | Entrega B: aporte por sesión, horizonte máximo (10, 5 y 3 sesiones, ya decidido) y revisión al cumplirse el horizonte | **Esperamos** por las mismas razones que la C. Además, es el cambio más profundo y gana con horizontes ya medidos (lleva la 0031 desde el 10-10) |
+| ⏸️ | Entrega E: calibración y vigencia de las prácticas (§9) | **Esperamos** a tener datos: necesita semanas de horizontes y resultados observados. Es la primera candidata a retomar, porque mejora la honestidad del aprendizaje sin cambiar la estrategia |
+
+### 3.4 Después del experimento
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| ⏸️ | Agente de cartera que combine estrategias con ventaja | **Esperamos** a tener al menos dos estrategias con ventaja. Hoy hay media |
+| ⏸️ | Capa narrativa con LLM para el informe semanal (doc 05 §10.2) | **Esperamos** porque tiene un coste por uso que hoy el proyecto no tiene. Decide el dueño |
+
+---
+
+## 4. Hecho
+
+El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, con el motivo.
+
+### 4.0 Fase 3 (doc fase-3/00)
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
@@ -105,7 +159,6 @@ punto ⏭️ de la lista de control»*.
 | ✅ | E3: revisión del backlog (doc fase-3/07, 0051), 2026-10-26 | 5 peticiones: 3 × «El filtro rr me deja sin operar», **rechazadas con el laboratorio** (bajar el R:R da hasta el triple de operaciones, pero ninguna variante mejora la expectativa, a 5 ni a 10 años); «Ampliar el universo», rechazada (el 85–95 % de sus descartes eran por R:R: la misma petición contada dos veces); «Señales más frecuentes», implementada (0029; solo volvió con el token caducado). Ya no saltan por lo mismo: el universo no salta si un filtro explica el 80 % de los descartes, y el filtro rechazado no se reabre durante el experimento. Invariante I101 |
 | ✅ 👤 | Aplicar la 0051 (aplicada y comprobada el 2026-10-26) | Las 5 peticiones cerradas con su resolución; el disparador nuevo de «Ampliar el universo», en producción |
 | ✅ | Revisión semanal guiada (doc fase-3/07 §6), 2026-10-26 | `scripts/revision_agentes.sql` es la consulta de los lunes: últimos 7 días, con salud del sistema (ETL, frescura, fallos, credenciales), lo cerca que está cada cripto de la ruptura, hipótesis con su concordancia, backlog y descartes. Funciona con `analista_lectura`. La tabla de qué mirar está en el doc |
-| 🗓️ | Revisión del lunes 2-11 con la consulta nueva | Primera vez con la H3 posible (ya hay una semana de descartes con la que comparar) |
 | ✅ 👤 | Agentes investigadores: diseño (doc fase-3/01), decidido el 2026-10-24 | La meta diaria no les hace aprender: no razonan y solo piden lo que está en 7 plantillas. Pasan a proponer hipótesis a partir de su propia evidencia, el laboratorio las prueba y el dueño decide. Dos pasos: primero determinista, sin coste y sin tocar cómo operan; después, un LLM con el mismo contrato |
 | ✅ | I1: hipótesis de los agentes (0046) | Incluye: <br>• `agente_hipotesis`, con tres fuentes: H1 (decisiones que cuestan), H2 (movimientos perdidos) y H4 (cierre parcial y trailing stop del backlog); <br>• una por agente y semana, en el autodiagnóstico de los lunes; <br>• pestaña «Investigan» en Agentes y revisión en Administración. <br>Invariante I96. Con los datos del 24-10, la H2 propondría a los tres «entrar también con el MACD positivo»: se cumplía en el 75–78 % de sus 8–9 movimientos perdidos, frente al 40 % de los días. La H1 aún no salta: tras la 0043 solo hay 1 deterioro resuelto |
 | ✅ 👤 | Aplicar la 0046 (aplicada y comprobada el 2026-10-24) | Tabla y vistas nuevas en producción y legibles con `analista_lectura`; el generador está enganchado al autodiagnóstico de los lunes. Simulación de solo lectura con los datos de hoy: H2 propondría a los tres «entrar también con el MACD positivo» en acciones (Prudencia y Cadencia 8 movimientos perdidos en 6 activos, Audacia 9 en 7; soporte 75–78 %, frecuencia 40 %). H1 no salta (ningún tipo llega a 20 decisiones resueltas) ni H4 (no hay peticiones de cierre parcial ni de trailing stop) |
@@ -118,24 +171,15 @@ punto ⏭️ de la lista de control»*.
 | ✅ 👤 | Aplicar la 0047 (aplicada el 2026-10-24) | Registra descartes desde el 24-10: 52 hasta el 26-10, casi todos por `rr` (40 en 11 activos; además `atr_alto` 5, `niveles_origen` 4 y `atr_bajo` 3). La H3 aún no salta: compara contra la semana anterior y no hay base. El mismo lunes los tres agentes piden «El filtro «rr» me deja sin operar» (backlog, para la E3) |
 | ✅ 👤 | Cortos en el laboratorio (doc fase-3/02), 2026-10-24 | **Sin ventaja.** `tendencia_corta` se queda en +0,04 R a 5 años y −0,26 R a 10, y no supera al azar. `confluencia_corta`, lo que harían los agentes, pierde entre 0,29 y 0,38 R. Operar al revés que Audacia daría unos +7 $ con spread y financiación, no +84,78 $. En el laboratorio, su contraria acierta el 52–68 %, pero pierde. La regla protegida nº2 se mantiene |
 | ✅ | Excluir acciones baratas u objetivo mínimo frente al spread, en el laboratorio (doc fase-3/02 §5) | El objetivo frente al spread no actúa. Sin las acciones de menos de 10 $, **Audacia mejora de +0,30 a +0,39 R** (IC [+0,11, +0,70], supera a todas las tiradas al azar). Prudencia y Cadencia, no. Es una de 9 variantes probadas |
-| ⏸️ 👤 | «Audacia sin acciones de menos de 10 $»: se guarda para el final del experimento (decisión del dueño, 2026-10-25) | Validada en el laboratorio (+0,30 → +0,39 R). Se aplica cuando acabe el experimento, junto con `consecuencias_semanales = true` |
 | ✅ | Los stops: qué salvan y qué cortan; stops alternativos y entrada escalonada (doc fase-3/03), 2026-10-25 | En el laboratorio, por cada stop que corta una ganancia hay de 3 a 6 que evitan una pérdida mayor (Prudencia 58/21 %, Cadencia 68/12 %, Audacia 52/11 %). No cambia la regla general: ensanchar el stop apunta a ayudar a Prudencia y Cadencia (sin demostrarse a 10 años) y empeora a Audacia. Promediar a la baja sube los aciertos pero no la expectativa, en ningún agente |
-| 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
 | ✅ | Seguir el precio después de cada stop (0048) | Velas de las 10 sesiones siguientes, con la regla del laboratorio: `post_stop_evento` (corto, salvo, ambiguo o ninguno) y `v_seguimiento_stops`. `fn_seguir_stops`, cada hora a los :45; al aplicarse rellena los stops de los últimos 30 días. Sección `6_stops` en `scripts/revision_agentes.sql`, que separa los de antes y después de la 0030. Invariante I98 |
 | ✅ 👤 | Aplicar la 0048 (aplicada y comprobada el 2026-10-25) | La primera pasada (08:01 UTC) revisó 98 stops de los últimos 30 días, como en la simulación previa: entre los agentes, 60 «salvo» y 4 pendientes, casi todos de antes de la 0030, con stops a 0,1 ATR (caída posterior media de 11 a 28 R, que solo dice que su riesgo era diminuto). Con la regla de la 0030 hay 5: 2 «salvo» de Audacia y 3 pendientes. La sección `6_stops` de la revisión funciona con el rol de lectura |
-| 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 (7 el 26-10: 3 «salvo» y 4 pendientes) | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |
 | ✅ | El escáner dice qué hacer; guía rehecha (doc fase-3/04), 2026-10-25 | Veredicto por activo (Comprar, Esperar, No comprar, Sin datos) con su motivo, niveles con el spread y qué agentes la tomarían. Guía: «Cómo usarla», «Cómo leer el laboratorio» y el escáner reescrito |
 | ✅ | ADX y media de 20 en el catálogo de condiciones (0049, doc fase-3/05) | No votan en la confluencia: entran en el catálogo de la H2 y del laboratorio (`filtro` y `condicion`). Hallazgo: el 97 % de las entradas de los agentes están por debajo de su media de 20 (compran retrocesos, por el R:R mínimo), así que los filtros de sobreextensión no aportan. El ADX ≥ 25 ayuda a Cadencia (a 10 años, +0,04 → +0,33 R, IC [+0,06, +0,61], 39 operaciones) y no a Prudencia ni a Audacia. Invariante I99 y prueba de que los catálogos de SQL y Python coinciden |
 | ✅ 👤 | Aplicar la 0049 (aplicada el 2026-10-25) y que el ETL escriba `sma_20` y `adx_14` | Columnas, vista y generador comprobados en producción. Comprobado el 26-10: 47 de 47 filas con `sma_20` y 46 con `adx_14` (falta maxlinear, que no tiene historial). En cripto el ADX sale con solo 30 días de rango real, así que es más ruidoso |
-| ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Mismo trato que los otros dos cambios validados |
 | ✅ | Lo que faltaba del ADX, según el documento del dueño (doc fase-3/06), 2026-10-26 | Solo en el laboratorio. **Ningún filtro pasa** en los agentes (+DI/−DI los deja sin entradas porque compran retrocesos; el tope de 40 y la «zona 20–40» empeoran). El ADX **empeora a Tendencia cripto** (+0,86 → +0,60 R a 10 años). El giro ADX + RSI no supera al azar. El **Santo Grial pasa en cripto** (+0,40 R, IC [+0,20, +0,61], supera a todas las tiradas al azar) y 5 de 6 pruebas de robustez, pero **falla con las criptos del top de 2021** (−0,14 R): real pero no demostrado, como Tendencia cripto |
-| 👤 | ¿Segundo experimento en vivo con el Santo Grial en cripto? | Por defecto, no: es la misma apuesta que Tendencia cripto (que el universo de hoy siga en tendencia). Se reconsidera con su veredicto |
-| 🗓️ | Siguientes indicadores: fuerza relativa frente al mercado y ancho de Bollinger | La fuerza relativa necesita la serie del índice (S&P 500, bitcoin) en el motor |
-| 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
-| ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
-| 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
 
-### 3.1 Agente experimental «Tendencia cripto» (doc 07)
+### 4.1 Agente experimental «Tendencia cripto» (doc 07)
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
@@ -153,11 +197,8 @@ punto ⏭️ de la lista de control»*.
 | ✅ 👤 | Aplicar las 0037–0040 y activar «Tendencia cripto» | Aplicadas con `scripts/aplicar-migraciones.cmd`, que aplica todas las pendientes; el agente decide desde el 2026-10-12 |
 | ✅ | Al día siguiente de activarlo, comprobar que decidió (revisado el 2026-10-13) | Dos mañanas (velas del 11 y del 12): las 14 criptos con datos, `sin_senal`, de forma coherente (3 bajo su media de 200 y 11 sin ruptura). maxlinear, `sin_vela` y luego `sin_datos` (no tiene 200 cierres). Ningún `sin_precio`. Consultas: `select a.simbolo, d.accion, d.datos from agente_decisiones_diarias d join activos a on a.id = d.activo_id order by d.decidido_en desc` y `select * from v_agentes_estrategia`. Que no haya muchos `sin_vela` ni `sin_datos`: indicarían que faltan velas con rango real |
 | ✅ | Revisar sus decisiones diarias (2026-10-24, con el acceso de la 0045) | Del 12 al 23-10, todos los días: 14 criptos `sin_senal` y maxlinear `sin_datos`. Ningún `sin_vela` ni `sin_precio`, ni siquiera con el ETL caído del 23-10. Con la vela del 23: 4 bajo su media de 200 (bitcoin-cash, cardano, dogecoin, tron) y 10 por encima pero sin ruptura; las más cerca, bitcoin (81.102 frente a un máximo de 86.949) y zcash (1.181 frente a 1.381). No entrar es lo correcto |
-| 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
-| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
-| 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
 
-### 3.2 Laboratorio de estrategias (doc 06)
+### 4.2 Laboratorio de estrategias (doc 06)
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
@@ -168,12 +209,8 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Segunda ronda: estrategias del manual del dueño (doc 06 §3.8) | **ruptura_volumen en acciones** pasa: +0,29 R en validación. También pasa la robustez formal, pero con márgenes justos y solo 12 de 29 acciones positivas. El resto no aporta: <br>• el objetivo a 2R empeora la ruptura en cripto; <br>• la reversión con Bollinger falla. <br>[Informe](https://github.com/rgda-ship-it/dashboard-financiero/actions/runs/38163243913) |
 | ✅ | Ruptura con volumen en acciones: amplitud (S&P 100) y referencia al azar (doc 06 §3.9–3.10) | **No se crea agente de acciones.** En el S&P 100, entrar al azar con las mismas salidas rinde lo mismo que la ruptura (+0,28 frente a +0,27 R): la «ventaja» es el mercado alcista con supervivientes, no la señal. En cripto, el azar da +0,65 R frente a +1,09 R de tendencia: la mayor parte de la ventaja de Tendencia cripto está en sus salidas. Desde ahora el criterio exige superar a la referencia al azar |
 | ✅ | Momento relativo en acciones (doc 06 §3.11), 2026-10-13 | **No aporta selección frente al azar** con la configuración fijada de antemano (las 4 o 10 primeras, 12-1), en ningún universo. En los 19 ETF sin sesgo de supervivencia, la validación queda en el percentil 33 de 30 tiradas al azar. Solo las carteras muy concentradas (2 o 5) pasan, pero se eligieron tras ver los datos. **No se crea agente de acciones.** Herramientas nuevas: el modo `contra_azar`, la medida «% / mes» y `--universo etf` |
-| 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
-| 🗓️ | Otras ideas para acciones | Solo datos fundamentales (calidad, valor), siempre contra la distribución de tiradas al azar. El momento ya se probó (§3.11) |
-| 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
-| ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
 
-### 3.3 Agentes con metas: mejoras del doc 05 (grupo de control)
+### 4.3 Agentes con metas: mejoras del doc 05 (grupo de control)
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
@@ -198,27 +235,22 @@ punto ⏭️ de la lista de control»*.
 | ✅ | Revisar `v_spreads` tras el primer día de bolsa (2026-10-13) | En NYSE (19 valores), las medidas son coherentes. En Nasdaq (13 valores), Yahoo da una cotización congelada: spreads del 1–2,7 % en AAPL, AMZN, MSFT, NVDA y SPCX, y casi ninguna medida en el resto. Se cobraban a los agentes con metas. Arreglo en la 0041 |
 | ✅ 👤 | Aplicar la 0041 (aplicada el 2026-10-13) | Borra las medidas de Nasdaq y deja de cobrarlas. El ETL ya no mide en Nasdaq desde el merge del PR |
 | ✅ | Comprobar que los agentes miran cripto el fin de semana (2026-10-17) | Sí: los fines de semana del 10–11 y del 17 sus descartes son de cripto (`direccion`). No abrieron nada porque ninguna cripto era alcista, no por un fallo |
-| ⏸️ | Entrega C: noches y fines de semana caso a caso (§5.4) | **Esperamos** por tres razones: <br>• los agentes con metas son el grupo de control, y cambiarlos a mitad del experimento ensucia la comparación; <br>• sin ventaja demostrada, afinar *cuándo* operar solo cambia la velocidad a la que se pierde; <br>• necesita semanas de datos en `v_huecos_activos`. <br>Se retoma si el dueño lo decide o cuando acabe el experimento |
-| ⏸️ | Entrega B: aporte por sesión, horizonte máximo (10, 5 y 3 sesiones, ya decidido) y revisión al cumplirse el horizonte | **Esperamos** por las mismas razones que la C. Además, es el cambio más profundo y gana con horizontes ya medidos (lleva la 0031 desde el 10-10) |
-| ⏸️ | Entrega E: calibración y vigencia de las prácticas (§9) | **Esperamos** a tener datos: necesita semanas de horizontes y resultados observados. Es la primera candidata a retomar, porque mejora la honestidad del aprendizaje sin cambiar la estrategia |
 | ❌ | Descartar operaciones porque no caben en la ventana del día | El dueño: «no podemos tener solo una visión inmediata» (doc 05 §5.2) |
 | ❌ | Presupuesto de pérdida diario | Decisión del dueño (doc 05 §8.1) |
 
-### 3.4 Después del experimento
+### 4.4 Después del experimento
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | ✅ | Panel comparativo (0040, `v_comparativa_agentes`) | Los cuatro agentes con las mismas medidas: <br>• expectativa en R, con los cierres parciales; <br>• R total; <br>• aciertos; <br>• factor de beneficio; <br>• rentabilidad y caída. <br>Se miden en todo el histórico y «desde el experimento» (el alta de Tendencia cripto). Panel «Comparativa» en Agentes. Invariante I89 |
-| ⏸️ | Agente de cartera que combine estrategias con ventaja | **Esperamos** a tener al menos dos estrategias con ventaja. Hoy hay media |
-| ⏸️ | Capa narrativa con LLM para el informe semanal (doc 05 §10.2) | **Esperamos** porque tiene un coste por uso que hoy el proyecto no tiene. Decide el dueño |
 
 ---
 
-## 4. Datos útiles
+## 5. Datos útiles
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0049_adx_y_media_20.sql`. La siguiente es la 0050 |
+| Migración más reciente | `0051_backlog_revisado_e3.sql`. La siguiente es la 0052 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |

@@ -1,5 +1,7 @@
 # Fase 2 — Equipo virtual, As-Is y decisiones de alcance
 
+> **Vigencia (revisada el 2026-10-27)**: **Histórico.** El equipo, el punto de partida y el alcance de la Fase 2, ya ejecutada (2026-09-20 → 09-29). Cómo funciona hoy: [`../SISTEMA-HOY.md`](../SISTEMA-HOY.md).
+
 > **Autor**: Senior Project Manager / Arquitecto de Software (equipo virtual)
 > **Fecha**: 2026-09-20
 > **Estado**: Propuesta
