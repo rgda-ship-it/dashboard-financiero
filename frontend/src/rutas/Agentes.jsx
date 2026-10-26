@@ -95,6 +95,25 @@ function parametrosLegibles(e) {
   return `${reparto} · ${rota} · ${tp}`;
 }
 
+// Lo que le queda libre para abrir posiciones nuevas y lo que tiene
+// bloqueado como margen en las abiertas (cuentas_simulacion).
+function SaldoParaOperar({ a }) {
+  const libre = Number(a.saldo_disponible ?? 0);
+  const n = a.posiciones_abiertas ?? 0;
+  return (
+    <div>
+      <dt>Para operar</dt>
+      <dd className="num">
+        {a.saldo_disponible != null ? formatearPrecio(libre) : "—"}
+        <span className="ag__de">
+          {" "}· {n} {n === 1 ? "abierta" : "abiertas"}
+          {Number(a.saldo_bloqueado) > 0 && <> con {formatearPrecio(Number(a.saldo_bloqueado))}</>}
+        </span>
+      </dd>
+    </div>
+  );
+}
+
 function TarjetaAgente({ a }) {
   const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado, tono: "neutro" };
   const veredicto = a.ultimo_veredicto ? VEREDICTOS[a.ultimo_veredicto] : null;
@@ -152,10 +171,7 @@ function TarjetaAgente({ a }) {
             <span className="ag__de"> · {a.en_tp ?? 0} obj / {a.en_sl ?? 0} stop</span>
           </dd>
         </div>
-        <div>
-          <dt>Abiertas</dt>
-          <dd className="num">{a.posiciones_abiertas ?? 0}</dd>
-        </div>
+        <SaldoParaOperar a={a} />
         <div>
           <dt>Último corte</dt>
           <dd>
@@ -230,10 +246,7 @@ function TarjetaEstrategia({ a, e }) {
           <dt>Aciertos</dt>
           <dd className="num">{e?.aciertos_pct != null ? `${Number(e.aciertos_pct)} %` : "—"}</dd>
         </div>
-        <div>
-          <dt>Abiertas</dt>
-          <dd className="num">{a.posiciones_abiertas ?? 0}</dd>
-        </div>
+        <SaldoParaOperar a={a} />
         <div>
           <dt>Desde el máximo</dt>
           <dd className={`num ${claseSigno(Number(a.drawdown_pct ?? 0))}`}>
