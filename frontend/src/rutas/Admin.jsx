@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Marca from "../components/ui/Marca.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import Chip from "../components/ui/Chip.jsx";
@@ -214,10 +215,11 @@ function FilaHipotesis({ h, ocupado, alRevisar }) {
   );
 }
 
-// ── Salud del sistema (0045) ─────────────────────────────────────────
+// ── Salud del sistema (0045, 0050) ───────────────────────────────────
 // Lo que el 2026-10-24 nadie vio a tiempo: GitHub rechazando los disparos
 // del ETL y un ciclo de agente fallando un día entero. Todo sale de
-// `rpc_salud_sistema`, que solo responde a un admin.
+// `rpc_salud_sistema`, que solo responde a un admin. Se parte en tres
+// paneles: los datos (ETL y señales), los ciclos y las credenciales.
 const NOMBRE_WORKFLOW = { "etl-acciones.yml": "ETL de acciones", "etl-cripto.yml": "ETL de cripto" };
 const NOMBRE_CLASE = { accion: "Señales de acciones", cripto: "Señales de cripto" };
 
@@ -237,6 +239,7 @@ function FilaSalud({ titulo, chip, detalle }) {
 // el admin anota la nueva fecha aquí y los avisos se rearman.
 const DIAS_AVISO = 14;
 const fechaCorta = (dia) => new Date(`${dia}T00:00:00`).toLocaleDateString("es-ES");
+const caducaPronto = (c) => c.caduca_en != null && c.dias <= DIAS_AVISO;
 
 function chipCredencial(c) {
   if (c.caduca_en == null) return <Chip etiqueta="Caduca" valor="no caduca" />;
@@ -264,7 +267,7 @@ function FilaCredencial({ c, ocupado, alRenovar }) {
           {c.donde} · {c.para_que}
           {c.renovada_en && <> · renovada {tiempoRelativo(c.renovada_en)}</>}
         </p>
-        {c.caduca_en != null && c.dias <= DIAS_AVISO && <p className="admin__meta">Cómo renovarla: {c.renovar}</p>}
+        {caducaPronto(c) && <p className="admin__meta">Cómo renovarla: {c.renovar}</p>}
       </div>
       {abierta ? (
         <form className="admin__motivo" onSubmit={guardar}>
@@ -295,74 +298,94 @@ function FilaCredencial({ c, ocupado, alRenovar }) {
   );
 }
 
-function PanelSalud({ salud, ocupado, alRenovar }) {
-  if (!salud) return null;
-  const despachos = salud.despachos ?? [];
-  const agentes = salud.agentes ?? [];
-  const credenciales = salud.credenciales ?? [];
-  const problemas =
-    despachos.filter((d) => d.fallando_desde).length +
-    agentes.filter((a) => a.en_fallo).length +
-    credenciales.filter((c) => c.caduca_en != null && c.dias <= DIAS_AVISO).length;
+/** Cuántas cosas de la salud necesitan atención (para el resumen y las metas). */
+function problemasDeSalud(salud) {
+  if (!salud) return { datos: 0, ciclos: 0, credenciales: 0, total: 0 };
+  const datos = (salud.despachos ?? []).filter((d) => d.fallando_desde).length;
+  const ciclos = (salud.agentes ?? []).filter((a) => a.en_fallo).length;
+  const credenciales = (salud.credenciales ?? []).filter(caducaPronto).length;
+  return { datos, ciclos, credenciales, total: datos + ciclos + credenciales };
+}
 
+function SeccionSistema({ salud, ocupado, alRenovar }) {
+  if (!salud) {
+    return (
+      <Panel titulo="Salud del sistema" flush>
+        <p className="prosa admin__vacio">No se pudo leer la salud del sistema (¿falta aplicar la 0045?).</p>
+      </Panel>
+    );
+  }
+  const p = problemasDeSalud(salud);
   return (
-    <Panel
-      titulo="Salud del sistema"
-      flush
-      meta={problemas ? `${problemas} con fallos` : "todo responde"}
-    >
-      <ul className="admin__lista">
-        {despachos.map((d) => (
-          <FilaSalud
-            key={d.workflow}
-            titulo={NOMBRE_WORKFLOW[d.workflow] ?? d.workflow}
-            chip={
-              d.fallando_desde ? (
-                <Chip etiqueta="GitHub" valor={`falla · ${d.estado_http ?? "sin respuesta"}`} tono="neg" />
-              ) : (
-                <Chip etiqueta="GitHub" valor={d.estado_http ? `responde ${d.estado_http}` : "sin revisar"} />
-              )
-            }
-            detalle={
-              d.fallando_desde
-                ? `Falla desde ${fechaHora(d.fallando_desde)}${d.estado_http === 401 ? " · el token github_pat_altas de Vault ha caducado: renuévalo (RUNBOOK-sprint-4)" : ""}`
-                : `Último disparo ${tiempoRelativo(d.ultimo)}`
-            }
-          />
-        ))}
-        {(salud.senales ?? []).map((s) => (
-          <FilaSalud
-            key={s.clase}
-            titulo={NOMBRE_CLASE[s.clase] ?? s.clase}
-            chip={<Chip etiqueta="Última" valor={tiempoRelativo(s.ultima)} />}
-            detalle={`${s.con_senal} de ${s.activos} activos con señal · la más vieja ${tiempoRelativo(s.primera)}`}
-          />
-        ))}
-        {agentes.map((a) => (
-          <FilaSalud
-            key={a.agente_id}
-            titulo={
-              <>
-                <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
-                Ciclo de {a.nombre}
-              </>
-            }
-            chip={
-              a.en_fallo ? (
-                <Chip etiqueta="Ciclo" valor="fallando" tono="neg" />
-              ) : (
-                <Chip etiqueta="Ciclo" valor={a.fallos_24h ? `${a.fallos_24h} fallos en 24 h` : "sin fallos"}
-                      tono={a.fallos_24h ? "warn" : "neutro"} />
-              )
-            }
-            detalle={a.ultimo_fallo ? `Último fallo ${tiempoRelativo(a.ultimo_fallo)}: ${a.ultimo_mensaje}` : null}
-          />
-        ))}
-        {credenciales.map((c) => (
-          <FilaCredencial key={c.nombre} c={c} ocupado={ocupado} alRenovar={alRenovar} />
-        ))}
-      </ul>
-    </Panel>
+    <>
+      <Panel titulo="Datos: ETL y señales" flush meta={p.datos ? `${p.datos} con fallos` : "todo responde"}>
+        <ul className="admin__lista">
+          {(salud.despachos ?? []).map((d) => (
+            <FilaSalud
+              key={d.workflow}
+              titulo={NOMBRE_WORKFLOW[d.workflow] ?? d.workflow}
+              chip={
+                d.fallando_desde ? (
+                  <Chip etiqueta="GitHub" valor={`falla · ${d.estado_http ?? "sin respuesta"}`} tono="neg" />
+                ) : (
+                  <Chip etiqueta="GitHub" valor={d.estado_http ? `responde ${d.estado_http}` : "sin revisar"} />
+                )
+              }
+              detalle={
+                d.fallando_desde
+                  ? `Falla desde ${fechaHora(d.fallando_desde)}${d.estado_http === 401 ? " · el token github_pat_altas de Vault ha caducado: renuévalo (RUNBOOK-sprint-4)" : ""}`
+                  : `Último disparo ${tiempoRelativo(d.ultimo)}`
+              }
+            />
+          ))}
+          {(salud.senales ?? []).map((s) => (
+            <FilaSalud
+              key={s.clase}
+              titulo={NOMBRE_CLASE[s.clase] ?? s.clase}
+              chip={<Chip etiqueta="Última" valor={tiempoRelativo(s.ultima)} />}
+              detalle={`${s.con_senal} de ${s.activos} activos con señal · la más vieja ${tiempoRelativo(s.primera)}`}
+            />
+          ))}
+        </ul>
+      </Panel>
+
+      <Panel titulo="Ciclos de los agentes" flush meta={p.ciclos ? `${p.ciclos} fallando` : "sin fallos ahora"}>
+        <ul className="admin__lista">
+          {(salud.agentes ?? []).map((a) => (
+            <FilaSalud
+              key={a.agente_id}
+              titulo={
+                <>
+                  <span className="ag__punto" style={{ background: colorDe(a.nombre) }} aria-hidden="true" />
+                  {a.nombre}
+                </>
+              }
+              chip={
+                a.en_fallo ? (
+                  <Chip etiqueta="Ciclo" valor="fallando" tono="neg" />
+                ) : (
+                  <Chip etiqueta="Ciclo" valor={a.fallos_24h ? `${a.fallos_24h} fallos en 24 h` : "sin fallos"}
+                        tono={a.fallos_24h ? "warn" : "neutro"} />
+                )
+              }
+              detalle={a.ultimo_fallo ? `Último fallo ${tiempoRelativo(a.ultimo_fallo)}: ${a.ultimo_mensaje}` : null}
+            />
+          ))}
+        </ul>
+      </Panel>
+
+      <Panel
+        titulo="Credenciales"
+        flush
+        meta={p.credenciales ? `${p.credenciales} caducan en ${DIAS_AVISO} días o menos` : "ninguna caduca pronto · solo la fecha, nunca el valor"}
+      >
+        <ul className="admin__lista">
+          {(salud.credenciales ?? []).map((c) => (
+            <FilaCredencial key={c.nombre} c={c} ocupado={ocupado} alRenovar={alRenovar} />
+          ))}
+        </ul>
+      </Panel>
+    </>
   );
 }
 
@@ -511,8 +534,64 @@ function FilaUsuario({ usuario, esYo, ocupado, alAprobar, alCambiar }) {
   );
 }
 
+// ── Organización de la pantalla ──────────────────────────────────────
+// Arriba, lo que espera una decisión del admin; debajo, una pestaña por
+// tema. La pestaña va en la URL (`?seccion=`) para poder enlazarla. Las
+// listas abren con lo que pide acción; lo cerrado queda a un clic.
+const SECCIONES = [
+  { id: "sistema", texto: "Sistema" },
+  { id: "agentes", texto: "Agentes" },
+  { id: "investigacion", texto: "Investigación" },
+  { id: "usuarios", texto: "Usuarios" },
+  { id: "auditoria", texto: "Auditoría" },
+];
+
+const HIPOTESIS_POR_REVISAR = ["validada", "propuesta", "en_prueba", "no_ejecutable"];
+const BACKLOG_ABIERTO = ["nuevo", "en_revision", "aceptado"];
+
+function Segmentado({ opciones, valor, alCambiar, etiqueta, rol = "group" }) {
+  return (
+    <div className="segmented" role={rol} aria-label={etiqueta}>
+      {opciones.map((o) => (
+        <button key={o.id} type="button" className="segmented__opt"
+                role={rol === "tablist" ? "tab" : undefined}
+                aria-pressed={valor === o.id}
+                aria-selected={rol === "tablist" ? valor === o.id : undefined}
+                onClick={() => alCambiar(o.id)}>
+          {o.texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Pendiente({ titulo, n, detalle, tono, alAbrir }) {
+  return (
+    <button type="button" className={`admin__pendiente${n ? ` admin__pendiente--${tono}` : ""}`} onClick={alAbrir}>
+      <span className="admin__pendiente-n num">{n}</span>
+      <span className="admin__pendiente-titulo">{titulo}</span>
+      <span className="admin__pendiente-detalle">{detalle}</span>
+    </button>
+  );
+}
+
+/** A quién o a qué se refiere una fila de la auditoría. */
+function objetivoAuditoria(a, emailDe) {
+  if (a.detalle?.email) return a.detalle.email;
+  if (a.detalle?.agente) return a.detalle.agente;
+  if (a.objetivo_tipo === "agente_backlog") return `la petición #${a.objetivo_id}`;
+  if (a.objetivo_tipo === "agente_hipotesis") return `la hipótesis #${a.objetivo_id}`;
+  if (a.objetivo_tipo === "credenciales") return a.objetivo_id;
+  if (a.objetivo_tipo === "cuentas_simulacion") return `la cuenta #${a.objetivo_id}`;
+  return emailDe(a.objetivo_id);
+}
+
 export default function Admin() {
   const { perfil } = useSesion();
+  const [params, setParams] = useSearchParams();
+  const seccion = SECCIONES.some((s) => s.id === params.get("seccion")) ? params.get("seccion") : "sistema";
+  const irA = (id) => setParams({ seccion: id }, { replace: true });
+
   const [usuarios, setUsuarios] = useState([]);
   const [auditoria, setAuditoria] = useState([]);
   const [agentes, setAgentes] = useState([]);
@@ -520,6 +599,8 @@ export default function Admin() {
   const [salud, setSalud] = useState(null);
   const [hipotesis, setHipotesis] = useState([]);
   const [filtro, setFiltro] = useState("pendiente");
+  const [verHipotesis, setVerHipotesis] = useState("revisar");
+  const [verBacklog, setVerBacklog] = useState("abiertas");
   const [cargando, setCargando] = useState(true);
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState(null);
@@ -532,14 +613,14 @@ export default function Admin() {
       supabase.from("auditoria_admin")
         .select("id, actor_id, accion, objetivo_tipo, objetivo_id, detalle, creado_en")
         .order("creado_en", { ascending: false })
-        .limit(20),
+        .limit(50),
     ]);
     if (u.error || a.error) setError((u.error ?? a.error).message);
     setUsuarios(u.data ?? []);
     setAuditoria(a.data ?? []);
     try {
       const [ag, bl, sa, hi] = await Promise.all([leerRanking(), leerBacklog(),
-        // Sin la 0045 aplicada el RPC no existe: el panel no sale, el resto sí.
+        // Sin la 0045 aplicada el RPC no existe: la pestaña lo dice, el resto sale.
         leerSalud().catch(() => null),
         leerHipotesis()]);
       setAgentes(ag ?? []);
@@ -594,6 +675,21 @@ export default function Admin() {
   const conteo = (estado) => usuarios.filter((u) => u.estado === estado).length;
   const emailDe = (id) => usuarios.find((u) => u.id === id)?.email ?? "usuario borrado";
 
+  const hipVisibles = hipotesis.filter((h) =>
+    verHipotesis === "todas" ? true
+      : verHipotesis === "revisar" ? HIPOTESIS_POR_REVISAR.includes(h.estado)
+      : !HIPOTESIS_POR_REVISAR.includes(h.estado));
+  const backVisibles = backlog.filter((b) =>
+    verBacklog === "todas" ? true
+      : verBacklog === "abiertas" ? BACKLOG_ABIERTO.includes(b.estado)
+      : !BACKLOG_ABIERTO.includes(b.estado));
+
+  const p = problemasDeSalud(salud);
+  const validadas = hipotesis.filter((h) => h.estado === "validada").length;
+  const nuevas = backlog.filter((b) => b.estado === "nuevo").length;
+  const pendientes = conteo("pendiente");
+  const parados = agentes.filter((a) => a.estado === "pausado" || a.estado === "game_over").length;
+
   return (
     <div className="shell">
       <header className="chrome">
@@ -610,126 +706,185 @@ export default function Admin() {
       <main className="main">
         <Navegacion />
 
-        <PanelSalud
-          salud={salud}
-          ocupado={ocupado}
-          alRenovar={(nombre, fecha) => ejecutarAgente(() => renovarCredencial(nombre, fecha))}
-        />
-
-        <Panel
-          titulo="Solicitudes de acceso"
-          flush
-          meta={cargando ? "cargando…" : `${conteo("pendiente")} pendientes · ${usuarios.length} cuentas`}
-        >
-          <div className="toolbar">
-            <div className="segmented" role="group" aria-label="Filtrar por estado">
-              {FILTROS.map((f) => (
-                <button key={f.id} type="button" className="segmented__opt"
-                        aria-pressed={filtro === f.id} onClick={() => setFiltro(f.id)}>
-                  {f.texto}
-                </button>
-              ))}
-            </div>
+        <Panel titulo="Pendiente de ti" meta={cargando ? "cargando…" : "pulsa una tarjeta para ir a su sección"}>
+          <div className="admin__resumen">
+            <Pendiente titulo="Salud del sistema" n={p.total} tono="neg"
+                       detalle={p.total ? `${p.datos} datos · ${p.ciclos} ciclos · ${p.credenciales} credenciales` : "todo responde"}
+                       alAbrir={() => irA("sistema")} />
+            <Pendiente titulo="Hipótesis validadas" n={validadas} tono="warn"
+                       detalle={validadas ? "adoptar o archivar" : "nada que adoptar"}
+                       alAbrir={() => { setVerHipotesis("revisar"); irA("investigacion"); }} />
+            <Pendiente titulo="Peticiones nuevas" n={nuevas} tono="warn"
+                       detalle={nuevas ? "responder con datos" : "backlog al día"}
+                       alAbrir={() => { setVerBacklog("abiertas"); irA("investigacion"); }} />
+            <Pendiente titulo="Solicitudes de acceso" n={pendientes} tono="warn"
+                       detalle={pendientes ? "aprobar o rechazar" : "ninguna pendiente"}
+                       alAbrir={() => { setFiltro("pendiente"); irA("usuarios"); }} />
+            <Pendiente titulo="Agentes parados" n={parados} tono="warn"
+                       detalle={parados ? "en pausa o en Game Over" : "todos en marcha"}
+                       alAbrir={() => irA("agentes")} />
           </div>
-
-          {error && <p className="acceso__aviso acceso__aviso--neg admin__error" role="alert">{error}</p>}
-
-          {!cargando && visibles.length === 0 ? (
-            <p className="prosa admin__vacio">No hay cuentas en este estado.</p>
-          ) : (
-            <ul className="admin__lista">
-              {visibles.map((u) => (
-                <FilaUsuario key={u.id} usuario={u} esYo={u.id === perfil?.id}
-                             ocupado={ocupado} alAprobar={aprobar} alCambiar={cambiar} />
-              ))}
-            </ul>
-          )}
         </Panel>
 
-        <Panel titulo="Agentes" flush meta="nacen en pausa · ponerlos en marcha queda auditado">
-          <ul className="admin__lista">
-            {agentes.map((a) => (
-              <FilaAgente
-                key={a.agente_id}
-                a={a}
-                ocupado={ocupado}
-                alCambiar={(id, estado) => ejecutarAgente(() => cambiarEstadoAgente(id, estado))}
-                alReiniciar={(id) => ejecutarAgente(() => reiniciarAgente(id))}
-                alRevertir={(cuentaId) => ejecutarAgente(() => revertirFase(cuentaId))}
-              />
-            ))}
-          </ul>
-        </Panel>
+        {error && <p className="acceso__aviso acceso__aviso--neg admin__error" role="alert">{error}</p>}
 
-        <Panel
-          titulo="Lo que investigan los agentes"
-          flush
-          meta={`${hipotesis.filter((h) => h.estado === "validada").length} validadas por revisar · adoptar solo lo validado`}
-        >
-          {hipotesis.length === 0 ? (
-            <p className="prosa admin__vacio">Ningún agente ha propuesto todavía una hipótesis.</p>
-          ) : (
+        <div className="admin__secciones">
+          <Segmentado opciones={SECCIONES} valor={seccion} alCambiar={irA} etiqueta="Secciones de administración" rol="tablist" />
+        </div>
+
+        {seccion === "sistema" && (
+          <SeccionSistema
+            salud={salud}
+            ocupado={ocupado}
+            alRenovar={(nombre, fecha) => ejecutarAgente(() => renovarCredencial(nombre, fecha))}
+          />
+        )}
+
+        {seccion === "agentes" && (
+          <Panel titulo="Agentes" flush meta="nacen en pausa · ponerlos en marcha queda auditado">
             <ul className="admin__lista">
-              {hipotesis.map((h) => (
-                <FilaHipotesis
-                  key={h.id}
-                  h={h}
+              {agentes.map((a) => (
+                <FilaAgente
+                  key={a.agente_id}
+                  a={a}
                   ocupado={ocupado}
-                  alRevisar={(id, estado, resolucion) =>
-                    ejecutarAgente(() => revisarHipotesis(id, estado, resolucion))
-                  }
+                  alCambiar={(id, estado) => ejecutarAgente(() => cambiarEstadoAgente(id, estado))}
+                  alReiniciar={(id) => ejecutarAgente(() => reiniciarAgente(id))}
+                  alRevertir={(cuentaId) => ejecutarAgente(() => revertirFase(cuentaId))}
                 />
               ))}
             </ul>
-          )}
-        </Panel>
+          </Panel>
+        )}
 
-        <Panel
-          titulo="Lo que piden los agentes"
-          flush
-          meta={`${backlog.filter((b) => b.estado === "nuevo").length} nuevas · por ocurrencias × agentes`}
-        >
-          {backlog.length === 0 ? (
-            <p className="prosa admin__vacio">Ningún agente ha pedido nada todavía.</p>
-          ) : (
-            <ul className="admin__lista">
-              {backlog.map((b) => (
-                <FilaBacklog
-                  key={b.id}
-                  b={b}
-                  ocupado={ocupado}
-                  alRevisar={(id, estado, resolucion) =>
-                    ejecutarAgente(() => revisarBacklog(id, estado, resolucion))
-                  }
+        {seccion === "investigacion" && (
+          <>
+            <Panel
+              titulo="Lo que investigan los agentes"
+              flush
+              meta={`${validadas} validadas por revisar · adoptar solo lo validado`}
+            >
+              <div className="toolbar">
+                <Segmentado
+                  etiqueta="Filtrar hipótesis"
+                  valor={verHipotesis}
+                  alCambiar={setVerHipotesis}
+                  opciones={[
+                    { id: "revisar", texto: `En curso (${hipotesis.filter((h) => HIPOTESIS_POR_REVISAR.includes(h.estado)).length})` },
+                    { id: "cerradas", texto: `Cerradas (${hipotesis.filter((h) => !HIPOTESIS_POR_REVISAR.includes(h.estado)).length})` },
+                    { id: "todas", texto: "Todas" },
+                  ]}
                 />
-              ))}
-            </ul>
-          )}
-        </Panel>
+              </div>
+              {hipVisibles.length === 0 ? (
+                <p className="prosa admin__vacio">
+                  {!hipotesis.length ? "Ningún agente ha propuesto todavía una hipótesis."
+                    : verHipotesis === "revisar" ? "Ninguna hipótesis en curso: las resueltas están en «Cerradas»."
+                    : "Nada en este estado."}
+                </p>
+              ) : (
+                <ul className="admin__lista">
+                  {hipVisibles.map((h) => (
+                    <FilaHipotesis
+                      key={h.id}
+                      h={h}
+                      ocupado={ocupado}
+                      alRevisar={(id, estado, resolucion) =>
+                        ejecutarAgente(() => revisarHipotesis(id, estado, resolucion))
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
+            </Panel>
 
-        <Panel titulo="Auditoría" meta="últimas 20 acciones de administración" flush>
-          {auditoria.length === 0 ? (
-            <p className="prosa admin__vacio">Todavía no hay acciones registradas.</p>
-          ) : (
-            <ul className="admin__auditoria">
-              {auditoria.map((a) => (
-                <li key={a.id}>
-                  <span className="admin__hora">{fechaHora(a.creado_en)}</span>
-                  <span>
-                    {emailDe(a.actor_id)} {ACCIONES[a.accion] ?? a.accion}{" "}
-                    <strong>
-                      {a.detalle?.email ??
-                        a.detalle?.agente ??
-                        (a.objetivo_tipo === "agente_backlog" ? `#${a.objetivo_id}` : emailDe(a.objetivo_id))}
-                    </strong>
-                    {a.detalle?.de && a.detalle?.a && <> ({a.detalle.de} → {a.detalle.a})</>}
-                    {a.detalle?.motivo && <> — «{a.detalle.motivo}»</>}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+            <Panel
+              titulo="Lo que piden los agentes"
+              flush
+              meta={`${nuevas} nuevas · por ocurrencias × agentes · durante el experimento las reglas no cambian`}
+            >
+              <div className="toolbar">
+                <Segmentado
+                  etiqueta="Filtrar peticiones"
+                  valor={verBacklog}
+                  alCambiar={setVerBacklog}
+                  opciones={[
+                    { id: "abiertas", texto: `Abiertas (${backlog.filter((b) => BACKLOG_ABIERTO.includes(b.estado)).length})` },
+                    { id: "cerradas", texto: `Cerradas (${backlog.filter((b) => !BACKLOG_ABIERTO.includes(b.estado)).length})` },
+                    { id: "todas", texto: "Todas" },
+                  ]}
+                />
+              </div>
+              {backVisibles.length === 0 ? (
+                <p className="prosa admin__vacio">
+                  {!backlog.length ? "Ningún agente ha pedido nada todavía."
+                    : verBacklog === "abiertas" ? "Ninguna petición abierta: las respondidas están en «Cerradas»."
+                    : "Nada en este estado."}
+                </p>
+              ) : (
+                <ul className="admin__lista">
+                  {backVisibles.map((b) => (
+                    <FilaBacklog
+                      key={b.id}
+                      b={b}
+                      ocupado={ocupado}
+                      alRevisar={(id, estado, resolucion) =>
+                        ejecutarAgente(() => revisarBacklog(id, estado, resolucion))
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </>
+        )}
+
+        {seccion === "usuarios" && (
+          <Panel
+            titulo="Solicitudes de acceso"
+            flush
+            meta={cargando ? "cargando…" : `${pendientes} pendientes · ${usuarios.length} cuentas`}
+          >
+            <div className="toolbar">
+              <Segmentado opciones={FILTROS.map((f) => ({ id: f.id, texto: f.texto }))} valor={filtro}
+                          alCambiar={setFiltro} etiqueta="Filtrar por estado" />
+            </div>
+            {!cargando && visibles.length === 0 ? (
+              <p className="prosa admin__vacio">No hay cuentas en este estado.</p>
+            ) : (
+              <ul className="admin__lista">
+                {visibles.map((u) => (
+                  <FilaUsuario key={u.id} usuario={u} esYo={u.id === perfil?.id}
+                               ocupado={ocupado} alAprobar={aprobar} alCambiar={cambiar} />
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
+
+        {seccion === "auditoria" && (
+          <Panel titulo="Auditoría" meta="últimas 50 acciones de administración" flush>
+            {auditoria.length === 0 ? (
+              <p className="prosa admin__vacio">Todavía no hay acciones registradas.</p>
+            ) : (
+              <ul className="admin__auditoria">
+                {auditoria.map((a) => (
+                  <li key={a.id}>
+                    <span className="admin__hora">{fechaHora(a.creado_en)}</span>
+                    <span>
+                      {emailDe(a.actor_id)} {ACCIONES[a.accion] ?? a.accion}{" "}
+                      <strong>{objetivoAuditoria(a, emailDe)}</strong>
+                      {a.detalle?.de !== undefined && a.detalle?.a !== undefined && (
+                        <> ({a.detalle.de ?? "—"} → {a.detalle.a ?? "no caduca"})</>
+                      )}
+                      {(a.detalle?.motivo || a.detalle?.resolucion) && <> — «{a.detalle.motivo ?? a.detalle.resolucion}»</>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        )}
       </main>
     </div>
   );
