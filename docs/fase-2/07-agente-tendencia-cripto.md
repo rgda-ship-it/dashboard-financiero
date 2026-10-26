@@ -1,5 +1,7 @@
 # G. Agente experimental «Tendencia cripto»
 
+> **Vigencia (revisada el 2026-10-27)**: **Vigente.** Las reglas y el criterio de retirada de Tendencia cripto no han cambiado.
+
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-11
 > **Estado**: **Aprobado por el dueño (D24, opción A) e implementado en la

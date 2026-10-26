@@ -1,5 +1,7 @@
 # E. Agentes conscientes del tiempo
 
+> **Vigencia (revisada el 2026-10-27)**: **Parcialmente vigente.** Entregas A, D y M3' hechas; B, C y E en espera hasta el final del experimento. Reglas de hoy en [`../SISTEMA-HOY.md`](../SISTEMA-HOY.md).
+
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-10
 > **Estado**: **Propuesta revisada con las respuestas del dueño**. Entregas A (0031), D (0032) y M3' (0033) hechas; B, C y E **en espera** mientras los agentes con metas sirven de grupo de control (D24). Motivos y condiciones para retomarlas en [`../ESTADO.md`](../ESTADO.md) §3.3.

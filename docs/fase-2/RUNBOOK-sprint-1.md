@@ -1,5 +1,7 @@
 # Runbook del Sprint 1 — lo que solo puedes hacer tú
 
+> **Vigencia (revisada el 2026-10-27)**: **Histórico.** El montaje inicial de las cuentas (Sprint 1). No hay que repetirlo.
+
 > **Fecha**: 2026-09-20
 > **Rama**: `fase-2/sprint-1`
 > **Estado**: código listo y verificado; pendiente de las cuentas

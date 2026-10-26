@@ -1,5 +1,7 @@
 # F. Laboratorio de estrategias y agentes con ventaja
 
+> **Vigencia (revisada el 2026-10-27)**: **Vigente.** El método del laboratorio y el criterio de ventaja (superar al azar) siguen siendo los de hoy.
+
 > **Autor**: Analista Cuantitativo / Risk Manager (equipo virtual)
 > **Fecha**: 2026-10-11
 > **Estado**: **Aprobada por el dueño** y ejecutada. Laboratorio, primera

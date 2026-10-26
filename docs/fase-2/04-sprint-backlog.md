@@ -1,5 +1,7 @@
 # D. Sprint Backlog — historias listas para desarrollo
 
+> **Vigencia (revisada el 2026-10-27)**: **Registro histórico.** Las historias de los seis sprints y las decisiones D1–D24: siguen siendo la referencia de *por qué* se decidió cada cosa, no de cómo funciona hoy ([`../SISTEMA-HOY.md`](../SISTEMA-HOY.md)).
+
 > **Autor**: Project Manager (equipo virtual)
 > **Fecha**: 2026-09-20
 > **Estado**: Propuesta

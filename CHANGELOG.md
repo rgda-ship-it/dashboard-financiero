@@ -4,6 +4,22 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-27 — Documentación ordenada: lo vigente, separado de lo histórico
+
+### Añadido
+- `docs/SISTEMA-HOY.md`: cómo funciona el sistema hoy (reglas de cada agente comprobadas contra producción, tareas programadas, cómo se revisa).
+- `docs/CRONOLOGIA.md`: fechas de corte para analizar datos, incidentes, intervenciones manuales (12 reversiones a Fase 1) y ajustes automáticos.
+- `docs/README.md`: índice con la vigencia de cada documento; y una cabecera de vigencia en los documentos antiguos.
+- `CLAUDE.md` en la raíz: lo que cualquier sesión tiene que saber antes de empezar.
+
+### Cambiado
+- `docs/ESTADO.md`: lo abierto arriba y lo hecho abajo; la situación en una página, al día (decía que el token estaba caducado y que faltaba aplicar la 0037).
+- `README.md`: el estado y los recuentos (133 → 320 pruebas, 40 → 101 invariantes).
+- `scripts/resumen_tests.py`: el suelo de pruebas pasa de 133 a 320.
+
+### Hallazgo
+- **El grupo de control no está congelado del todo**: los ajustes automáticos de la 0016 siguen activos, y el 15-10 Audacia y Cadencia apagaron solas la salida por deterioro. La decisión de Cadencia se apoyó sobre todo en salidas de antes de la 0043, cuando bastaba una lectura.
+
 ## [Sin publicar] - 2026-10-27 — Administración ordenada
 
 ### Cambiado

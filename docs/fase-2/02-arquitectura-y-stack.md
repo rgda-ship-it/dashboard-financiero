@@ -1,5 +1,7 @@
 # B. Arquitectura y stack tecnológico
 
+> **Vigencia (revisada el 2026-10-27)**: **Vigente en lo esencial** (Supabase, GitHub Actions y Vercel, coste 0 €). Las tareas y sus horarios de hoy, en [`../SISTEMA-HOY.md`](../SISTEMA-HOY.md) §3.
+
 > **Autor**: Arquitecto de Software (equipo virtual), con presupuesto de cuotas del Data Engineer
 > **Fecha**: 2026-09-20
 > **Estado**: Propuesta

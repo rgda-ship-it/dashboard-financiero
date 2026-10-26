@@ -1,5 +1,7 @@
 # Runbook del Sprint 6 — poner en marcha a los agentes
 
+> **Vigencia (revisada el 2026-10-27)**: **Histórico.** La puesta en marcha de los agentes (2026-09-29). Hoy hay más tareas programadas: [`../SISTEMA-HOY.md`](../SISTEMA-HOY.md) §3.
+
 > Para Daniel. Se hace **una vez**, después de fusionar el PR del Sprint 6
 > y de aplicar la migración 0013 con `scripts\aplicar-migraciones.cmd`.
 

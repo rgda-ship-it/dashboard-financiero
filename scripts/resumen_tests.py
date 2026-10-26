@@ -26,10 +26,14 @@ from pathlib import Path
 #   +21 = los del Sprint 1: 12 de escritor_supabase, 9 de ventana_mercado.
 #   +17 = los del Sprint 2: 12 de seleccion_universo, 5 de etl_seleccion.
 #
+#   … y así hasta los 320 del 2026-10-27 (laboratorio, hipótesis, ADX,
+#   concordancia). Estuvo en 133 desde el Sprint 2 sin actualizarse: con
+#   ese suelo, perder un fichero de pruebas entero no se habría notado.
+#
 # Si este número sube porque se añaden pruebas, actualízalo aquí. Si la
 # suite recolecta MENOS, es un fallo aunque todo esté en verde.
 CASOS_FASE_1 = 69
-CASOS_ESPERADOS = 133
+CASOS_ESPERADOS = 320
 
 
 def main() -> int:

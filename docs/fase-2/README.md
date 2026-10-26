@@ -1,5 +1,7 @@
 # Fase 2 — Dashboard Financiero en la nube, multiusuario y con agentes
 
+> **Vigencia (revisada el 2026-10-27)**: **Histórico.** Índice de la Fase 2. El índice de toda la documentación está en [`../README.md`](../README.md).
+
 > **Autor**: Equipo virtual de Fase 2 (ver `00-equipo-y-alcance.md` §1)
 > **Fecha**: 2026-09-20
 > **Estado**: **Ejecutada** — aprobada por el dueño y entregada en seis
