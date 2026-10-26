@@ -97,6 +97,11 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ⏭️ 👤 | **Decidir el tope de fecha del experimento** y qué pasa con los agentes con metas al acabar (doc fase-3/08 §4.1–4.2) | Propuesta: 2027-04-30; al acabar, juzgarlos por expectativa en R, caída y batir al mercado, no por la meta diaria |
+| ⏭️ 👤 | **¿Congelar los ajustes automáticos** durante el experimento? (doc fase-3/08 §4.2) | El 15-10 Audacia y Cadencia apagaron solas el deterioro. Propuesta: congelarlos mientras `consecuencias_semanales = false` y dejar los dos del 15-10 como están |
+| ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
+| ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
+| 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
 | 🗓️ | Revisión del lunes 2-11 con la consulta nueva | Primera vez con la H3 posible (ya hay una semana de descartes con la que comparar) |
 | 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
 | 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 (7 el 26-10: 3 «salvo» y 4 pendientes) | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |

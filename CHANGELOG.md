@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-27 — Qué falta para cumplir los objetivos (doc fase-3/08)
+
+### Añadido
+- Análisis de lo que falta, separando lo técnico de las decisiones: los agentes con metas no pueden cumplir su meta por diseño; el experimento no tiene fecha de fin; el grupo de control se mueve con los ajustes automáticos; juzgar exige cientos de operaciones; el escáner no se mide y la comparativa no tiene referencia de mercado. Con un orden propuesto, que se refleja en `ESTADO.md`.
+
 ## [Sin publicar] - 2026-10-27 — Documentación ordenada: lo vigente, separado de lo histórico
 
 ### Añadido
