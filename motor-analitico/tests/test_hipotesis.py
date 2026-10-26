@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -119,6 +120,25 @@ def test_medir_avisa_si_la_concordancia_es_baja():
     assert "baja" in medir({("A", "accion"): [date(2026, 10, 13)]}, {})["texto"]
 
 
+def test_la_concordancia_cuenta_desde_las_reglas_vigentes():
+    from laboratorio.concordancia import REGLAS_DESDE, desde_reglas_vigentes
+    base = {"rr_minimo": 1.5, "fuerzas_admitidas": ["media", "alta"], "atr_pct_max": 3.0}
+    versiones = [
+        {"version": 1, "creado_en": "2026-09-29T12:00:00+00:00", "estrategia": {**base, "rr_minimo": 2.0}},
+        {"version": 2, "creado_en": "2026-10-11T09:00:00+00:00", "estrategia": base},
+        # Un cambio en las salidas o que el laboratorio no modela no corta el periodo.
+        {"version": 3, "creado_en": "2026-10-15T19:40:00+00:00",
+         "estrategia": {**base, "reparto": "cupo", "salida_deterioro": False}},
+    ]
+    assert desde_reglas_vigentes("2026-09-29T12:00:00+00:00", versiones, ["accion"]) == pd.Timestamp("2026-10-11 09:00")
+    # Sin historial de versiones, desde la 0030; y nunca antes del alta.
+    assert desde_reglas_vigentes("2026-09-29T12:00:00+00:00", [], ["accion"]) == REGLAS_DESDE
+    assert desde_reglas_vigentes("2026-10-20T00:00:00+00:00", [], ["accion"]) == pd.Timestamp("2026-10-20")
+    m = medir({("A", "accion"): [date(2026, 10, 13)]}, {("A", "accion"): [date(2026, 10, 13)]},
+              pd.Timestamp("2026-10-11"))
+    assert m["desde"] == "2026-10-11" and "Desde el 11-10-2026" in m["texto"] and "orientativa" in m["texto"]
+
+
 # ---------------------------------------------------------------------------
 # El flujo completo, con un cliente de Supabase falso
 # ---------------------------------------------------------------------------
@@ -139,7 +159,9 @@ class ClienteFalso:
         if tabla == "activos":
             return [{"id": 100, "simbolo": "X", "clase": "accion"}]
         if tabla == "ordenes":
-            return [{"activo_id": 100, "fecha_entrada": "2026-01-05T14:30:00+00:00"}]
+            # Una con las reglas de hoy y otra de antes de la 0030, que no cuenta.
+            return [{"activo_id": 100, "fecha_entrada": "2026-10-20T14:30:00+00:00"},
+                    {"activo_id": 100, "fecha_entrada": "2026-10-05T14:30:00+00:00"}]
         return []
 
     def actualizar(self, tabla, filtro, cambios):

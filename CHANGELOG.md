@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — La concordancia del laboratorio mide con las reglas de hoy
+
+### Corregido
+- `concordancia.py` contaba todas las entradas reales desde el alta del agente, también las de antes de la 0030 y las hechas con otros parámetros de entrada. Ahora cuenta desde la 0030 y desde la primera versión con el mismo R:R, banda de ATR y fuerza que la vigente; dice desde cuándo mide y avisa con menos de 20 entradas.
+
+### Hallazgo
+- Con las reglas de hoy, la concordancia es del 55 % en Prudencia, el 69 % en Audacia y el 33 % en Cadencia (que solo tiene 6 entradas), no del 50, 23 y 12 %. Lo que no se reproduce es, sobre todo, el R:R que el agente encuentra durante la sesión y que al cierre ya no está.
+
 ## [Sin publicar] - 2026-10-26 — 0051: el backlog revisado en la E3 (doc fase-3/07)
 
 ### Cambiado

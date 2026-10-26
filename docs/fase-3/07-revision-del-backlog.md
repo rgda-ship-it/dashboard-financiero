@@ -88,6 +88,42 @@ la causa del único episodio posterior.
 - Las 3 hipótesis del lunes 26 (MACD positivo) quedaron refutadas; las
   del lunes 2-11 las generará la H1–H4 con una semana más de descartes
   (la H3 necesita una semana anterior con la que comparar).
-- La concordancia del laboratorio con Cadencia (12 %) y Audacia (23 %) es
-  baja: mientras lo sea, sus veredictos describen más al laboratorio que
-  al agente. Es la tarea siguiente de la lista.
+- La concordancia baja de Cadencia y Audacia se explica y se corrige en
+  §5.
+
+## 5. La concordancia del laboratorio con los agentes
+
+El lunes 26, la prueba de las hipótesis dijo que solo el 12 % de las
+entradas reales de Cadencia y el 23 % de las de Audacia tenían gemela en
+el laboratorio. **Era un fallo de la medida**: contaba todo el histórico
+desde el alta (29-09), y el 80 % de esas entradas se hicieron con reglas
+que el laboratorio no reproduce:
+
+- antes de la **0030** (10-10), con otros niveles de stop y objetivo (el
+  stop a 0,1 ATR), que están en el código y no en la estrategia;
+- con otros **parámetros de entrada**: R:R de 2,0 en Prudencia, 1,5 en
+  Cadencia, otra banda de ATR y solo fuerza alta en Prudencia.
+
+| Agente | Entradas reales | Antes de la 0030 | Concordancia antes | Con las reglas de hoy |
+|---|---|---|---|---|
+| Prudencia | 21 | 10 | 50 % | 6 de 11 (55 %) |
+| Cadencia | 62 | 57 | 12 % | 2 de 6 (33 %) |
+| Audacia | 59 | 46 | 23 % | **9 de 13 (69 %)** |
+
+Lo que sigue sin gemela tiene casi siempre la misma causa: al cierre, el
+laboratorio no encuentra R:R suficiente, y el agente sí lo encontró
+durante la sesión, con el precio más cerca del soporte (WFC, AMZN, CSCO,
+BAC, tron, binancecoin). Es el límite de decidir con velas diarias, no un
+error de traducción.
+
+**Cambio** (`laboratorio/concordancia.py`): solo cuentan las entradas
+desde la 0030 y desde la primera versión de la estrategia con los mismos
+parámetros de **entrada** (R:R, banda de ATR, fuerza) que la de hoy. Un
+cambio en las salidas, como apagar el deterioro (Cadencia y Audacia, el
+15-10), no corta el periodo. El texto dice desde cuándo mide y avisa si
+hay menos de 20 entradas reales: hoy son 6–13 por agente, así que la
+medida es orientativa y mejorará con las semanas.
+
+Consecuencia: los veredictos del laboratorio sobre Audacia (los filtros
+de ADX, el R:R, «sin acciones de menos de 10 $») describen bastante bien
+al agente; los de Cadencia, con 6 entradas, todavía no se pueden juzgar.
