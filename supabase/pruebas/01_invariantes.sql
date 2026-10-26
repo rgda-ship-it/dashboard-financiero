@@ -5372,6 +5372,59 @@ end
 $i100$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I101 · Backlog revisado en la E3 (0051).
+--
+-- «Ampliar el universo» no salta si un solo filtro explica el 80 % de los
+-- descartes del perfil. «El filtro X me deja sin operar», rechazado, no
+-- se reabre en un agente con las consecuencias suspendidas, pero cuenta
+-- la ocurrencia.
+-- ═════════════════════════════════════════════════════════════════════
+do $i101$
+declare
+    v_ag  bigint;
+    v_cta bigint;
+    v_hoy date := (now() at time zone 'UTC')::date;
+    v_b   public.agente_backlog;
+begin
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+        values ('prueba-e3', 2, 'pausado', '{}', false) returning id into v_ag;
+        v_cta := public.fn_crear_cuenta_agente(v_ag);
+        insert into public.agente_dias (agente_id, fecha, cuenta_id, saldo_apertura, objetivo_importe, operable,
+                                        ciclos, ciclos_con_universo, ciclos_sin_candidatos, descartes)
+        values (v_ag, v_hoy, v_cta, 500, 10, true, 0, 0, 0, '{"rr": 90, "atr_alto": 5, "direccion": 900}');
+        update public.agente_dias set ciclos_universo_sin_candidatos = 24 where agente_id = v_ag and fecha = v_hoy;
+        perform public.fn_disparadores_backlog(v_ag, '{}');
+        if exists (select 1 from public.agente_backlog where clave_deduplicacion = 'nuevo_activo:universo'
+                                                         and agente_id = v_ag) then
+            raise exception 'I101 FALLO: «Ampliar el universo» saltó con el 95 %% de los descartes por R:R';
+        end if;
+
+        perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'diagnostico:filtro:rr:agente_' || v_ag,
+                                            'El filtro «rr» me deja sin operar', 'semana 1', 'j', '{"n": 1}', 3);
+        update public.agente_backlog set estado = 'rechazado', resolucion = 'Probado en el laboratorio'
+         where clave_deduplicacion = 'diagnostico:filtro:rr:agente_' || v_ag;
+        delete from public.agente_backlog_ocurrencias
+         where backlog_id = (select id from public.agente_backlog
+                              where clave_deduplicacion = 'diagnostico:filtro:rr:agente_' || v_ag);
+        perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', 'diagnostico:filtro:rr:agente_' || v_ag,
+                                            'El filtro «rr» me deja sin operar', 'semana 2', 'j', '{"n": 2}', 3);
+        select * into v_b from public.agente_backlog where clave_deduplicacion = 'diagnostico:filtro:rr:agente_' || v_ag;
+        if v_b.estado <> 'rechazado' or v_b.ocurrencias <> 2 or v_b.resolucion <> 'Probado en el laboratorio' then
+            raise exception 'I101 FALLO: el filtro rechazado debía seguir rechazado y contar la ocurrencia: % / % / %',
+                            v_b.estado, v_b.ocurrencias, v_b.resolucion;
+        end if;
+        raise exception 'I101 OK';
+    exception when others then
+        if sqlerrm <> 'I101 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I101 «Ampliar el universo» no salta si un filtro lo explica; el filtro rechazado no se reabre durante el experimento';
+end
+$i101$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

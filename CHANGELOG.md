@@ -4,6 +4,18 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — 0051: el backlog revisado en la E3 (doc fase-3/07)
+
+### Cambiado
+- «Ampliar el universo» no salta si un solo filtro explica el 80 % de los descartes del perfil.
+- «El filtro X me deja sin operar», rechazado, no se reabre en un agente con las consecuencias suspendidas; cuenta la ocurrencia y actualiza la evidencia.
+- Cierra las 5 peticiones abiertas. Invariante I101.
+
+### Hallazgo
+- **Bajar el R:R mínimo no mejora a ningún agente** (laboratorio, 5 y 10 años): hasta el triple de operaciones, pero las que entran valen unos 0 R.
+- «Ampliar el universo» era el mismo síntoma que el R:R: el 85–95 % de sus descartes del perfil.
+- «Señales más frecuentes» se resolvió con la 0029; solo volvió con el token de GitHub caducado (23–24-10).
+
 ## [Sin publicar] - 2026-10-26 — Lo que faltaba del ADX, en el laboratorio (doc fase-3/06)
 
 ### Añadido
