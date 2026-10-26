@@ -91,6 +91,8 @@ TABLAS = {
     "agente_hipotesis": "id",
     # Descartes por filtro del perfil (0047).
     "agente_descartes": "agente_id,activo_id,fecha,motivo",
+    # Caducidad de los secretos (0050): solo metadatos, nunca el valor.
+    "credenciales": "nombre",
     # Al final: apunta a agentes y a usuarios.
     "eventos_sistema": "id",
 }

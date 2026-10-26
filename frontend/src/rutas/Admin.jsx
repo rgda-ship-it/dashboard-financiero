@@ -16,6 +16,7 @@ import {
   leerBacklog,
   leerRanking,
   leerSalud,
+  renovarCredencial,
   leerHipotesis,
   revisarHipotesis,
   ESTADOS_HIPOTESIS,
@@ -54,6 +55,7 @@ const ACCIONES = {
   reiniciar_agente: "reinició a",
   resolver_backlog: "resolvió la petición",
   resolver_hipotesis: "resolvió la hipótesis",
+  renovar_credencial: "anotó la renovación de",
 };
 
 // ── Agentes (Sprint 6, D13) ──────────────────────────────────────────
@@ -231,12 +233,77 @@ function FilaSalud({ titulo, chip, detalle }) {
   );
 }
 
-function PanelSalud({ salud }) {
+// 0050: cuándo caduca cada secreto. A 14 días se avisa; tras renovarlo,
+// el admin anota la nueva fecha aquí y los avisos se rearman.
+const DIAS_AVISO = 14;
+const fechaCorta = (dia) => new Date(`${dia}T00:00:00`).toLocaleDateString("es-ES");
+
+function chipCredencial(c) {
+  if (c.caduca_en == null) return <Chip etiqueta="Caduca" valor="no caduca" />;
+  if (c.dias <= 0) return <Chip etiqueta="Caduca" valor="caducada" tono="neg" />;
+  if (c.dias <= DIAS_AVISO) return <Chip etiqueta="Caduca" valor={`en ${c.dias} días`} tono="warn" />;
+  return <Chip etiqueta="Caduca" valor={fechaCorta(c.caduca_en)} />;
+}
+
+function FilaCredencial({ c, ocupado, alRenovar }) {
+  const [abierta, setAbierta] = useState(false);
+  const [fecha, setFecha] = useState("");
+
+  function guardar(e) {
+    e.preventDefault();
+    alRenovar(c.nombre, fecha);
+    setAbierta(false);
+    setFecha("");
+  }
+
+  return (
+    <li className="admin__fila">
+      <div className="admin__quien">
+        <p className="admin__email">{c.nombre}</p>
+        <p className="admin__meta">
+          {c.donde} · {c.para_que}
+          {c.renovada_en && <> · renovada {tiempoRelativo(c.renovada_en)}</>}
+        </p>
+        {c.caduca_en != null && c.dias <= DIAS_AVISO && <p className="admin__meta">Cómo renovarla: {c.renovar}</p>}
+      </div>
+      {abierta ? (
+        <form className="admin__motivo" onSubmit={guardar}>
+          <input
+            className="acceso__input"
+            type="date"
+            autoFocus
+            aria-label="Nueva fecha de caducidad (vacía si ya no caduca)"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+          />
+          <button type="submit" className="btn btn--accent" disabled={ocupado}>
+            Guardar
+          </button>
+          <button type="button" className="btn" onClick={() => setAbierta(false)}>
+            Cancelar
+          </button>
+        </form>
+      ) : (
+        <div className="admin__acciones">
+          {chipCredencial(c)}
+          <button type="button" className="btn" disabled={ocupado} onClick={() => setAbierta(true)}>
+            Renovada
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function PanelSalud({ salud, ocupado, alRenovar }) {
   if (!salud) return null;
   const despachos = salud.despachos ?? [];
   const agentes = salud.agentes ?? [];
+  const credenciales = salud.credenciales ?? [];
   const problemas =
-    despachos.filter((d) => d.fallando_desde).length + agentes.filter((a) => a.en_fallo).length;
+    despachos.filter((d) => d.fallando_desde).length +
+    agentes.filter((a) => a.en_fallo).length +
+    credenciales.filter((c) => c.caduca_en != null && c.dias <= DIAS_AVISO).length;
 
   return (
     <Panel
@@ -290,6 +357,9 @@ function PanelSalud({ salud }) {
             }
             detalle={a.ultimo_fallo ? `Último fallo ${tiempoRelativo(a.ultimo_fallo)}: ${a.ultimo_mensaje}` : null}
           />
+        ))}
+        {credenciales.map((c) => (
+          <FilaCredencial key={c.nombre} c={c} ocupado={ocupado} alRenovar={alRenovar} />
         ))}
       </ul>
     </Panel>
@@ -540,7 +610,11 @@ export default function Admin() {
       <main className="main">
         <Navegacion />
 
-        <PanelSalud salud={salud} />
+        <PanelSalud
+          salud={salud}
+          ocupado={ocupado}
+          alRenovar={(nombre, fecha) => ejecutarAgente(() => renovarCredencial(nombre, fecha))}
+        />
 
         <Panel
           titulo="Solicitudes de acceso"

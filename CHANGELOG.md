@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — 0050: credenciales que no caducan por sorpresa (E2)
+
+### Añadido
+- `credenciales`: qué secretos usa el sistema, dónde viven, para qué, cuándo caducan y cómo se renuevan. Solo metadatos. Inventario: `github_pat_altas` (caduca el 24-10-2027), `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_DB_URL` (no caducan), `VITE_SUPABASE_ANON_KEY` (2036) y `SUPABASE_DB_URL_LECTURA` (no caduca).
+- `fn_revisar_credenciales`, cada día a las 07:00 UTC: un evento `sys` cuando quedan 14 días o menos y un `fallo` al caducar, sin repetirse.
+- `rpc_credencial_renovada` (solo admin, auditado) y el botón «Renovada» en el panel «Salud del sistema», que ahora lista las credenciales con los días que quedan.
+- Invariante I100.
+
 ## [Sin publicar] - 2026-10-26 — Revisión del lunes: primeras hipótesis, todas refutadas
 
 ### Comprobado

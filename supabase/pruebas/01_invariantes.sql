@@ -5280,6 +5280,98 @@ end
 $i99$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I100 · Caducidad de las credenciales (0050).
+--
+-- A 10 días de caducar → un `sys`; al caducar → un `fallo`; repetir la
+-- revisión no repite el aviso. Renovar es solo del admin, no admite una
+-- fecha pasada, queda auditado y rearma los avisos. El navegador no lee
+-- la tabla; la salud del sistema trae los días que quedan.
+-- ═════════════════════════════════════════════════════════════════════
+do $i100$
+declare
+    v_admin uuid;
+    v_otro  uuid;
+    v_json  jsonb;
+    v_n     int;
+    v_fallo boolean := false;
+begin
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+    select id into v_otro from public.perfiles where rol <> 'admin' and estado = 'aprobado' limit 1;
+    begin
+        if (select count(*) from public.credenciales) < 5
+           or (select caduca_en from public.credenciales where nombre = 'github_pat_altas') is null then
+            raise exception 'I100 FALLO: falta el inventario de credenciales';
+        end if;
+
+        update public.credenciales set caduca_en = current_date + 10 where nombre = 'github_pat_altas';
+        perform public.fn_revisar_credenciales();
+        perform public.fn_revisar_credenciales();
+        select count(*) into v_n from public.eventos_sistema
+         where tipo = 'sys' and datos ->> 'credencial' = 'github_pat_altas' and datos ->> 'nivel' = 'pronto';
+        if v_n <> 1 then
+            raise exception 'I100 FALLO: a 10 días debía haber un aviso y hay %', v_n;
+        end if;
+
+        update public.credenciales set caduca_en = current_date where nombre = 'github_pat_altas';
+        perform public.fn_revisar_credenciales();
+        perform public.fn_revisar_credenciales();
+        select count(*) into v_n from public.eventos_sistema
+         where tipo = 'fallo' and datos ->> 'credencial' = 'github_pat_altas';
+        if v_n <> 1 then
+            raise exception 'I100 FALLO: al caducar debía haber un fallo y hay %', v_n;
+        end if;
+
+        perform pg_temp.como(v_otro);
+        begin
+            perform public.rpc_credencial_renovada('github_pat_altas', current_date + 365);
+            v_fallo := true;
+        exception when insufficient_privilege then null;
+        end;
+        begin
+            perform 1 from public.credenciales;
+            v_fallo := true;
+        exception when insufficient_privilege then null;
+        end;
+        perform pg_temp.como(v_admin);
+        begin
+            perform public.rpc_credencial_renovada('github_pat_altas', current_date - 1);
+            v_fallo := true;
+        exception when invalid_parameter_value then null;
+        end;
+        perform public.rpc_credencial_renovada('github_pat_altas', current_date + 12);
+        v_json := public.rpc_salud_sistema();
+        perform pg_temp.como_dueno();
+        if v_fallo then
+            raise exception 'I100 FALLO: un no admin renovó o leyó la tabla, o se aceptó una fecha pasada';
+        end if;
+        if not exists (select 1 from jsonb_array_elements(v_json -> 'credenciales') c
+                        where c ->> 'nombre' = 'github_pat_altas' and (c ->> 'dias')::int = 12) then
+            raise exception 'I100 FALLO: la salud del sistema no trae los días que quedan: %', v_json -> 'credenciales';
+        end if;
+        if not exists (select 1 from public.auditoria_admin
+                        where accion = 'renovar_credencial' and objetivo_id = 'github_pat_altas') then
+            raise exception 'I100 FALLO: la renovación no quedó auditada';
+        end if;
+
+        -- Rearmada: la nueva fecha, a 12 días, vuelve a avisar.
+        perform public.fn_revisar_credenciales();
+        select count(*) into v_n from public.eventos_sistema
+         where tipo = 'sys' and datos ->> 'credencial' = 'github_pat_altas' and datos ->> 'nivel' = 'pronto';
+        if v_n <> 2 then
+            raise exception 'I100 FALLO: tras renovar a 12 días debía volver a avisar (% avisos)', v_n;
+        end if;
+        raise exception 'I100 OK';
+    exception when others then
+        perform pg_temp.como_dueno();
+        if sqlerrm <> 'I100 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I100 caducidad de las credenciales: aviso a 14 días, fallo al caducar, renovación del admin';
+end
+$i100$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
