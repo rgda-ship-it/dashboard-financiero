@@ -127,3 +127,26 @@ medida es orientativa y mejorará con las semanas.
 Consecuencia: los veredictos del laboratorio sobre Audacia (los filtros
 de ADX, el R:R, «sin acciones de menos de 10 $») describen bastante bien
 al agente; los de Cadencia, con 6 entradas, todavía no se pueden juzgar.
+
+## 6. La revisión de los lunes
+
+Una sola consulta de solo lectura, que también se puede pegar en el
+editor de Supabase:
+
+```
+python scripts/consultar.py -f scripts/revision_agentes.sql
+```
+
+Por defecto mira los últimos 7 días. Qué mirar en cada sección:
+
+| Sección | Qué mirar | Si algo falla |
+|---|---|---|
+| `0_salud` | `fallando_desde` vacío en los dos ETL; las dos clases con señal para todos sus activos; fallos de la semana; credenciales que caducan en menos de 60 días (lo normal es que no salga ninguna) | Panel «Salud del sistema»; RUNBOOK-sprint-4 para el token |
+| `1_estado`, `2_comparativa` | Saldo libre, equity y expectativa en R desde el experimento | Con el saldo libre por debajo de 10 $, el agente no abre nada |
+| `3_dias`, `4_ordenes` | Días operables, órdenes y su R | Órdenes con R muy por debajo de −1 (huecos) |
+| `5_tendencia`, `5b_tendencia_cerca` | Que Tendencia cripto decide cada día; qué criptos están sobre su media de 200 y a cuántos ATR de la ruptura | `sin_vela` o `sin_precio` repetidos: faltan velas o precio |
+| `6_stops` | Cuántos stops hay ya con la regla de la 0030 (se revisan al llegar a unos 30) | — |
+| `7_hipotesis` | Veredicto de cada hipótesis y su concordancia (orientativa con menos de 20 entradas) | `hipotesis.yml` no corrió: lanzarlo a mano |
+| `8_backlog` | Lo abierto y lo que se pidió en la semana | Responder con datos; los cambios, al final del experimento |
+| `9_descartes` | El motivo que domina en cada agente | Si cambia de un motivo a otro, la fuente H3 lo propondrá |
+

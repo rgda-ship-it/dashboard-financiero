@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-26 — La revisión de los lunes en una consulta (E3)
+
+### Cambiado
+- `scripts/revision_agentes.sql` pasa a ser la revisión de los lunes: los últimos 7 días por defecto y cuatro secciones nuevas, `0_salud` (los dos ETL, la frescura de las señales, los fallos de la semana y las credenciales que caducan en menos de 60 días), `5b_tendencia_cerca` (cada cripto frente a su media de 200 y a cuántos ATR de la ruptura), `7_hipotesis`, `8_backlog` y `9_descartes`. Funciona con el rol de solo lectura.
+
 ## [Sin publicar] - 2026-10-26 — La concordancia del laboratorio mide con las reglas de hoy
 
 ### Corregido

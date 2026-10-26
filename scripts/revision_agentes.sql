@@ -1,17 +1,24 @@
 -- ─────────────────────────────────────────────────────────────────────
--- Revisión del comportamiento de los agentes desde el 2026-10-09: la
--- semana anterior a la 0042 (cuarentena) y lo que ha pasado después.
+-- Revisión de los lunes (E3, doc fase-3/07 §6): todo lo que hay que mirar
+-- cada semana, en una sola consulta de solo lectura.
+--
+--     python scripts/consultar.py -f scripts/revision_agentes.sql
 --
 -- Una sola consulta y una sola tabla (el editor de Supabase solo devuelve
--- el resultado de la última sentencia), de solo lectura. Columnas:
---   seccion  1_estado | 2_comparativa | 3_dias | 4_ordenes | 5_tendencia | 6_stops
---   agente   nombre del agente
+-- el resultado de la última sentencia). Funciona con `analista_lectura`:
+-- no llama a `rpc_salud_sistema` (solo admin), lee sus mismas tablas.
+-- Columnas:
+--   seccion  0_salud | 1_estado | 2_comparativa | 3_dias | 4_ordenes
+--            | 5_tendencia | 5b_tendencia_cerca | 6_stops | 7_hipotesis
+--            | 8_backlog | 9_descartes
+--   agente   nombre del agente (o «sistema»)
 --   clave    fecha, símbolo u orden, según la sección
 --   detalle  JSON con los datos
--- Para cambiar la fecha de inicio, editar `desde` en la primera CTE.
+-- Por defecto, los últimos 7 días. Para otro periodo, editar `desde` en
+-- la primera CTE (p. ej. date '2026-10-09').
 -- ─────────────────────────────────────────────────────────────────────
 with
-p as (select date '2026-10-09' as desde),
+p as (select current_date - 7 as desde),
 ag as (
     select a.id, a.nombre, a.tipo, c.id as cuenta_id
       from public.agentes a
@@ -38,6 +45,42 @@ ord as (
        and (o.fecha_entrada >= (select desde from p) or o.fecha_salida >= (select desde from p)
             or o.estado = 'abierta')
 )
+-- 0045: lo mismo que el panel «Salud del sistema». Un `fallando_desde`
+-- no nulo, una clase con señales viejas o fallos en la semana son lo
+-- primero que hay que mirar.
+select '0_salud' as seccion, 'sistema' as agente, 'etl ' || d.clave as clave,
+       jsonb_build_object('ultimo_disparo', d.ultimo, 'estado_http', d.estado_http,
+                          'fallando_desde', d.fallando_desde)::text as detalle
+  from public.control_despachos d
+ where d.clave in ('etl-acciones.yml', 'etl-cripto.yml')
+
+union all
+select '0_salud', 'sistema', 'señales ' || a.clase,
+       jsonb_build_object('activos', count(*), 'con_senal', count(s.calculado_en),
+                          'ultima', max(s.calculado_en), 'la_mas_vieja', min(s.calculado_en))::text
+  from public.activos a
+  left join public.senales_vigentes s on s.activo_id = a.id
+ where a.estado = 'activo'
+ group by a.clase
+
+union all
+select '0_salud', coalesce(g.nombre, 'sistema'), 'fallos de la semana',
+       jsonb_build_object('fallos', count(*), 'ultimo', max(e.creado_en),
+                          'ultimo_mensaje', (array_agg(e.mensaje order by e.id desc))[1])::text
+  from public.eventos_sistema e
+  left join public.agentes g on g.id = e.agente_id
+ where e.tipo = 'fallo' and e.creado_en >= (select desde from p)
+ group by g.nombre
+
+union all
+-- 0050: solo las que caducan en menos de 60 días (o ya caducaron).
+select '0_salud', 'sistema', 'credencial ' || c.nombre,
+       jsonb_build_object('caduca_en', c.caduca_en, 'dias', c.caduca_en - current_date,
+                          'donde', c.donde, 'renovar', c.renovar)::text
+  from public.credenciales c
+ where c.caduca_en is not null and c.caduca_en - current_date < 60
+
+union all
 select '1_estado' as seccion, a.nombre as agente, a.tipo as clave,
        jsonb_build_object('estado', a.estado, 'riesgo_reducido', a.riesgo_reducido,
                           'consecuencias_semanales', a.consecuencias_semanales,
@@ -87,6 +130,22 @@ select '5_tendencia', ag.nombre, d.fecha_vela::text,
  group by ag.nombre, d.fecha_vela
 
 union all
+-- Tendencia cripto (doc 07): con la última vela decidida, lo cerca que
+-- está cada cripto de entrar. Entra con el cierre sobre la media de 200 y
+-- sobre el máximo de la ruptura; `atr_a_ruptura` es cuánto le falta.
+select '5b_tendencia_cerca', ag.nombre, a.simbolo,
+       jsonb_build_object('fecha_vela', d.fecha_vela, 'accion', d.accion,
+                          'sobre_media_200', (d.datos ->> 'cierre')::numeric > (d.datos ->> 'sma')::numeric,
+                          'atr_a_ruptura', round(((d.datos ->> 'max_ruptura')::numeric - (d.datos ->> 'cierre')::numeric)
+                                                 / nullif((d.datos ->> 'atr')::numeric, 0), 2),
+                          'cierre', d.datos -> 'cierre', 'max_ruptura', d.datos -> 'max_ruptura')::text
+  from public.agente_decisiones_diarias d
+  join ag on ag.id = d.agente_id
+  join public.activos a on a.id = d.activo_id
+ where d.fecha_vela = (select max(fecha_vela) from public.agente_decisiones_diarias x
+                        where x.agente_id = d.agente_id)
+
+union all
 -- 0048: qué pasó después de cada stop. Solo cuentan para la regla de hoy
 -- los de entradas desde la 0030 (10-10): antes, el stop iba a 0,1 ATR.
 select '6_stops', coalesce(s.agente, 'usuario'),
@@ -97,5 +156,42 @@ select '6_stops', coalesce(s.agente, 'usuario'),
   from public.v_seguimiento_stops s
  where s.fecha_salida >= (select desde from p)
  group by s.agente, s.fecha_entrada >= timestamptz '2026-10-10', s.evento
+
+union all
+-- 0046: las hipótesis de la semana y su veredicto. Ojo a la concordancia:
+-- con menos de 20 entradas reales el veredicto es orientativo.
+select '7_hipotesis', ag.nombre, h.semana || ' #' || h.id,
+       jsonb_build_object('enunciado', left(h.enunciado, 140), 'estado', h.estado,
+                          'cambio', h.experimento -> 'cambio',
+                          'mejora_r', h.resultado -> 'mejora_r', 'percentil_azar', h.resultado -> 'percentil_azar',
+                          'motivos', h.resultado -> 'motivos',
+                          'concordancia', h.resultado #>> '{concordancia,texto}',
+                          'informe', h.informe_url)::text
+  from public.agente_hipotesis h
+  join ag on ag.id = h.agente_id
+ where h.creado_en >= (select desde from p) or h.actualizado_en >= (select desde from p)
+
+union all
+-- El backlog: lo abierto, y lo que pidieron (aunque esté cerrado) esta semana.
+select '8_backlog', coalesce((select string_agg(x.nombre, ', ') from public.agentes x
+                               where x.id = any(b.agentes_solicitantes)), '—'),
+       b.estado || ' · ' || b.titulo,
+       jsonb_build_object('id', b.id, 'ocurrencias', b.ocurrencias,
+                          'descripcion', b.descripcion, 'resolucion', left(b.resolucion, 160),
+                          'actualizado_en', b.actualizado_en)::text
+  from public.agente_backlog b
+ where b.estado in ('nuevo', 'en_revision') or b.actualizado_en >= (select desde from p)
+
+union all
+-- 0047: por qué no entraron. Los motivos que dominan son los candidatos a
+-- la fuente H3 (y a «El filtro X me deja sin operar»).
+select '9_descartes', ag.nombre, d.motivo,
+       -- Una fila de `agente_descartes` es un activo y un día, no un ciclo.
+       jsonb_build_object('activo_dias', count(*), 'activos', count(distinct d.activo_id),
+                          'dias', count(distinct d.fecha))::text
+  from public.agente_descartes d
+  join ag on ag.id = d.agente_id
+ where d.fecha >= (select desde from p)
+ group by ag.nombre, d.motivo
 
 order by 1, 2, 3;
