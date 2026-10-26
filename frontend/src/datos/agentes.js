@@ -24,6 +24,11 @@ async function llamar(consulta) {
 /** Salud del sistema (0045, solo admin): disparos del ETL, señales y ciclos. */
 export const leerSalud = () => llamar(supabase.rpc("rpc_salud_sistema"));
 
+/** Anota la nueva caducidad de una credencial tras renovarla (0050, solo
+ *  admin y auditado). `null` = ya no caduca. */
+export const renovarCredencial = (nombre, caducaEn) =>
+  llamar(supabase.rpc("rpc_credencial_renovada", { p_nombre: nombre, p_caduca_en: caducaEn || null }));
+
 export const leerRanking = () =>
   llamar(supabase.from("v_ranking_agentes").select("*").order("agente_id"));
 

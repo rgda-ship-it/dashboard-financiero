@@ -46,3 +46,8 @@ select vault.update_secret(
   (select id from vault.secrets where name = 'github_pat_altas'),
   'PEGA_AQUI_EL_TOKEN_NUEVO');
 ```
+
+Después, en **Administración → Salud del sistema**, pulsa «Renovada» en
+`github_pat_altas` y escribe la fecha de caducidad que muestra GitHub. Así
+se rearma el aviso de 14 días (0050). Si no se anota, el panel seguirá
+avisando de la fecha antigua.
