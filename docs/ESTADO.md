@@ -97,7 +97,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| ⏭️ 👤 | **Decidir el tope de fecha del experimento** y qué pasa con los agentes con metas al acabar (doc fase-3/08 §4.1–4.2) | Propuesta: 2027-04-30; al acabar, juzgarlos por expectativa en R, caída y batir al mercado, no por la meta diaria |
+| 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
 | ⏭️ 👤 | **¿Congelar los ajustes automáticos** durante el experimento? (doc fase-3/08 §4.2) | El 15-10 Audacia y Cadencia apagaron solas el deterioro. Propuesta: congelarlos mientras `consecuencias_semanales = false` y dejar los dos del 15-10 como están |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
@@ -118,7 +118,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
-| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
+| 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) o el **2027-04-30**, lo que llegue antes | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
 | 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
 
 ### 3.2 Laboratorio de estrategias (doc 06)
@@ -155,6 +155,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ✅ 👤 | Tope de fecha del experimento: **2027-04-30** (decisión del dueño, 2026-10-27) | El experimento acaba a las 30 operaciones de Tendencia cripto o el 2027-04-30, lo que llegue antes. Si no hay 30, se juzga con las que haya y con el laboratorio de ese periodo (doc fase-3/08 §4.2) |
 | ✅ | Diagnóstico del comportamiento del 13 al 24-10 | Doc fase-3/00 §2: 7 problemas (P1–P7) |
 | ✅ 👤 | Renovar el token `github_pat_altas` de Vault (renovado el 2026-10-24) | Comprobado: GitHub responde 204 desde el disparo de las 13:07 UTC y el ETL de cripto vuelve a correr cada hora. Caducó el 23-10 (GitHub respondía 401). Sin él no corre el ETL desde la BD: el lunes no habría señales de acciones ni precio fresco para las posiciones de acciones. Nuevo token *fine-grained* con **1 año** de caducidad y solo Actions: Read and write; `vault.update_secret` como dice `RUNBOOK-sprint-4.md` («Renovación») |
 | ✅ 👤 | Aplicar la 0045 (E1, salud del sistema; aplicada el 2026-10-24) | Incluye: <br>• la toma parcial se salta la posición que no se parte en unidades enteras (I93); <br>• cada disparo del ETL guarda su petición y la pasada siguiente lee la respuesta: un `fallo` por episodio y un `etl` al recuperarse (I94); <br>• `rpc_salud_sistema` y el panel «Salud del sistema» en Administración; <br>• `analista_lectura` lee todo `public`, también lo que se cree después, y ejecuta las funciones no volátiles (I95) |
