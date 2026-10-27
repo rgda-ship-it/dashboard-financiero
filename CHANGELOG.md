@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-27 — Fecha de fin del experimento
+
+### Decidido
+- El experimento acaba a las 30 operaciones de Tendencia cripto o el **2027-04-30**, lo que llegue antes (decisión del dueño). Se refleja en `ESTADO.md`, `SISTEMA-HOY.md` y el doc fase-3/08.
+
 ## [Sin publicar] - 2026-10-27 — Qué falta para cumplir los objetivos (doc fase-3/08)
 
 ### Añadido

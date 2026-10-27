@@ -33,7 +33,7 @@ dinero real.
 ### 2.1 Grupo de control: agentes con metas diarias
 
 Siguen como **grupo de control** mientras dura el experimento (doc
-fase-2/06 §2): sus reglas no se cambian a mano. Lo validado en el
+fase-2/06 §2; acaba como tarde el **2027-04-30**): sus reglas no se cambian a mano. Lo validado en el
 laboratorio se guarda para el final (ESTADO §3.0).
 
 | | Prudencia | Cadencia | Audacia |
@@ -81,7 +81,7 @@ Común a los tres:
 | Riesgo | 1 % por operación, a 1×, hasta 10 posiciones |
 | Cuándo decide | Una vez por cripto y día, con la vela de ayer, de 01:20 a 07:20 UTC |
 | Pausa | Si la caída desde el máximo supera el 35 % |
-| Veredicto | A las 30 operaciones (doc 07 §6) |
+| Veredicto | A las 30 operaciones (doc 07 §6) o el **2027-04-30**, lo que llegue antes; si no hay 30, con las que haya |
 
 ## 3. Datos y tareas programadas
 

@@ -103,7 +103,7 @@ Cada brecha dice si es **técnica** (🔧, se construye) o una **decisión**
   14 criptos). Pero en un mercado bajista no entra: en 15 días, 0. Si
   sigue así, el experimento no acaba nunca, y con él quedan en espera las
   Entregas B, C y E, los tres cambios validados y el agente de cartera.
-  **Propuesta**: un tope de tiempo, por ejemplo el **2027-04-30**. Si para
+  **Decidido** (dueño, 2026-10-27): tope el **2027-04-30**. Si para
   entonces no hay 30 operaciones, se juzga con las que haya y con el
   laboratorio de ese periodo.
 - **El control se mueve solo** 🔧👤: los ajustes automáticos de la 0016
