@@ -111,11 +111,10 @@ Cada brecha dice si es **técnica** (🔧, se construye) o una **decisión**
   deterioro; la de Cadencia se apoyó sobre todo en salidas de antes de la
   0043, cuando bastaba una lectura. Eso contradice el principio 2 de la
   Fase 3 («el grupo de control no cambia de reglas»).
-  **Propuesta**: congelar los ajustes automáticos mientras
+  **Decidido** (dueño, 2026-10-27; 0052): congelar los ajustes automáticos mientras
   `consecuencias_semanales = false` (una migración pequeña con su
-  invariante), y decidir si se deshacen los dos del 15-10 o se dejan
-  documentados (hoy lo están en `CRONOLOGIA.md`). Yo los dejaría: volver
-  atrás también es cambiar las reglas.
+  invariante, I102), y dejar los dos del 15-10 como están, documentados
+  en `CRONOLOGIA.md`: volver atrás también es cambiar las reglas.
 
 ### 4.3 Juzgar requiere más operaciones de las que hay
 

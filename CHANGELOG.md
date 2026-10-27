@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-27 — Ajustes automáticos congelados durante el experimento (0052)
+
+### Cambiado
+- `fn_ajustar_parametros` no cambia la estrategia de un agente con `consecuencias_semanales = false` (decisión del dueño, doc fase-3/08 §4.2). Las decisiones se siguen registrando y resolviendo; al acabar el experimento se ajusta con toda la evidencia. Los dos ajustes del 15-10 se quedan. Ese día Prudencia estaba a dos salidas de apagar el deterioro y Cadencia a dos rotaciones de bajar su umbral. Invariante I102.
+
 ## [Sin publicar] - 2026-10-27 — Fecha de fin del experimento
 
 ### Decidido
