@@ -67,9 +67,11 @@ Común a los tres:
 - **Cuarentena y riesgo reducido suspendidos** durante el experimento
   (`consecuencias_semanales = false`, 0042): el corte semanal calcula la
   nota pero no la aplica.
-- **Siguen aprendiendo solos** (0016, 0024): con 10 decisiones resueltas
-  pueden cambiar su rotación, toma parcial, reparto o deterioro. Ver
-  `CRONOLOGIA.md` §4.
+- **Ajustes automáticos congelados** (0052): con las consecuencias
+  suspendidas no cambian solos su rotación, toma parcial ni deterioro.
+  Las decisiones se siguen registrando y resolviendo; al acabar el
+  experimento se ajustan con toda esa evidencia (0016, 0024). Los dos
+  ajustes del 15-10 se quedan. Ver `CRONOLOGIA.md` §4.
 
 ### 2.2 Experimento: Tendencia cripto (doc fase-2/07)
 

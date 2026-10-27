@@ -33,14 +33,14 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I101), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I102), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
 - Nunca se pegan en el chat tokens, claves ni contraseñas.
 - Los agentes con metas **no se cambian a mano mientras dure el
-  experimento** (grupo de control). Ojo: sus ajustes automáticos siguen
-  activos (`CRONOLOGIA.md` §4).
+  experimento** (grupo de control). Sus ajustes automáticos están
+  congelados desde la 0052 (`CRONOLOGIA.md` §4).
 - Los parámetros de una estrategia validada no se cambian sin repetir el
   laboratorio y la prueba de robustez.
 - Un análisis de datos de producción dice desde qué fecha los toma
@@ -98,7 +98,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| ⏭️ 👤 | **¿Congelar los ajustes automáticos** durante el experimento? (doc fase-3/08 §4.2) | El 15-10 Audacia y Cadencia apagaron solas el deterioro. Propuesta: congelarlos mientras `consecuencias_semanales = false` y dejar los dos del 15-10 como están |
+| ⏭️ 👤 | **Aplicar la 0052**: ajustes automáticos congelados durante el experimento | Tras aplicarla, ningún agente con `consecuencias_semanales = false` cambia su estrategia solo. Invariante I102 |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
@@ -155,6 +155,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ✅ 👤 | Congelar los ajustes automáticos durante el experimento (decisión del dueño, 2026-10-27; 0052) | `fn_ajustar_parametros` no cambia nada mientras `consecuencias_semanales = false`; las decisiones se siguen registrando y resolviendo, y al acabar se ajusta con toda la evidencia. Los dos ajustes del 15-10 se quedan. Ese día Prudencia estaba a 2 salidas de apagar el deterioro (8 de 10, efecto medio negativo) y Cadencia a 2 rotaciones de bajar el umbral a 1,4 |
 | ✅ 👤 | Tope de fecha del experimento: **2027-04-30** (decisión del dueño, 2026-10-27) | El experimento acaba a las 30 operaciones de Tendencia cripto o el 2027-04-30, lo que llegue antes. Si no hay 30, se juzga con las que haya y con el laboratorio de ese periodo (doc fase-3/08 §4.2) |
 | ✅ | Diagnóstico del comportamiento del 13 al 24-10 | Doc fase-3/00 §2: 7 problemas (P1–P7) |
 | ✅ 👤 | Renovar el token `github_pat_altas` de Vault (renovado el 2026-10-24) | Comprobado: GitHub responde 204 desde el disparo de las 13:07 UTC y el ETL de cripto vuelve a correr cada hora. Caducó el 23-10 (GitHub respondía 401). Sin él no corre el ETL desde la BD: el lunes no habría señales de acciones ni precio fresco para las posiciones de acciones. Nuevo token *fine-grained* con **1 año** de caducidad y solo Actions: Read and write; `vault.update_secret` como dice `RUNBOOK-sprint-4.md` («Renovación») |

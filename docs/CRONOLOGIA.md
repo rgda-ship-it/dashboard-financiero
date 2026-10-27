@@ -43,6 +43,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-10-24 | 0045: la toma parcial se salta la posición de 1 acción (antes deshacía el ciclo) | Fallos de ciclo |
 | 2026-10-24 | 0046–0047: hipótesis semanales y registro de descartes | — (nacen aquí) |
 | 2026-10-25 | 0048–0049: seguimiento tras el stop; ADX y media de 20 (el ETL los escribe desde ese día) | — |
+| 2026-10-27 (al aplicarla) | 0052: ajustes automáticos congelados mientras `consecuencias_semanales = false` | — (las reglas dejan de moverse solas) |
 | 2026-10-26 | 0050–0051: credenciales; backlog revisado | Backlog: «Ampliar el universo» ya no salta por el R:R |
 
 ## 2. Incidentes que dejan huecos en los datos
@@ -64,13 +65,14 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 ## 4. Mecanismos que cambian las reglas solos
 
 Aunque el grupo de control no se toca a mano durante el experimento, hay
-tres cosas que **sí cambian** su comportamiento sin que nadie lo decida:
+tres cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
 
 1. **Ajustes automáticos (0016, 0024)**: con 10 decisiones resueltas de
    un tipo, el agente cambia por su cuenta la rotación, la toma parcial,
    el reparto o la salida por deterioro, según su efecto medio. Quedan en
    `agente_ajustes` y suben la versión de la estrategia. Hasta hoy, solo
-   los dos del 15-10.
+   los dos del 15-10. **Congelados desde la 0052** mientras
+   `consecuencias_semanales = false`: vuelven al acabar el experimento.
 2. **Fase 1 / Fase 2**: una cuenta pasa sola a Fase 2 (tope 3×) al cumplir
    su criterio, y vuelve a Fase 1 solo a mano (regla protegida nº5).
 3. **Pausa por caída** de Tendencia cripto (35 %, 0039).

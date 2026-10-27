@@ -5425,6 +5425,52 @@ end
 $i101$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I102 · Ajustes automáticos congelados durante el experimento (0052).
+--
+-- Con las consecuencias suspendidas, diez decisiones en contra no cambian
+-- la estrategia ni dejan ajuste; al volver las consecuencias, la misma
+-- evidencia sí la cambia.
+-- ═════════════════════════════════════════════════════════════════════
+do $i102$
+declare
+    v_ag bigint;
+    v_n  int;
+begin
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+        values ('prueba-congelado', 2, 'pausado', '{"salida_deterioro": true}', false) returning id into v_ag;
+        insert into public.agente_decisiones (agente_id, tipo, parametro, efecto, resuelta_en)
+        select v_ag, 'deterioro', '{"salida_deterioro": true}', -5, now() from generate_series(1, 10);
+
+        -- El ajuste va aparte: la misma consulta no vería lo que cambia.
+        v_n := public.fn_ajustar_parametros(v_ag);
+        if v_n <> 0
+           or (select estrategia ->> 'salida_deterioro' from public.agentes where id = v_ag) <> 'true'
+           or exists (select 1 from public.agente_ajustes where agente_id = v_ag) then
+            raise exception 'I102 FALLO: con las consecuencias suspendidas el agente se ajustó solo';
+        end if;
+
+        update public.agentes set consecuencias_semanales = true where id = v_ag;
+        -- Puede ajustar más de un parámetro: la toma parcial aprende también
+        -- de las decisiones de otros agentes de las invariantes anteriores.
+        v_n := public.fn_ajustar_parametros(v_ag);
+        if v_n < 1
+           or (select estrategia ->> 'salida_deterioro' from public.agentes where id = v_ag) <> 'false'
+           or not exists (select 1 from public.agente_ajustes where agente_id = v_ag and tipo = 'deterioro') then
+            raise exception 'I102 FALLO: al volver las consecuencias debía ajustarse con la evidencia acumulada: %',
+                            (select estrategia from public.agentes where id = v_ag);
+        end if;
+        raise exception 'I102 OK';
+    exception when others then
+        if sqlerrm <> 'I102 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I102 los ajustes automáticos se congelan con las consecuencias suspendidas y usan la evidencia al volver';
+end
+$i102$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
