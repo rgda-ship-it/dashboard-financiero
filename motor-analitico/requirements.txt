@@ -8,6 +8,8 @@ pandas>=2.2.0
 # nada falle de forma visible.
 pandas-ta==0.4.71b0
 requests>=2.31.0
+# Fechas de resultados de Yahoo en el laboratorio (`datos.cargar_resultados`).
+lxml>=5.0
 pytest>=8.0.0
 fastapi>=0.110.0
 uvicorn>=0.29.0

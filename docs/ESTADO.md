@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (323 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I103), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (326 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I103), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -98,7 +98,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| 🗓️ | Fundamentales en el laboratorio: no entrar antes de resultados; después, calidad y valor con SEC EDGAR (doc fase-3/09 §4.2) | Gratis y con fecha de publicación, sin mirar el futuro |
+| 🗓️ | Fundamentales en el laboratorio: calidad y valor con SEC EDGAR (doc fase-3/09 §4.2) | Gratis y con fecha de publicación, sin mirar el futuro. EDGAR pide un `User-Agent` con un correo de contacto: el dueño decide cuál |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
@@ -155,6 +155,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ❌ | No entrar antes de resultados en acciones (doc fase-3/09 §7), 2026-10-31 | Refutado en las 36 variantes (3, 5, 10 y 15 sesiones; tres agentes; producción a 10 y 5 años y S&P 100). Lo más cerca, Cadencia con 5 sesiones: +0,05 R justo por debajo del mínimo. A Audacia los resultados le favorecen. Los filtros `sin_resultados_*` quedan en el laboratorio |
 | ❌ | Freno por choque de mercado en cripto (doc fase-3/09 §6), 2026-10-31 | Refutado: no abrir cripto tras caer bitcoin un 3, 5 o 7 % (pausa de 2 o 5 días) no mejora a nadie en validación. A Tendencia cripto no le cambia nada; en los agentes con metas, lo que quita es peor que el resto, pero compran el mismo retroceso días después. Los filtros `sin_choque_*` quedan en el laboratorio |
 | ✅ 👤 | Aplicar la 0053 (aplicada el 2026-10-31) | Comprobado: Prudencia vuelve a salir por deterioro (versión 10) y el ajuste manual está registrado |
 | ✅ 👤 | Aplicar la 0052 (aplicada el 2026-10-31) | Comprobado: `fn_ajustar_parametros` ya mira `consecuencias_semanales` |

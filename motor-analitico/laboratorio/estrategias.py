@@ -459,6 +459,11 @@ FILTROS_LABORATORIO = {
     # anterior. Sin la columna, o sin dato ese día, no bloquea.
     **{f"sin_choque_{x}": (lambda x: lambda f: not f.get("MERCADO_PEOR_2", np.nan) <= -x)(x)
        for x in (3, 4, 5, 7)},
+    # No entrar antes de resultados (doc fase-3/09 §4.2): ni si la sesión de
+    # la entrada o alguna de las N−1 siguientes reacciona a unos resultados
+    # (`datos.con_resultados`). Sin la columna, o sin fechas, no bloquea.
+    **{f"sin_resultados_{n}": (lambda n: lambda f: not 1 <= f.get("SESIONES_A_RESULTADOS", np.nan) <= n)(n)
+       for n in (3, 5, 10, 15)},
 }
 
 _RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}
