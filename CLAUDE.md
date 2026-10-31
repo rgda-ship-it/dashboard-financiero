@@ -6,7 +6,7 @@
   (cómo funciona ahora) y `docs/ESTADO.md` (lo abierto).
 - **Antes de dar algo por fallo o sacar conclusiones de datos de
   producción**: `docs/CRONOLOGIA.md`. Las reglas cambiaron muchas veces
-  (la 0030 el 10-10, la 0043 el 17-10, ajustes automáticos el 15-10) y
+  (la 0030 el 10-10, la 0043 el 17-10, ajustes automáticos el 15-10 y el 29-10) y
   mezclar datos de reglas distintas ha producido falsas alarmas una y
   otra vez. Todo análisis dice desde qué fecha toma los datos.
 - **Producción**: solo lectura, con `scripts/consultar.py` (rol

@@ -42,6 +42,7 @@ entender el pasado. Cada documento lleva su vigencia en la cabecera.
 | [`fase-3/06`](fase-3/06-adx-completo.md) | Lo que faltaba del ADX; Santo Grial en cripto | Vigente |
 | [`fase-3/07`](fase-3/07-revision-del-backlog.md) | Backlog revisado (E3), concordancia, revisión de los lunes | Vigente |
 | [`fase-3/08`](fase-3/08-que-falta.md) | Qué falta para cumplir los objetivos (2026-10-27) | Vigente |
+| [`fase-3/09`](fase-3/09-hackeo-binance-y-fundamentales.md) | El hackeo a Binance (29-10); fundamentales gratuitos | Vigente |
 
 ### Fase 2 (2026-09-20 → 10-13): la nube, el simulador y los agentes
 
