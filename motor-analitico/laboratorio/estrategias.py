@@ -72,12 +72,14 @@ class Tendencia:
     nombre = "tendencia"
 
     def __init__(self, ruptura: int = 20, salida: int = 10, stop_atr: float = 2.0, sigue_atr: float = 3.0,
-                 adx_min: float = 0.0):
+                 adx_min: float = 0.0, filtro: str = ""):
         self.ruptura, self.salida = ruptura, salida
         self.stop_atr, self.sigue_atr = stop_atr, sigue_atr
         # Doc fase-3/06: con `adx_min` > 0, la ruptura solo vale si el ADX
         # supera ese nivel y sube (más alto que hace 3 días).
         self.adx_min = adx_min
+        # Doc fase-3/09: `filtro`, como en `Agente`, con los FILTROS_LABORATORIO.
+        self.filtro = str(filtro or "")
 
     def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
@@ -100,7 +102,8 @@ class Tendencia:
         if any(pd.isna(fila[k]) for k in ("SMA_200", "ATR_14", "MAX_RUPTURA")):
             return None
         if (fila["Close"] > fila["MAX_RUPTURA"] and fila["Close"] > fila["SMA_200"]
-                and self._adx_valida(df, t)):
+                and self._adx_valida(df, t)
+                and not (self.filtro and not cumple(fila, self.filtro, FILTROS_LABORATORIO))):
             return Entrada(sl=float(fila["Close"] - self.stop_atr * fila["ATR_14"]))
         return None
 
@@ -451,6 +454,11 @@ FILTROS_LABORATORIO = {
     "adx_subiendo": lambda f: f["ADX_14"] > f["ADX_14_HACE_3"],
     "adx_no_agotado": lambda f: f["ADX_14"] <= 40,
     "adx_20_40": lambda f: 20 <= f["ADX_14"] <= 40,
+    # Freno por choque de mercado (doc fase-3/09 §4.1): no entra si el
+    # mercado (bitcoin, `datos.con_mercado`) cayó más de un X % ese día o el
+    # anterior. Sin la columna, o sin dato ese día, no bloquea.
+    **{f"sin_choque_{x}": (lambda x: lambda f: not f.get("MERCADO_PEOR_2", np.nan) <= -x)(x)
+       for x in (3, 4, 5, 7)},
 }
 
 _RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}

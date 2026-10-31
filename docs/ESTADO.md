@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I103), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (323 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I103), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -98,8 +98,6 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| ⏭️ 👤 | **Aplicar la 0053**: Prudencia vuelve a salir por deterioro (decisión del dueño, 2026-10-31) | Deshace su ajuste automático del 29-10, hecho con 7 de 10 decisiones de antes de la 0043. Queda en `agente_ajustes` como manual: al descongelar, su deterioro se juzga solo con decisiones posteriores. Invariante I103 |
-| ⏭️ | Freno por choque de mercado en cripto, en el laboratorio (doc fase-3/09 §5) | Solo precios. Sin decisiones pendientes |
 | 🗓️ | Fundamentales en el laboratorio: no entrar antes de resultados; después, calidad y valor con SEC EDGAR (doc fase-3/09 §4.2) | Gratis y con fecha de publicación, sin mirar el futuro |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
@@ -157,6 +155,8 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ❌ | Freno por choque de mercado en cripto (doc fase-3/09 §6), 2026-10-31 | Refutado: no abrir cripto tras caer bitcoin un 3, 5 o 7 % (pausa de 2 o 5 días) no mejora a nadie en validación. A Tendencia cripto no le cambia nada; en los agentes con metas, lo que quita es peor que el resto, pero compran el mismo retroceso días después. Los filtros `sin_choque_*` quedan en el laboratorio |
+| ✅ 👤 | Aplicar la 0053 (aplicada el 2026-10-31) | Comprobado: Prudencia vuelve a salir por deterioro (versión 10) y el ajuste manual está registrado |
 | ✅ 👤 | Aplicar la 0052 (aplicada el 2026-10-31) | Comprobado: `fn_ajustar_parametros` ya mira `consecuencias_semanales` |
 | ✅ | Documentar el hackeo a Binance del 29-10 (doc fase-3/09, `CRONOLOGIA.md` §5) | Todo cripto cayó a la vez; los stops salieron a su nivel; la primera operación de Tendencia cripto fue una ruptura falsa de tron en pleno suceso |
 | ✅ 👤 | Congelar los ajustes automáticos durante el experimento (decisión del dueño, 2026-10-27; 0052) | `fn_ajustar_parametros` no cambia nada mientras `consecuencias_semanales = false`; las decisiones se siguen registrando y resolviendo, y al acabar se ajusta con toda la evidencia. Los dos ajustes del 15-10 se quedan. Ese día Prudencia estaba a 2 salidas de apagar el deterioro (8 de 10, efecto medio negativo) y Cadencia a 2 rotaciones de bajar el umbral a 1,4 |

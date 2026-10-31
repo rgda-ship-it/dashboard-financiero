@@ -145,10 +145,49 @@ precios.
 
 | # | Qué | Datos | Esfuerzo |
 |---|---|---|---|
-| 1 | **Freno por choque de mercado** en cripto, en el laboratorio | Ninguno nuevo | Pequeño |
+| 1 | ~~**Freno por choque de mercado** en cripto, en el laboratorio~~ | Ninguno nuevo | Hecho: **refutado** (§6) |
 | 2 | **No entrar antes de resultados** en acciones, en el laboratorio | Fechas de EDGAR | Pequeño |
 | 3 | **Calidad y valor** (rentabilidad, deuda, beneficio/precio) en acciones, en el laboratorio | EDGAR XBRL con fecha de publicación | Medio: descarga, tabla y alineación por fecha |
 | 4 | Miedo y codicia y TVL **como contexto** en el escáner | alternative.me, DefiLlama | Pequeño; no decide nada |
 
 Lo que pase el laboratorio se guarda para el final del experimento, como
 los tres cambios validados que ya esperan.
+
+## 6. Resultado: el freno por choque, en el laboratorio (2026-10-31)
+
+**Qué se probó**: no abrir posiciones de cripto si bitcoin cayó más de un
+3, 5 o 7 % en el día, con una pausa de 2 días (ese día y el siguiente) o
+de 5. Sobre las 14 criptos de producción, a 10 y 5 años, en Tendencia
+cripto y en los tres agentes con metas con sus estrategias de hoy
+(Prudencia en su versión 10). Criterio de siempre: mejora ≥ +0,05 R, IC90
+sin el cero, ≥ 30 operaciones y percentil ≥ 90 frente al azar.
+Código: `datos.con_mercado` y los filtros `sin_choque_3/4/5/7`.
+
+**Veredicto: refutado en todas las variantes.** Ninguna mejora la
+expectativa en validación en +0,05 R con el intervalo por encima de cero.
+
+| Quién | Lo mejor que dio | Por qué no vale |
+|---|---|---|
+| Tendencia cripto | 10 años, −5 %, 5 días: +0,87 R frente a +0,86 R | No cambia nada: una ruptura del máximo de 20 días casi nunca coincide con un desplome. A 10 años, con −3 % y 2 días, las que quitaría ganaban **+1,43 R**: el freno le quita rupturas buenas |
+| Prudencia | 10 años, −5 %, 2 días: −0,10 R frente a −0,12 R | +0,02 R, y sigue en negativo |
+| Cadencia | — | Menos de 30 operaciones de cripto en validación |
+| Audacia | 10 años, −3 %, 5 días: +0,00 R frente a −0,09 R | Mejora, pero el intervalo incluye el cero y solo supera al 55 % del azar; a 5 años, la misma variante empeora (−0,01 R frente a +0,05 R) |
+
+**La pista que queda**: en los agentes con metas, las entradas que el
+freno bloquea (umbral −5 %) son claramente peores que el resto en todo el
+periodo: −0,31 frente a −0,06 R en Prudencia y −0,33 frente a +0,05 R en
+Audacia (percentil 98–99 frente a quitar las mismas al azar). Comprar un
+retroceso justo después de un desplome sale mal. Pero no se traduce en
+mejora en la validación: con el freno, el agente compra el mismo retroceso
+unos días después, y el resultado es parecido. Es coherente con todo lo
+anterior: sus entradas no tienen ventaja, y quitar una parte no la crea.
+
+**El 30-10**: con −3 % y 2 días, el freno habría evitado las tres
+entradas en tron (bitcoin cayó un 4,2 % el 29-10); con −5 %, ninguna. Un
+caso que el freno habría salvado no compensa lo que quita en diez años.
+
+**Conclusión**: no se propone. El freno queda en el laboratorio (los
+filtros `sin_choque_*`) por si una estrategia futura lo necesita. El
+riesgo de un suceso como el hackeo se sigue gestionando con el stop y el
+riesgo por clase (G6, D22).
+

@@ -52,6 +52,18 @@ def con_spread(df: pd.DataFrame, simbolo: str, clase: str) -> pd.DataFrame:
     return df
 
 
+def con_mercado(df: pd.DataFrame, mercado: pd.DataFrame) -> pd.DataFrame:
+    """Añade lo que hizo el mercado (doc fase-3/09 §4.1; en cripto, bitcoin)
+    cada día: MERCADO_RET, su variación del cierre en %, y MERCADO_PEOR_2, la
+    peor de ese día y el anterior. Un día sin dato del mercado queda en NaN
+    y los filtros de choque no lo bloquean."""
+    df = df.copy()
+    ret = mercado["Close"].pct_change() * 100
+    df["MERCADO_RET"] = ret.reindex(df.index)
+    df["MERCADO_PEOR_2"] = ret.rolling(2).min().reindex(df.index)
+    return df
+
+
 def spread_de(simbolo: str, clase: str):
     """Función precio → spread completo en $ para un activo."""
     if clase == "accion":
