@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-31 — El hackeo a Binance y los fundamentales (doc fase-3/09)
+
+### Añadido
+- Doc fase-3/09: la caída de cripto del 29-10 por el hackeo a Binance, medida en nuestros datos (todo cripto entre −4 y −10 %, salvo tron), y cómo la vivieron los agentes: tres stops a su nivel y tres entradas en el rebote de tron, entre ellas la primera operación de Tendencia cripto (−1 R). Y qué fundamentales se pueden usar gratis: SEC EDGAR con fecha de publicación para acciones; en cripto, un freno por choque de mercado que solo usa precios.
+- `CRONOLOGIA.md` §5, sucesos de mercado.
+
+### Hallazgo
+- **Prudencia apagó sola la salida por deterioro el 29-10**, dos días antes de que se aplicara la 0052 (31-10), con 7 de sus 10 decisiones de antes de la 0043. Con la regla de hoy, esa salida ganaba. Desde entonces ninguno de los tres agentes con metas sale por deterioro.
+
 ## [Sin publicar] - 2026-10-27 — Ajustes automáticos congelados durante el experimento (0052)
 
 ### Cambiado

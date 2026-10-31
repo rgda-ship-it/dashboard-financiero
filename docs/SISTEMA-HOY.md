@@ -6,7 +6,8 @@
 > cambiaron. Si un documento antiguo y este no coinciden, **manda este** y,
 > para lo que pasó entre medias, [`CRONOLOGIA.md`](CRONOLOGIA.md).
 > **Comprobado contra producción**: 2026-10-27 (estrategias de
-> `agentes.estrategia`, tareas de `pg_cron` y workflows).
+> `agentes.estrategia`, tareas de `pg_cron` y workflows); la salida por
+> deterioro y la versión, de nuevo el 2026-10-31.
 > **Cómo mantenerlo**: quien cambie una regla de las de abajo actualiza su
 > fila en el mismo PR.
 
@@ -46,10 +47,10 @@ laboratorio se guarda para el final (ESTADO §3.0).
 | Fuerza de la señal | media o alta | media o alta | media o alta |
 | Origen de los niveles | estructura | estructura o ATR | estructura o ATR |
 | Toma parcial | 50 % a mitad de camino, stop a la entrada | 50 % a mitad de camino | no |
-| Salida por deterioro | **sí** (dos lecturas, 0043) | **no** (la apagó sola el 15-10) | **no** (la apagó sola el 15-10) |
+| Salida por deterioro | **no** (la apagó sola el 29-10, ver doc fase-3/09 §3) | **no** (la apagó sola el 15-10) | **no** (la apagó sola el 15-10) |
 | Umbral de rotación | 2,0 | 1,5 | 1,2 |
 | Apalancamiento propio máximo | 3× | 5× | 5× |
-| Versión de la estrategia | 8 | 9 | 8 |
+| Versión de la estrategia | 9 | 9 | 8 |
 
 Común a los tres:
 
@@ -71,7 +72,7 @@ Común a los tres:
   suspendidas no cambian solos su rotación, toma parcial ni deterioro.
   Las decisiones se siguen registrando y resolviendo; al acabar el
   experimento se ajustan con toda esa evidencia (0016, 0024). Los dos
-  ajustes del 15-10 se quedan. Ver `CRONOLOGIA.md` §4.
+  ajustes de antes (15-10 y 29-10) se quedan. Ver `CRONOLOGIA.md` §4.
 
 ### 2.2 Experimento: Tendencia cripto (doc fase-2/07)
 

@@ -98,7 +98,9 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| ⏭️ 👤 | **Aplicar la 0052**: ajustes automáticos congelados durante el experimento | Tras aplicarla, ningún agente con `consecuencias_semanales = false` cambia su estrategia solo. Invariante I102 |
+| ⏭️ 👤 | **¿Volver a encender la salida por deterioro de Prudencia?** (doc fase-3/09 §3) | La apagó sola el 29-10, dos días antes de la 0052, con evidencia de reglas mezcladas: con la regla de hoy ganaba (+4,04 $ de media en 3). Por defecto se deja, como los dos del 15-10 |
+| ⏭️ | Freno por choque de mercado en cripto, en el laboratorio (doc fase-3/09 §5) | Solo precios. Sin decisiones pendientes |
+| 🗓️ | Fundamentales en el laboratorio: no entrar antes de resultados; después, calidad y valor con SEC EDGAR (doc fase-3/09 §4.2) | Gratis y con fecha de publicación, sin mirar el futuro |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
@@ -117,7 +119,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas | Es para encontrar errores, no para juzgar la ventaja |
+| 🗓️ | Revisión de las primeras 5 operaciones frente al laboratorio en las mismas fechas (1 de 5: tron, 30-10, −1 R) | Es para encontrar errores, no para juzgar la ventaja |
 | 🗓️ | **Veredicto a las 30 operaciones** (unos 6–7 meses) o el **2027-04-30**, lo que llegue antes | Por debajo de 0 R se retira. Entre 0 y +0,10 R, se observa hasta 60. Por encima de +0,10 R, queda validado en vivo. Si la caída supera el 35 %, se pausa y se revisa |
 | 👤 | Decisiones abiertas con valor por defecto (doc 07 §8) | Saldo inicial (500 $ por defecto) y visibilidad para los usuarios (visible por defecto) |
 
@@ -155,6 +157,8 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ✅ 👤 | Aplicar la 0052 (aplicada el 2026-10-31) | Comprobado: `fn_ajustar_parametros` ya mira `consecuencias_semanales` |
+| ✅ | Documentar el hackeo a Binance del 29-10 (doc fase-3/09, `CRONOLOGIA.md` §5) | Todo cripto cayó a la vez; los stops salieron a su nivel; la primera operación de Tendencia cripto fue una ruptura falsa de tron en pleno suceso |
 | ✅ 👤 | Congelar los ajustes automáticos durante el experimento (decisión del dueño, 2026-10-27; 0052) | `fn_ajustar_parametros` no cambia nada mientras `consecuencias_semanales = false`; las decisiones se siguen registrando y resolviendo, y al acabar se ajusta con toda la evidencia. Los dos ajustes del 15-10 se quedan. Ese día Prudencia estaba a 2 salidas de apagar el deterioro (8 de 10, efecto medio negativo) y Cadencia a 2 rotaciones de bajar el umbral a 1,4 |
 | ✅ 👤 | Tope de fecha del experimento: **2027-04-30** (decisión del dueño, 2026-10-27) | El experimento acaba a las 30 operaciones de Tendencia cripto o el 2027-04-30, lo que llegue antes. Si no hay 30, se juzga con las que haya y con el laboratorio de ese periodo (doc fase-3/08 §4.2) |
 | ✅ | Diagnóstico del comportamiento del 13 al 24-10 | Doc fase-3/00 §2: 7 problemas (P1–P7) |
@@ -257,7 +261,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0051_backlog_revisado_e3.sql`. La siguiente es la 0052 |
+| Migración más reciente | `0052_ajustes_congelados_en_el_experimento.sql`. La siguiente es la 0053 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |
