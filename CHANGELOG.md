@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-31 — No entrar antes de resultados en acciones: refutado
+
+### Añadido
+- Laboratorio: `datos.cargar_resultados` (fechas de resultados de Yahoo, con el día en que reacciona el precio), `datos.con_resultados` (sesiones hasta la próxima reacción) y los filtros `sin_resultados_3/5/10/15`. `lxml` en `requirements.txt`, que `yfinance` necesita para esas fechas. Tres pruebas nuevas (326 en total; el suelo de `resumen_tests.py` sube a 326).
+
+### Resultado
+- No abrir una acción si hay resultados en las 3, 5, 10 o 15 sesiones siguientes no mejora a ningún agente en validación (doc fase-3/09 §7). Lo más cerca, Cadencia con 5 sesiones (+0,05 R, justo por debajo del mínimo); a Audacia los resultados le favorecen. No se propone.
+
 ## [Sin publicar] - 2026-10-31 — Freno por choque de mercado en cripto: refutado
 
 ### Añadido

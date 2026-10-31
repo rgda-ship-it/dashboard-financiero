@@ -12,6 +12,7 @@ import os
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -61,6 +62,43 @@ def con_mercado(df: pd.DataFrame, mercado: pd.DataFrame) -> pd.DataFrame:
     ret = mercado["Close"].pct_change() * 100
     df["MERCADO_RET"] = ret.reindex(df.index)
     df["MERCADO_PEOR_2"] = ret.rolling(2).min().reindex(df.index)
+    return df
+
+
+def cargar_resultados(simbolo: str) -> pd.DatetimeIndex | None:
+    """Días en que el precio de una acción reacciona a sus resultados (doc
+    fase-3/09 §4.2), de Yahoo: el mismo día si los publica antes del
+    mediodía de Nueva York; el siguiente si los publica después del cierre.
+    Las fechas se anuncian semanas antes, así que usar la próxima no mira
+    el futuro. None si Yahoo no las da (ETF, cripto)."""
+    import yfinance as yf
+
+    try:
+        fechas = yf.Ticker(simbolo).get_earnings_dates(limit=100)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [datos] resultados de {simbolo}: {exc}")
+        return None
+    if fechas is None or fechas.empty:
+        return None
+    hora = fechas.index.tz_convert("America/New_York")
+    dias = hora.tz_localize(None).normalize() + pd.to_timedelta((hora.hour >= 12).astype(int), unit="D")
+    return pd.DatetimeIndex(sorted(set(dias)))
+
+
+def con_resultados(df: pd.DataFrame, reaccion: pd.DatetimeIndex | None) -> pd.DataFrame:
+    """Añade SESIONES_A_RESULTADOS: cuántas sesiones faltan desde cada día
+    hasta la primera que reacciona a unos resultados posteriores (1 = la
+    sesión siguiente, la de la entrada). NaN si no hay ninguna conocida."""
+    df = df.copy()
+    sesiones = np.full(len(df), np.nan)
+    if reaccion is not None and len(reaccion):
+        # Posición de la primera sesión en o tras cada día de reacción.
+        posiciones = np.unique(df.index.searchsorted(reaccion))
+        posiciones = posiciones[posiciones < len(df)]
+        siguiente = np.searchsorted(posiciones, np.arange(len(df)), side="right")
+        validas = siguiente < len(posiciones)
+        sesiones[validas] = posiciones[siguiente[validas]] - np.arange(len(df))[validas]
+    df["SESIONES_A_RESULTADOS"] = sesiones
     return df
 
 

@@ -146,7 +146,7 @@ precios.
 | # | Qué | Datos | Esfuerzo |
 |---|---|---|---|
 | 1 | ~~**Freno por choque de mercado** en cripto, en el laboratorio~~ | Ninguno nuevo | Hecho: **refutado** (§6) |
-| 2 | **No entrar antes de resultados** en acciones, en el laboratorio | Fechas de EDGAR | Pequeño |
+| 2 | ~~**No entrar antes de resultados** en acciones, en el laboratorio~~ | Fechas de Yahoo (`yfinance`) | Hecho: **refutado** (§7) |
 | 3 | **Calidad y valor** (rentabilidad, deuda, beneficio/precio) en acciones, en el laboratorio | EDGAR XBRL con fecha de publicación | Medio: descarga, tabla y alineación por fecha |
 | 4 | Miedo y codicia y TVL **como contexto** en el escáner | alternative.me, DefiLlama | Pequeño; no decide nada |
 
@@ -191,3 +191,51 @@ filtros `sin_choque_*`) por si una estrategia futura lo necesita. El
 riesgo de un suceso como el hackeo se sigue gestionando con el stop y el
 riesgo por clase (G6, D22).
 
+## 7. Resultado: no entrar antes de resultados, en el laboratorio (2026-10-31)
+
+**Qué se probó**: no abrir una acción si la empresa reacciona a unos
+resultados en las 3, 5, 10 o 15 sesiones siguientes (1 = la propia sesión
+de entrada). En Prudencia (versión 10), Cadencia y Audacia con sus
+estrategias de hoy, sobre las acciones de producción a 10 y 5 años y
+sobre el S&P 100 a 10 años. Criterio de siempre: mejora ≥ +0,05 R, IC90
+sin el cero, ≥ 30 operaciones y percentil ≥ 90 frente al azar.
+
+**Datos**: las fechas de resultados de Yahoo (`yfinance`,
+`get_earnings_dates`), con hora: si se publica antes de las 12:00 de Nueva
+York, el precio reacciona ese día; si no, al siguiente. Hay fechas desde
+2002 para 30 de las 31 acciones de producción y para las 101 del S&P 100.
+EDGAR no hizo falta: pide un `User-Agent` con un correo de contacto.
+Código: `datos.cargar_resultados`, `datos.con_resultados` y los filtros
+`sin_resultados_3/5/10/15`.
+
+**Veredicto: refutado en las 36 variantes.** Ninguna llega a +0,05 R con
+el intervalo por encima de cero.
+
+| Quién | Lo más cerca que estuvo | Por qué no vale |
+|---|---|---|
+| Prudencia | S&P 100, 3 sesiones: +0,09 R frente a +0,06 R, IC [+0,02, +0,17] | +0,03 R; en las acciones de producción empeora con todas las ventanas |
+| Cadencia | S&P 100, 5 sesiones: +0,18 R frente a +0,13 R, IC [+0,06, +0,30], p100; producción 10 años, 5 sesiones: +0,13 R frente a +0,08 R, p95 | +0,047 y +0,046 R, justo por debajo del mínimo; con 10 o 15 sesiones la mejora desaparece, y a 5 años no llega a +0,03 R |
+| Audacia | S&P 100, 3 sesiones: +0,10 R frente a +0,10 R | Empeora en casi todo: le quita sus mejores operaciones |
+
+**Lo que se ve en lo que quita** (todo el periodo, versión sin filtro):
+
+- **Audacia gana con los resultados.** Las entradas a 3 sesiones de unos
+  resultados le dieron +1,55 R (producción, 10 años) y +0,98 R (5 años),
+  frente a +0,13–0,15 R del resto. Con un objetivo lejano, el salto le
+  favorece más de lo que le perjudica.
+- **Cadencia y Prudencia pierden con ellos**, pero solo en ventanas cortas
+  y no en todos los universos: en el S&P 100, con 3 sesiones, lo bloqueado
+  da −0,23 R (Cadencia) y −0,32 R (Prudencia), percentil 94–99 frente a
+  quitar las mismas al azar; en las acciones de producción, Prudencia gana
+  con ellas (+0,69 R a 3 sesiones).
+- **Los huecos no son el problema principal.** De lo bloqueado, como mucho
+  una de cada tres operaciones salió por hueco (el cobro de la 0033).
+- Con 10 o 15 sesiones el filtro quita una de cada tres o cuatro
+  operaciones, que ganaban lo mismo que el resto: solo resta muestra.
+
+**Conclusión**: no se propone. El caso de Cadencia con 3–5 sesiones
+queda como pista, no como validado: va en el mismo sentido en los dos
+universos, pero no supera el mínimo en ninguno y sale de probar 36
+variantes. Si al final del experimento se revisa Cadencia, se puede volver
+a medir con los datos que haya entonces. Los filtros `sin_resultados_*`
+quedan en el laboratorio.
