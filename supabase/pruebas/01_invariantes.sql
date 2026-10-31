@@ -5471,6 +5471,23 @@ end
 $i102$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I103 · Prudencia sale por deterioro (0053).
+--
+-- La apagó sola el 29-10 con evidencia de reglas mezcladas y la 0053 la
+-- vuelve a encender. Con los ajustes congelados (0052), nada la apaga.
+-- ═════════════════════════════════════════════════════════════════════
+do $i103$
+begin
+    if exists (select 1 from public.agentes a
+                where nombre = 'Prudencia'
+                  and public.fn_parametros_agente(a) ->> 'salida_deterioro' <> 'true') then
+        raise exception 'I103 FALLO: Prudencia debía salir por deterioro';
+    end if;
+    raise notice 'PASS  I103 Prudencia sale por deterioro';
+end
+$i103$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

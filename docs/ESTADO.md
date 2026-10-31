@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I102), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (320 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I103), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -98,7 +98,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| ⏭️ 👤 | **¿Volver a encender la salida por deterioro de Prudencia?** (doc fase-3/09 §3) | La apagó sola el 29-10, dos días antes de la 0052, con evidencia de reglas mezcladas: con la regla de hoy ganaba (+4,04 $ de media en 3). Por defecto se deja, como los dos del 15-10 |
+| ⏭️ 👤 | **Aplicar la 0053**: Prudencia vuelve a salir por deterioro (decisión del dueño, 2026-10-31) | Deshace su ajuste automático del 29-10, hecho con 7 de 10 decisiones de antes de la 0043. Queda en `agente_ajustes` como manual: al descongelar, su deterioro se juzga solo con decisiones posteriores. Invariante I103 |
 | ⏭️ | Freno por choque de mercado en cripto, en el laboratorio (doc fase-3/09 §5) | Solo precios. Sin decisiones pendientes |
 | 🗓️ | Fundamentales en el laboratorio: no entrar antes de resultados; después, calidad y valor con SEC EDGAR (doc fase-3/09 §4.2) | Gratis y con fecha de publicación, sin mirar el futuro |
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
@@ -261,7 +261,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Qué | Dónde |
 |---|---|
-| Migración más reciente | `0052_ajustes_congelados_en_el_experimento.sql`. La siguiente es la 0053 |
+| Migración más reciente | `0053_prudencia_vuelve_a_salir_por_deterioro.sql`. La siguiente es la 0054 |
 | Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |
