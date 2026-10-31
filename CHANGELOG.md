@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-31 — Freno por choque de mercado en cripto: refutado
+
+### Añadido
+- Laboratorio: `datos.con_mercado` (lo que hizo bitcoin cada día) y los filtros `sin_choque_3/4/5/7`; `Tendencia` admite `filtro`. Tres pruebas nuevas (323 en total; el suelo de `resumen_tests.py` sube a 323).
+
+### Resultado
+- No abrir cripto tras caer bitcoin un 3, 5 o 7 %, con pausa de 2 o 5 días, no mejora a ningún agente en validación (doc fase-3/09 §6). No se propone.
+
 ## [Sin publicar] - 2026-10-31 — Prudencia vuelve a salir por deterioro (0053)
 
 ### Cambiado
