@@ -38,7 +38,7 @@ dashboard-financiero/
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
 │   ├── tests.yml              # Los 320 casos del motor como puerta de merge
-│   ├── migraciones.yml        # El esquema desde cero + 102 invariantes + concurrencia + cuadre
+│   ├── migraciones.yml        # El esquema desde cero + 103 invariantes + concurrencia + cuadre
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
 │   ├── etl-cripto.yml         # Escaneo de cripto, 24/7, con rotación por cuota
@@ -52,7 +52,7 @@ dashboard-financiero/
 │   ├── config.toml
 │   ├── pruebas/               # Lo que sustituye al staging que el tier gratuito no da
 │   │   ├── 00_stubs_supabase.sql   # auth.users y los tres roles, para un Postgres limpio
-│   │   ├── 01_invariantes.sql      # 102 invariantes del esquema (I1–I102)
+│   │   ├── 01_invariantes.sql      # 103 invariantes del esquema (I1–I103)
 │   │   ├── 02_concurrencia.sh      # 10 cierres simultáneos de la misma orden (riesgo R4)
 │   │   └── 03_cuadre_saldos.sql    # 50 operaciones y el cuadre del libro mayor
 │   └── migrations/

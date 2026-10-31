@@ -90,8 +90,8 @@ el ajuste que el doc 08 preveía. La evidencia mezclaba reglas:
 Con la regla vigente, la salida por deterioro de Prudencia **ganaba**
 (la cuarta posterior, resuelta esa misma tarde, −2,08 $, deja la media en
 +2,51 $). Desde el 29-10 **ninguno de los tres agentes con metas sale por
-deterioro**. Queda como decisión del dueño (ESTADO §3.0): dejarlo como
-está, igual que los dos del 15-10, o volver a encenderlo a mano.
+deterioro**. **Decidido** (dueño, 2026-10-31): se vuelve a encender (0053). Los dos
+del 15-10 se quedan como están.
 
 ## 4. ¿Se pueden usar datos fundamentales gratis?
 

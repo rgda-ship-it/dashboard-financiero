@@ -7,8 +7,8 @@
 > medida desde el alta, las señales añejas de antes de la 0029…
 > **Regla práctica**: para juzgar a un agente con metas, usa solo datos
 > **desde el 2026-10-17** (0043) y, si miras salidas por deterioro, desde
-> el **15-10** separa a Cadencia y Audacia y el **29-10** a Prudencia (lo
-> apagaron solas). Para
+> el **15-10** separa a Cadencia y Audacia (lo apagaron solas), y Prudencia
+> no salió por deterioro entre el **29-10** y la 0053. Para
 > Tendencia cripto, desde el **12-10**.
 > **Cómo mantenerlo**: cada migración que cambie cómo opera un agente, el
 > ETL o el simulador añade aquí su fila, en el mismo PR. Las
@@ -47,6 +47,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-10-29 13:40 | **Ajuste automático**: Prudencia apaga la salida por deterioro (10 decisiones, −0,22; 7 de antes de la 0043). Desde aquí ninguno de los tres sale por deterioro | Cierres de Prudencia |
 | 2026-10-29 | **Hackeo a Binance**: todo cripto cae entre un 4 y un 10 % en el día, salvo tron (ver §5) | Resultados de cripto de esos días |
 | 2026-10-31 | 0052: ajustes automáticos congelados mientras `consecuencias_semanales = false` | — (las reglas dejan de moverse solas) |
+| Al aplicarla | 0053: Prudencia vuelve a salir por deterioro (decisión del dueño; deshace el ajuste del 29-10) | Cierres de Prudencia entre el 29-10 y la 0053 |
 | 2026-10-26 | 0050–0051: credenciales; backlog revisado | Backlog: «Ampliar el universo» ya no salta por el R:R |
 
 ## 2. Incidentes que dejan huecos en los datos
@@ -64,6 +65,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 09-30, 10-02, 10-05, 10-07, 10-08, 10-12, 10-15, 10-22, 10-24 | Admin | **Reversión manual a Fase 1** (tope 5×): 12 veces, sobre las cuentas 4 (Prudencia, 1), 5 (Cadencia, 6) y 6 (Audacia, 5). Cada una cambia el apalancamiento máximo de esa cuenta hasta que vuelve sola a Fase 2 |
 | 2026-10-11 11:23 | Dueño | Pone en marcha a Tendencia cripto |
 | 2026-10-26 | Dueño | `github_pat_altas` anotado como «no caduca» |
+| Al aplicar la 0053 | Dueño | Prudencia vuelve a salir por deterioro (deshace su ajuste automático del 29-10) |
 
 ## 4. Mecanismos que cambian las reglas solos
 
@@ -74,7 +76,7 @@ tres cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
    un tipo, el agente cambia por su cuenta la rotación, la toma parcial,
    el reparto o la salida por deterioro, según su efecto medio. Quedan en
    `agente_ajustes` y suben la versión de la estrategia. Hasta hoy, solo
-   los dos del 15-10 y el del 29-10. **Congelados desde la 0052** (31-10) mientras
+   los dos del 15-10 y el del 29-10 (deshecho a mano por la 0053). **Congelados desde la 0052** (31-10) mientras
    `consecuencias_semanales = false`: vuelven al acabar el experimento.
 2. **Fase 1 / Fase 2**: una cuenta pasa sola a Fase 2 (tope 3×) al cumplir
    su criterio, y vuelve a Fase 1 solo a mano (regla protegida nº5).

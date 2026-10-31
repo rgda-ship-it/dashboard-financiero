@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-10-31 — Prudencia vuelve a salir por deterioro (0053)
+
+### Cambiado
+- Se deshace el ajuste automático del 29-10, que apagó la salida por deterioro de Prudencia dos días antes de la 0052, con 7 de sus 10 decisiones de antes de la 0043 (decisión del dueño, doc fase-3/09 §3). Queda en `agente_ajustes` como manual, para que al descongelar se juzgue solo con decisiones posteriores. Idempotente. Invariante I103.
+
 ## [Sin publicar] - 2026-10-31 — El hackeo a Binance y los fundamentales (doc fase-3/09)
 
 ### Añadido
