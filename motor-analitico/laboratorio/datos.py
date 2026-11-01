@@ -102,6 +102,164 @@ def con_resultados(df: pd.DataFrame, reaccion: pd.DatetimeIndex | None) -> pd.Da
     return df
 
 
+# Fundamentales de SEC EDGAR (doc fase-3/09 §4.2): los datos XBRL de cada
+# informe con la fecha en que se presentó, para usar cada día solo lo que se
+# sabía entonces. La SEC pide un User-Agent con un correo de contacto; se lee
+# de SEC_USER_AGENT para que no quede en el repo.
+EDGAR_TICKERS = "https://www.sec.gov/files/company_tickers.json"
+EDGAR_HECHOS = "https://data.sec.gov/api/xbrl/companyfacts/CIK{:010d}.json"
+# Conceptos de us-gaap por orden de preferencia.
+CONCEPTOS_BENEFICIO = ("NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic")
+CONCEPTOS_PATRIMONIO = ("StockholdersEquity",
+                        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest")
+
+
+def _edgar_json(url: str):
+    import json
+    import urllib.request
+
+    agente = os.environ.get("SEC_USER_AGENT")
+    if not agente:
+        raise RuntimeError("Falta SEC_USER_AGENT (p. ej. «dashboard-financiero correo@ejemplo.com»)")
+    peticion = urllib.request.Request(url, headers={"User-Agent": agente, "Accept-Encoding": "identity"})
+    with urllib.request.urlopen(peticion, timeout=60) as r:
+        return json.loads(r.read())
+
+
+def ciks_edgar() -> dict[str, int]:
+    """Ticker → CIK de la SEC (BRK-B se escribe igual que en Yahoo)."""
+    return {f["ticker"]: int(f["cik_str"]) for f in _edgar_json(EDGAR_TICKERS).values()}
+
+
+def cargar_hechos_edgar(simbolo: str, ciks: dict[str, int]) -> dict | None:
+    """Los hechos XBRL de una empresa, o None si no presenta en la SEC."""
+    import time
+
+    if simbolo not in ciks:
+        return None
+    time.sleep(0.15)  # la SEC admite 10 peticiones por segundo
+    try:
+        return _edgar_json(EDGAR_HECHOS.format(ciks[simbolo]))
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [datos] EDGAR de {simbolo}: {exc}")
+        return None
+
+
+def _hechos(hechos: dict, taxonomia: str, conceptos: tuple[str, ...], unidad: str) -> pd.DataFrame:
+    """Los valores del primer concepto que exista, cada periodo con el valor
+    de la PRIMERA vez que se presentó (lo que se sabía entonces; las
+    reexpresiones posteriores mirarían el futuro). Conocido = el día
+    siguiente a la presentación."""
+    for c in conceptos:
+        filas = hechos.get("facts", {}).get(taxonomia, {}).get(c, {}).get("units", {}).get(unidad)
+        if filas:
+            df = pd.DataFrame(filas)
+            df["end"] = pd.to_datetime(df["end"])
+            df["start"] = pd.to_datetime(df["start"]) if "start" in df else pd.NaT
+            df["conocido"] = pd.to_datetime(df["filed"]) + pd.Timedelta(days=1)
+            # Varias clases de acciones en la misma presentación se suman.
+            df = df.groupby(["start", "end", "conocido"], dropna=False, as_index=False)["val"].sum()
+            return df.sort_values("conocido").drop_duplicates(["start", "end"]).reset_index(drop=True)
+    return pd.DataFrame(columns=["start", "end", "conocido", "val"])
+
+
+def _trimestres(flujo: pd.DataFrame) -> pd.DataFrame:
+    """Trimestres (≈ 90 días) de un concepto de flujo. El cuarto, que los
+    10-K no dan suelto, sale del anual menos los tres anteriores."""
+    dias = (flujo["end"] - flujo["start"]).dt.days
+    q = flujo[dias.between(80, 100)][["start", "end", "conocido", "val"]]
+    for _, a in flujo[dias.between(350, 380)].iterrows():
+        if (q["end"] == a["end"]).any():
+            continue
+        previos = q[(q["start"] >= a["start"] - pd.Timedelta(days=10)) & (q["end"] < a["end"])]
+        if len(previos) == 3:
+            q = pd.concat([q, pd.DataFrame([{
+                "start": previos["end"].max(), "end": a["end"],
+                "conocido": max(a["conocido"], previos["conocido"].max()),
+                "val": a["val"] - previos["val"].sum()}])], ignore_index=True)
+    return q.sort_values("end").reset_index(drop=True)
+
+
+def _a_lo_conocido(sucesos: pd.DataFrame, nombre: str) -> pd.Series:
+    """Serie por día de conocimiento con el valor del periodo más reciente
+    conocido hasta entonces (un dato tardío de un periodo viejo no pisa
+    uno nuevo)."""
+    if sucesos.empty:
+        return pd.Series(dtype=float, name=nombre)
+    s = sucesos.sort_values(["conocido", "end"])
+    previo = s["end"].cummax().shift(1)
+    s = s[previo.isna() | (s["end"] > previo)]
+    return s.groupby("conocido")["val"].last().rename(nombre)
+
+
+def fundamentales_edgar(hechos: dict | None) -> pd.DataFrame | None:
+    """Por día de conocimiento: BENEFICIO_12M (los últimos cuatro trimestres
+    seguidos), ACTIVOS, PASIVOS, PATRIMONIO, ACCIONES y ACCIONES_FIN (la
+    fecha del recuento, para ajustar desdoblamientos posteriores). None si no
+    hay datos de us-gaap (empresas extranjeras con IFRS)."""
+    if not hechos or "us-gaap" not in hechos.get("facts", {}):
+        return None
+    q = _trimestres(_hechos(hechos, "us-gaap", CONCEPTOS_BENEFICIO, "USD"))
+    doce = []
+    for i in range(3, len(q)):
+        cuatro = q.iloc[i - 3:i + 1]
+        if 250 <= (cuatro["end"].iloc[-1] - cuatro["end"].iloc[0]).days <= 300:
+            doce.append({"end": cuatro["end"].iloc[-1], "conocido": cuatro["conocido"].max(),
+                         "val": cuatro["val"].sum()})
+    activos = _hechos(hechos, "us-gaap", ("Assets",), "USD")
+    patrimonio = _hechos(hechos, "us-gaap", CONCEPTOS_PATRIMONIO, "USD")
+    pasivos = _hechos(hechos, "us-gaap", ("Liabilities",), "USD")
+    if pasivos.empty:
+        # Muchos bancos no dan el pasivo total: pasivo + patrimonio − patrimonio.
+        total = _hechos(hechos, "us-gaap", ("LiabilitiesAndStockholdersEquity",), "USD")
+        pasivos = total.merge(patrimonio[["end", "val"]], on="end", suffixes=("", "_p"))
+        pasivos["val"] = pasivos["val"] - pasivos["val_p"]
+    acciones = _hechos(hechos, "dei", ("EntityCommonStockSharesOutstanding",), "shares")
+    series = [
+        _a_lo_conocido(pd.DataFrame(doce, columns=["end", "conocido", "val"]), "BENEFICIO_12M"),
+        _a_lo_conocido(activos, "ACTIVOS"),
+        _a_lo_conocido(pasivos, "PASIVOS"),
+        _a_lo_conocido(patrimonio, "PATRIMONIO"),
+        _a_lo_conocido(acciones, "ACCIONES"),
+        _a_lo_conocido(acciones.assign(val=acciones["end"]), "ACCIONES_FIN"),
+    ]
+    out = pd.concat(series, axis=1).sort_index().ffill()
+    return None if out.empty else out
+
+
+def con_fundamentales(df: pd.DataFrame, fund: pd.DataFrame | None, cierre: pd.Series | None = None,
+                      splits: pd.Series | None = None) -> pd.DataFrame:
+    """Añade, en %, ROA (beneficio de 12 meses / activos), ROE (/ patrimonio,
+    si es positivo), DEUDA (pasivos / activos) y BENEFICIO_PRECIO (beneficio
+    / capitalización), con lo conocido cada día. `cierre` es el precio sin
+    ajustar por dividendos (por defecto Close) y `splits` los desdoblamientos
+    de Yahoo: las acciones de cada informe se llevan a la base de hoy, que es
+    la del precio. NaN donde no hay datos."""
+    df = df.copy()
+    cols = ("ROA", "ROE", "DEUDA", "BENEFICIO_PRECIO")
+    if fund is None or fund.empty:
+        for c in cols:
+            df[c] = np.nan
+        return df
+    f = fund.reindex(fund.index.union(df.index)).ffill().reindex(df.index)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        df["ROA"] = 100 * f["BENEFICIO_12M"] / f["ACTIVOS"]
+        df["ROE"] = (100 * f["BENEFICIO_12M"] / f["PATRIMONIO"]).where(f["PATRIMONIO"] > 0)
+        df["DEUDA"] = 100 * f["PASIVOS"] / f["ACTIVOS"]
+        factor = pd.Series(1.0, index=df.index)
+        if splits is not None and len(splits):
+            s = splits[splits > 0].copy()
+            s.index = pd.to_datetime(s.index).tz_localize(None) if getattr(s.index, "tz", None) else pd.to_datetime(s.index)
+            fin = pd.to_datetime(f["ACCIONES_FIN"])
+            factor = fin.map(lambda d: float(s[s.index > d].prod()) if pd.notna(d) else np.nan)
+        precio = (df["Close"] if cierre is None else cierre.reindex(df.index))
+        df["BENEFICIO_PRECIO"] = 100 * f["BENEFICIO_12M"] / (precio * f["ACCIONES"] * factor)
+        # Un valor absurdo es un recuento de acciones en otra base (BRK-B lo
+        # da en equivalentes de clase A): mejor sin dato que un dato falso.
+        df["BENEFICIO_PRECIO"] = df["BENEFICIO_PRECIO"].where(df["BENEFICIO_PRECIO"].abs() <= 50)
+    return df
+
+
 def spread_de(simbolo: str, clase: str):
     """Función precio → spread completo en $ para un activo."""
     if clase == "accion":

@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-01 — Calidad y valor con SEC EDGAR, en el laboratorio: no robusto
+
+### Añadido
+- Laboratorio: `datos.fundamentales_edgar` y `datos.con_fundamentales`. Calculan ROA, ROE, deuda y beneficio/precio con lo que se había presentado en la SEC hasta el día anterior: primera versión de cada periodo, sin reexpresiones, y con los desdoblamientos corregidos.
+- Filtros `calidad_roa_0/5/10`, `calidad_roe_15`, `deuda_60`, `valor_bp_3/5` y `calidad_y_valor`.
+- El correo que pide la SEC se lee de `SEC_USER_AGENT` y no va en el repo.
+- Cuatro pruebas nuevas (330 en total; el suelo de `resumen_tests.py` sube a 330).
+
+### Resultado
+- 7 de 72 pruebas validan, todas con filtros de valor y seis de ellas en el S&P 100. Pero en el tramo de diseño el mismo filtro empeora a Prudencia y Cadencia, y en las acciones de producción solo valida una vez (doc fase-3/09 §8). No se propone.
+
 ## [Sin publicar] - 2026-10-31 — No entrar antes de resultados en acciones: refutado
 
 ### Añadido
