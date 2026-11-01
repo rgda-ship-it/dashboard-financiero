@@ -147,7 +147,7 @@ precios.
 |---|---|---|---|
 | 1 | ~~**Freno por choque de mercado** en cripto, en el laboratorio~~ | Ninguno nuevo | Hecho: **refutado** (§6) |
 | 2 | ~~**No entrar antes de resultados** en acciones, en el laboratorio~~ | Fechas de Yahoo (`yfinance`) | Hecho: **refutado** (§7) |
-| 3 | **Calidad y valor** (rentabilidad, deuda, beneficio/precio) en acciones, en el laboratorio | EDGAR XBRL con fecha de publicación | Medio: descarga, tabla y alineación por fecha |
+| 3 | ~~**Calidad y valor** (rentabilidad, deuda, beneficio/precio) en acciones, en el laboratorio~~ | EDGAR XBRL con fecha de publicación | Hecho: **no robusto**, no se propone (§8) |
 | 4 | Miedo y codicia y TVL **como contexto** en el escáner | alternative.me, DefiLlama | Pequeño; no decide nada |
 
 Lo que pase el laboratorio se guarda para el final del experimento, como
@@ -239,3 +239,100 @@ universos, pero no supera el mínimo en ninguno y sale de probar 36
 variantes. Si al final del experimento se revisa Cadencia, se puede volver
 a medir con los datos que haya entonces. Los filtros `sin_resultados_*`
 quedan en el laboratorio.
+
+## 8. Resultado: calidad y valor, en el laboratorio (2026-11-01)
+
+**Qué se probó**: ocho filtros de entrada con los fundamentales que se
+conocían cada día. Se probaron en Prudencia (versión 10), Cadencia y
+Audacia, con sus estrategias de hoy, sobre las acciones de producción a
+10 y 5 años y sobre el S&P 100 a 10 años: 72 pruebas. El criterio fue el
+de siempre.
+
+| Filtro | Entra solo si… |
+|---|---|
+| `calidad_roa_0`, `_5`, `_10` | Beneficio de 12 meses / activos > 0, 5 o 10 % |
+| `calidad_roe_15` | Beneficio / patrimonio > 15 % |
+| `deuda_60` | Pasivos / activos < 60 % |
+| `valor_bp_3`, `_5` | Beneficio / capitalización > 3 o 5 % (PER por debajo de 33 o de 20) |
+| `calidad_y_valor` | ROA > 5 % y beneficio/precio > 4 % |
+
+**Datos**: SEC EDGAR, con los hechos XBRL de cada empresa.
+
+- Cada periodo se toma con el valor de la **primera** vez que se presentó.
+  Las reexpresiones posteriores no se usan.
+- Un dato se conoce desde el día siguiente a su presentación.
+- El beneficio de 12 meses suma los cuatro últimos trimestres. El cuarto
+  trimestre se obtiene como el anual menos los tres anteriores.
+- La capitalización usa el precio sin ajustar por dividendos y las
+  acciones del informe, corregidas por los desdoblamientos posteriores.
+- Si una empresa no da el pasivo total, como muchos bancos, se calcula
+  como pasivo más patrimonio, menos patrimonio.
+- Cobertura: 28 de las 31 acciones de producción y 100 de las 101 del
+  S&P 100. Las que faltan presentan con IFRS o no presentan en la SEC.
+  Hay dato entre el 82 y el 97 % de los días.
+- BRK-B queda sin beneficio/precio, porque la SEC da sus acciones en
+  equivalentes de clase A. Cualquier valor por encima del 50 % se
+  descarta.
+- La SEC exige un correo de contacto en el `User-Agent`. Se lee de la
+  variable `SEC_USER_AGENT` y no se guarda en el repo, que es público.
+
+Código: `datos.fundamentales_edgar`, `datos.con_fundamentales` y los
+filtros de la tabla.
+
+**Resultado formal: 7 de 72 validan, todas con filtros de valor y seis de
+ellas en el S&P 100.**
+
+| Agente | Filtro | Actual | Con filtro (validación, desde 2023-10-26) |
+|---|---|---|---|
+| Prudencia | `valor_bp_3` | +0,06 R, 444 ops | +0,16 R, 339 ops, IC [+0,06, +0,25], p100 |
+| Prudencia | `valor_bp_5` | | +0,23 R, 179 ops, IC [+0,10, +0,37], p95 |
+| Prudencia | `calidad_y_valor` | | +0,18 R, 151 ops, IC [+0,04, +0,32], p100 |
+| Cadencia | `valor_bp_3` | +0,13 R, 314 ops | +0,22 R, 253 ops, IC [+0,09, +0,36], p100 |
+| Cadencia | `valor_bp_5` | | +0,26 R, 119 ops, IC [+0,07, +0,45], p90 |
+| Cadencia | `calidad_y_valor` | | +0,22 R, 123 ops, IC [+0,06, +0,38], p95 |
+| Audacia | `valor_bp_3` (producción, 5 años) | +0,31 R, 77 ops | +0,41 R, 62 ops, IC [+0,08, +0,71], p100 |
+
+**Por qué no se propone**: la ventaja depende del periodo, no del
+filtro.
+
+- **En el tramo de diseño (2017–2023) el mismo filtro empeora** a
+  Prudencia y Cadencia en el S&P 100:
+
+  | Agente | Filtro | Diseño (actual → con filtro) | Validación |
+  |---|---|---|---|
+  | Prudencia | `valor_bp_3` | +0,04 → +0,02 R | +0,06 → +0,16 R |
+  | Prudencia | `valor_bp_5` | +0,04 → −0,01 R | +0,06 → +0,23 R |
+  | Cadencia | `valor_bp_3` | +0,05 → −0,01 R | +0,13 → +0,22 R |
+  | Cadencia | `valor_bp_5` | +0,05 → −0,10 R | +0,13 → +0,26 R |
+
+  Año a año, las empresas baratas fueron peores en 2018, 2020 y 2021 y
+  mejores en 2024 y 2026. Lo que valida es un cambio de régimen de los
+  tres últimos años. Si el corte entre diseño y validación hubiera caído
+  en 2021, el resultado habría salido muy distinto.
+- **En las acciones de producción, que son las que operan los agentes,
+  no valida**, salvo Audacia a 5 años. A 10 años, el mismo filtro
+  empeora a Audacia en validación (+0,19 → +0,16 R) y a Cadencia
+  (+0,08 → +0,04 R).
+- **Hubo 72 pruebas.** Con tantas, que unas pocas pasen el criterio en un
+  solo universo es esperable aunque no haya ventaja.
+
+**Lo demás**:
+
+- **Calidad sola** (ROA, ROE) mejora un poco en algunos casos, pero nunca
+  pasa el criterio (Cadencia con ROA > 10 % en el S&P 100 mejora +0,08 R,
+  pero solo supera al 75 % del azar).
+- **Poca deuda casi siempre empeora**, hasta −0,30 R en Prudencia. Deja
+  fuera a bancos, aseguradoras y a la mayor parte del S&P 100 (la mediana
+  de pasivo/activos es del 70 %).
+- **La única pista que aguanta en los dos tramos es Audacia con
+  `valor_bp_3` o `_5` en el S&P 100**: mejora en diseño (+0,07 → +0,09 y
+  +0,12 R) y en validación (+0,10 → +0,19 y +0,21 R). No pasa el criterio
+  (percentil 55–70) y en las acciones de producción, a 10 años, empeora
+  en validación.
+
+**Conclusión**: no se propone ningún cambio para el final del experimento.
+Si se revisa a Audacia al final, se puede volver a medir `valor_bp_3` con
+los datos de entonces. La carga de EDGAR y los filtros quedan en el
+laboratorio. Con esto, los tres puntos de fundamentales de la propuesta
+(§5) están probados. Queda el 4, el contexto en el escáner, que no decide
+nada.

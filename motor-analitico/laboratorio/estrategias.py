@@ -464,6 +464,13 @@ FILTROS_LABORATORIO = {
     # (`datos.con_resultados`). Sin la columna, o sin fechas, no bloquea.
     **{f"sin_resultados_{n}": (lambda n: lambda f: not 1 <= f.get("SESIONES_A_RESULTADOS", np.nan) <= n)(n)
        for n in (3, 5, 10, 15)},
+    # Calidad y valor (doc fase-3/09 §4.2), con lo que se sabía cada día
+    # (`datos.con_fundamentales`, de SEC EDGAR). Sin datos, no bloquea.
+    **{f"calidad_roa_{x}": (lambda x: lambda f: not f.get("ROA", np.nan) <= x)(x) for x in (0, 5, 10)},
+    "calidad_roe_15": lambda f: not f.get("ROE", np.nan) <= 15,
+    "deuda_60": lambda f: not f.get("DEUDA", np.nan) >= 60,
+    **{f"valor_bp_{x}": (lambda x: lambda f: not f.get("BENEFICIO_PRECIO", np.nan) <= x)(x) for x in (3, 5)},
+    "calidad_y_valor": lambda f: not (f.get("ROA", np.nan) <= 5 or f.get("BENEFICIO_PRECIO", np.nan) <= 4),
 }
 
 _RANGO_FUERZA = {"baja": 1, "media": 2, "alta": 3}

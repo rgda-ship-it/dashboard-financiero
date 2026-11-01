@@ -37,7 +37,7 @@ dashboard-financiero/
 ├── vercel.json                # FASE 2 — build en frontend/, SPA fallback, cabeceras de seguridad
 │
 ├── .github/workflows/        # FASE 2 — el motor corre aquí, no en un servidor
-│   ├── tests.yml              # Los 326 casos del motor como puerta de merge
+│   ├── tests.yml              # Los 330 casos del motor como puerta de merge
 │   ├── migraciones.yml        # El esquema desde cero + 103 invariantes + concurrencia + cuadre
 │   ├── frontend.yml           # Build + puerta anti-fuga de la clave de servicio
 │   ├── etl-acciones.yml       # Escaneo de acciones en horario de mercado
@@ -582,7 +582,7 @@ python3 tests/test_rotacion.py
 python3 tests/test_salud_posicion.py
 ```
 
-Hoy la suite completa (`python -m pytest -q`) son **326 casos** y todos
+Hoy la suite completa (`python -m pytest -q`) son **330 casos** y todos
 pasan. Cuando se escribió esta sección eran 133 — 69 heredados de la Fase 1, 21 del Sprint 1 de la Fase 2
 (`test_escritor_supabase.py` y `test_ventana_mercado.py`) 17 del Sprint 2
 (`test_seleccion_universo.py` y `test_etl_seleccion.py`), 6 del Sprint 4
