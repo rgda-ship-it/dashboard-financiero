@@ -4,6 +4,16 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-02 — 0055: saldo para operar con base fija y escalones (D25)
+
+### Cambiado
+- Saldo para operar = base × tope de la fase. La base es el saldo inicial o el último escalón de la 0014 (1.000, 2.000, 5.000… 50.000 $) y nunca baja: sale del máximo del libro mayor, que no se reancla al revertir a Fase 1. Antes era equity × tope y bajaba con las pérdidas (Audacia: 2.078 $; ahora 2.500 $).
+- Regla protegida nº1, reformulada por el dueño: el tope de apalancamiento se mide sobre la base. Cada tope (fase, propio del agente y de la señal) se multiplica por base / equity, con el poder de trading de techo; la restricción de `ordenes` pasa de 5× a 20×. El riesgo por operación sigue siendo un % del equity real, y el dimensionado sigue bajando el apalancamiento si la liquidación adelanta al stop.
+- Para los tres agentes con metas y las cuentas del simulador. `v_cuentas_equity` añade `base_operar` y `tope_fase`; `leverage_tope` es ya el de la cuenta. El simulador y la guía lo explican.
+
+### Añadido
+- `fn_escalon_operar`, `fn_base_operar`, `fn_escala_operar`, `fn_tope_cuenta` y `fn_escalar_apalancamiento`. Invariante I105; la I44 compara G1 con el techo de 20×.
+
 ## [Sin publicar] - 2026-11-02 — 0054: dos peticiones del backlog, rechazadas
 
 ### Resultado

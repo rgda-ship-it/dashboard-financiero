@@ -59,6 +59,16 @@ Común a los tres:
 - **Stop y objetivo** (D21, 0030): stop en el soporte acotado entre 1 y 2
   ATR; objetivo en la resistencia, como mucho a 2 ATR. Por eso compran
   **retrocesos** (doc fase-3/05 §3).
+- **Saldo para operar** (0055, D25): **base × tope de la fase** (5× en
+  Fase 1, 3× en Fase 2). La base es el saldo inicial o el último escalón
+  alcanzado (1.000, 2.000, 5.000, 10.000, 15.000, 20.000, 25.000 y
+  50.000 $) y **nunca baja**: sale del máximo del libro mayor. El tope de
+  apalancamiento se mide sobre la base: cada tope (fase, propio y señal)
+  se multiplica por base / equity, con 20× de techo. Con pérdidas, cada
+  orden admite algo más de apalancamiento sobre el equity real; con
+  ganancias que no tocan el escalón, algo menos. El riesgo por operación
+  sigue siendo un % del equity real. Lo mismo en las cuentas del
+  simulador; Tendencia cripto opera a 1× y no le afecta.
 - **Límites**: el saldo para operar (con menos de 10 $ libres no abren
   nada), el riesgo abierto total (G6, 4 × su riesgo por operación) y por
   clase en cripto. **No hay tope de número de posiciones** desde la 0023

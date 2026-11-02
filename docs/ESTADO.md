@@ -101,6 +101,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
 | 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
+| 👤 | Aplicar la 0055 | Saldo para operar con base fija y escalones (D25). Al aplicarla, anotar la hora en `CRONOLOGIA.md` |
 | 👤 | Aplicar la 0054 | Cierra las dos peticiones del 2-11 (rechazadas) y evita que se reabran durante el experimento |
 | 🗓️ | Revisión del lunes 9-11: ¿llega la H3? | Con unos 30 descartes por `rr` ya con 5 sesiones vistas, la H3 puede evaluarse. Por ahora el filtro protege (ver la revisión del 2-11) |
 | 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
@@ -155,6 +156,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ✅ | Saldo para operar con base fija y escalones (D25, decisión del dueño, 2026-11-02; 0055) | Base × tope de la fase, con la base en el saldo inicial o el último escalón de la 0014, que nunca baja. El tope se mide sobre la base (regla protegida nº1 reformulada): con 415 $ Audacia admite 6,0× por orden. Para los tres agentes y el simulador. Cambia el grupo de control a mitad del experimento: corte en `CRONOLOGIA.md` |
 | ❌ | «Ampliar mi riesgo abierto por mercado» (Prudencia) y «Mi saldo queda atrapado con la bolsa cerrada» (Audacia), 2026-11-02 (doc fase-3/07 §7, 0054) | Prudencia con 2× o 3× su riesgo en cripto, en vez de 1×, entra en más cripto y acaba peor en todos los tramos (sus cripto valen −0,12 a −0,19 R en validación). Vender acciones antes del cierre para Audacia sería cerrar operaciones a medias cada tarde; la rotación ya libera saldo al abrir. Rechazadas no se reabren durante el experimento |
 | ✅ | Revisión del lunes 2-11 (datos del 26-10 al 2-11, con la 0043, la 0052 y la 0053; el 2-11 a medio día) | **Ninguna hipótesis, y es correcto**: el generador corrió a las 00:17 UTC sin fallos, pero ninguna vía llegaba a su mínimo. H1: como mucho 8 decisiones resueltas por tipo (hacen falta 20). H2: 10–12 subidas perdidas por agente, pero solo `macd_positivo` tiene soporte, con un lift de 1,34–1,46 (hace falta 1,5) y ya refutada hace menos de 8 semanas. H3: 19–21 descartes por `rr` con 5 sesiones vistas (hacen falta 30), y **bajaron** −0,5 a −1,2 ATR frente a −0,13 del universo: el filtro protege. H4: sin peticiones de plantilla. Salud en verde. NLY de Audacia salió por rotación tras 14 días (+0,56 R) y liberó margen para bitcoin-cash y zcash |
 | ❌ | Calidad y valor en acciones con SEC EDGAR (doc fase-3/09 §8), 2026-11-01 | No robusto: 7 de 72 pruebas validan, todas con filtros de valor y casi todas en el S&P 100, pero en el tramo de diseño (2017–2023) el mismo filtro empeora a Prudencia y Cadencia, y en las acciones de producción solo valida una vez. Poca deuda casi siempre empeora. La carga de EDGAR (con `SEC_USER_AGENT`) y los filtros quedan en el laboratorio |
@@ -266,7 +268,7 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 | Qué | Dónde |
 |---|---|
 | Migración más reciente | `0053_prudencia_vuelve_a_salir_por_deterioro.sql`. La siguiente es la 0054 |
-| Decisiones numeradas | D1–D24 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental |
+| Decisiones numeradas | D1–D25 (`fase-2/04-sprint-backlog.md`). D21 niveles, D22 cripto prudente, D23 spread, D24 agente experimental, D25 saldo para operar con base fija (0055) |
 | Guardarraíles | G1–G6 (`fase-2/03-logica-de-agentes.md` §4) |
 | Reglas del monitor | M1–M4 y M3' (doc 03) |
 | Spread pesimista (QuantFury) | Acciones 0,03 $; AMCR 0,10 $; BTC 5 $; ETH 0,10 $; resto de cripto 0,10 %. Nunca baja del configurado aunque el observado sea menor |

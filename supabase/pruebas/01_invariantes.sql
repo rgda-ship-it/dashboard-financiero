@@ -1783,7 +1783,9 @@ begin
           join public.agentes g on g.id = c.agente_id
           left join public.senales s on s.id = o.senal_id
          where g.id in (v_pru, v_cad, v_auda)
-           and (o.apalancamiento > public.fn_tope_fase(c.fase)                                        -- G1
+           -- G1: desde la 0055 el tope se mide sobre la base, así que el de
+           -- cada orden depende del equity al abrir; aquí, el techo absoluto.
+           and (o.apalancamiento > 20                                                                 -- G1
                 or o.apalancamiento > (public.fn_parametros_agente(g) ->> 'apalancamiento_maximo_propio')::numeric
                 or o.cantidad * (o.precio_entrada - o.sl) > c.capital_maximo_alcanzado * 0.10 + 0.01   -- G2
                 or s.id is null or not s.operable                                                      -- G5
@@ -5526,6 +5528,90 @@ begin
     raise notice 'PASS  I104 las peticiones rechazadas del grupo de control no se reabren durante el experimento';
 end
 $i104$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I105 · Saldo para operar con base fija y escalones (0055).
+--
+-- La base es el saldo inicial o el último escalón de la 0014, y no baja
+-- aunque baje el equity ni aunque se reancle el pico de capital. El saldo
+-- para operar es base × tope de la fase, y el tope de cada orden se mide
+-- sobre la base.
+-- ═════════════════════════════════════════════════════════════════════
+do $i105$
+declare
+    v_ag     bigint;
+    v_cta    bigint;
+    v_activo bigint;
+    v_senal  bigint;
+    v_ce     record;
+    v_json   jsonb;
+    v_texto  text;
+begin
+    if public.fn_escalon_operar(500, 530.66) <> 500 or public.fn_escalon_operar(500, 1000) <> 1000
+       or public.fn_escalon_operar(500, 4999) <> 2000 or public.fn_escalon_operar(3000, 1500) <> 3000 then
+        raise exception 'I105 FALLO: los escalones no son los de la 0014';
+    end if;
+    if public.fn_tope_cuenta(500, 'fase_1_aceleracion', 415.51) <> 6.0
+       or public.fn_tope_cuenta(500, 'fase_2_consolidacion', 504.63) <> 2.9
+       or public.fn_tope_cuenta(500, 'fase_1_aceleracion', 800) <> 3.1
+       or public.fn_tope_cuenta(500, 'fase_1_aceleracion', 50) <> 20 then
+        raise exception 'I105 FALLO: el tope sobre la base no es el esperado';
+    end if;
+
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+        values ('prueba-base', 2, 'pausado', '{}', false) returning id into v_ag;
+        v_cta := public.fn_crear_cuenta_agente(v_ag);
+        update public.cuentas_simulacion set ratio_rr_minimo = 1 where id = v_cta;
+
+        -- Pierde 85 $: el saldo para operar sigue en base × 5.
+        perform public.fn_registrar_movimiento(v_cta, null, 'ajuste_manual', -85, 0);
+        select * into v_ce from public.v_cuentas_equity where id = v_cta;
+        if v_ce.base_operar <> 500 or abs(v_ce.saldo_operar - 2500) > 0.01 or v_ce.leverage_tope <> 6.0
+           or v_ce.tope_fase <> 5 then
+            raise exception 'I105 FALLO: con pérdidas la base debía seguir en 500: %', to_jsonb(v_ce);
+        end if;
+
+        -- G1 sobre la base: 6,1× se rechaza y 6,0× se abre.
+        select id into v_activo from public.activos where clase = 'cripto' and estado = 'activo' order by id limit 1;
+        insert into public.senales
+            (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+             precio_actual, sl, tp, leverage_recomendado, calculado_en)
+        values (v_activo, true, 5, 3, 'i105', 100, 90, 130, 5, now())
+        returning id into v_senal;
+        begin
+            perform public.rpc_abrir_orden(v_cta, v_senal, null, null, 6.1, null, 'agente');
+            raise exception 'I105 FALLO: se aceptó 6,1x con un tope de 6,0x';
+        exception when others then
+            v_texto := sqlerrm;
+        end;
+        if v_texto not like '%base de 500%' then
+            raise exception 'I105 FALLO: el rechazo de G1 no lo explica: %', v_texto;
+        end if;
+        v_json := public.rpc_abrir_orden(v_cta, v_senal, null, null, 6.0, null, 'agente');
+        if (v_json ->> 'apalancamiento')::numeric <> 6.0 then
+            raise exception 'I105 FALLO: la orden debía abrirse a 6,0x: %', v_json;
+        end if;
+        perform public.rpc_cerrar_orden((v_json ->> 'orden_id')::bigint, 100, 'manual');
+
+        -- Llega a 1.000 $ y vuelve a bajar, y el pico se reancla (reversión
+        -- a Fase 1): la base se queda en el escalón.
+        perform public.fn_registrar_movimiento(v_cta, null, 'ajuste_manual', 700, 0);
+        perform public.fn_registrar_movimiento(v_cta, null, 'ajuste_manual', -300, 0);
+        update public.cuentas_simulacion set capital_maximo_alcanzado = 800 where id = v_cta;
+        select * into v_ce from public.v_cuentas_equity where id = v_cta;
+        if v_ce.base_operar <> 1000 or abs(v_ce.saldo_operar - 5000) > 0.01 then
+            raise exception 'I105 FALLO: tras tocar el escalón de 1.000 $ la base debía quedarse: %', to_jsonb(v_ce);
+        end if;
+        raise exception 'I105 OK';
+    exception when others then
+        if sqlerrm <> 'I105 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I105 saldo para operar: base fija con escalones, que no baja, y el tope medido sobre la base';
+end
+$i105$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
