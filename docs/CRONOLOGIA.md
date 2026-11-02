@@ -9,7 +9,9 @@
 > **desde el 2026-10-17** (0043) y, si miras salidas por deterioro, desde
 > el **15-10** separa a Cadencia y Audacia (lo apagaron solas), y Prudencia
 > no salió por deterioro entre el **29-10** y la 0053. Para
-> Tendencia cripto, desde el **12-10**.
+> Tendencia cripto, desde el **12-10**. El apalancamiento y el margen de
+> cada orden, y cuántas posiciones caben, cambian el **02-11 a las 21:48**
+> (0055, base fija).
 > **Cómo mantenerlo**: cada migración que cambie cómo opera un agente, el
 > ETL o el simulador añade aquí su fila, en el mismo PR. Las
 > intervenciones manuales y los ajustes automáticos, también.
@@ -49,8 +51,8 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-10-31 | 0052: ajustes automáticos congelados mientras `consecuencias_semanales = false` | — (las reglas dejan de moverse solas) |
 | Al aplicarla | 0053: Prudencia vuelve a salir por deterioro (decisión del dueño; deshace el ajuste del 29-10) | Cierres de Prudencia entre el 29-10 y la 0053 |
 | 2026-10-26 | 0050–0051: credenciales; backlog revisado | Backlog: «Ampliar el universo» ya no salta por el R:R |
-| Al aplicarla | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
-| **Al aplicarla** | **0055 (D25)**: saldo para operar = base × tope de la fase, con base fija y escalones; el tope se mide sobre la base (decisión del dueño, a mitad del experimento) | Apalancamiento y margen de cada orden, y cuántas posiciones caben a la vez en los tres agentes con metas y en el simulador. El riesgo por operación y el R no cambian |
+| 2026-11-02 21:48 | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
+| **2026-11-02 21:48** | **0055 (D25)**: saldo para operar = base × tope de la fase, con base fija y escalones; el tope se mide sobre la base (decisión del dueño, a mitad del experimento) | Apalancamiento y margen de cada orden, y cuántas posiciones caben a la vez en los tres agentes con metas y en el simulador. El riesgo por operación y el R no cambian |
 
 ## 2. Incidentes que dejan huecos en los datos
 
