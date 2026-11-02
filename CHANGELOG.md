@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-02 — Revisión del lunes: ninguna hipótesis, y es lo esperado
+
+Datos del 26-10 al 2-11 (0043, 0052 y 0053; el 2-11, con el mercado aún abierto).
+
+### Comprobado
+- El autodiagnóstico y el generador corrieron a las 00:17 UTC sin fallos. No salió ninguna hipótesis porque ninguna vía llegaba a su mínimo: H1 con como mucho 8 decisiones resueltas por tipo (hacen falta 20); H2 solo con `macd_positivo`, ya refutada y con lift 1,34–1,46 (hace falta 1,5); H3 con 19–21 descartes por `rr` ya medibles (hacen falta 30); H4 sin peticiones de plantilla.
+- Salud en verde: los dos ETL, 33/33 acciones y 15/15 cripto con señal.
+- La rotación funciona: NLY (Audacia, abierta desde el 19-10) salió a las 14:40 UTC con +0,56 R y en el mismo ciclo entró bitcoin-cash.
+
+### Hallazgo
+- **Los descartes por `rr` bajaron más que el universo**: −1,16 ATR en 5 sesiones (Prudencia), −0,78 (Cadencia) y −0,51 (Audacia), frente a −0,13. Con unos 20 descartes por agente es poco, pero va en la línea de lo que dijo el laboratorio: el filtro protege.
+- Dos peticiones nuevas en el backlog, las dos sobre reglas del grupo de control: «Mi saldo queda atrapado con la bolsa cerrada» (Audacia, 3,3 horas) y «Ampliar mi riesgo abierto por mercado» (Prudencia, 120 descartes por `clase_lleno`, casi todos el 28-10). Se quedan como están hasta el final del experimento.
+
 ## [Sin publicar] - 2026-11-01 — Calidad y valor con SEC EDGAR, en el laboratorio: no robusto
 
 ### Añadido
