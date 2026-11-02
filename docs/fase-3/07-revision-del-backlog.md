@@ -150,3 +150,45 @@ Por defecto mira los últimos 7 días. Qué mirar en cada sección:
 | `8_backlog` | Lo abierto y lo que se pidió en la semana | Responder con datos; los cambios, al final del experimento |
 | `9_descartes` | El motivo que domina en cada agente | Si cambia de un motivo a otro, la fuente H3 lo propondrá |
 
+
+## 7. Dos peticiones del 2-11 (0054)
+
+### «Ampliar mi riesgo abierto por mercado» (Prudencia)
+
+En la semana del 26-10, a Prudencia se le quedaron fuera 120 candidatas
+solo por su límite en cripto: 1 × su riesgo por operación abierto a la vez
+(Cadencia y Audacia tienen 2 ×). Casi todas fueron el 28-10, con ripple
+abierta. Al día siguiente fue el hackeo de Binance: todo cripto cayó a la
+vez y ripple salió con −1 R.
+
+**Prueba**: una cuenta de 500 $ para las 31 acciones y las 14 cripto de
+producción, con la estrategia de Prudencia (versión 10) y los límites de
+producción (0032 y 0034): riesgo del 1,5 % del equity, escalado en cripto
+por min(1, 3 / ATR %), G6 = 4 × el riesgo, hueco por mercado (si queda
+menos de un cuarto de riesgo, se descarta; si no, se recorta), margen
+mínimo de 10 $ a 3 × y margen ≤ equity. Las entradas del mismo día, por
+R:R, como en producción. Las operaciones salen del motor por activo: el
+tamaño no cambia su R.
+
+| Periodo | Tramo | 1 × (hoy) | 2 × | 3 × |
+|---|---|---|---|---|
+| 10 años | Todo | −0,03 R, 444 ops, 523 $ | −0,05 R, 488 ops, 471 $ | −0,06 R, 501 ops, 443 $ |
+| 10 años | Validación (desde 2023-10-26) | +0,01 R, 177 ops, 521 $ | +0,01 R, 195 ops, 514 $ | igual que 2 × |
+| 5 años | Todo | +0,03 R, 241 ops, 579 $ | +0,00 R, 273 ops, 538 $ | +0,01 R, 277 ops, 534 $ |
+| 5 años | Validación (desde 2025-04-26) | +0,02 R, 98 ops, 509 $ | −0,01 R, 106 ops, 503 $ | igual que 2 × |
+
+Las cripto que solo entran con 2 × valen −0,03 R (10 años) y −0,28 R
+(5 años) en validación, y todas las cripto de Prudencia, −0,12 y −0,19 R.
+La caída máxima no cambia. **Rechazada**: el límite le protege.
+
+### «Mi saldo queda atrapado con la bolsa cerrada» (Audacia)
+
+39 ciclos (3,3 horas) con el saldo lleno de acciones, candidatas cripto
+esperando y la bolsa cerrada. Pide vender acciones antes del cierre para
+tener saldo para la noche. Sería cerrar operaciones a medias cada tarde,
+pagando el spread, por candidatas que quizá no aparezcan; la rotación ya
+libera saldo al abrir (el 2-11 a las 14:40, NLY → bitcoin-cash en el
+mismo ciclo). **Rechazada**.
+
+Las dos tocan reglas del grupo de control. Como «El filtro X…» (0051), ya
+rechazadas no se reabren mientras las consecuencias estén suspendidas.

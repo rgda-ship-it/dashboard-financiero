@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-02 — 0054: dos peticiones del backlog, rechazadas
+
+### Resultado
+- «Ampliar mi riesgo abierto por mercado» (Prudencia): probado con una cuenta para acciones y cripto y los límites de producción. Con 2× o 3× su riesgo en cripto a la vez, en vez de 1×, entra en más cripto y acaba peor, en todo el periodo y en validación, a 10 y a 5 años (doc fase-3/07 §7).
+- «Mi saldo queda atrapado con la bolsa cerrada» (Audacia): vender acciones antes del cierre sería cerrar operaciones a medias cada tarde; la rotación ya libera saldo al abrir la bolsa.
+
+### Cambiado
+- 0054: las dos, rechazadas, no se reabren mientras las consecuencias estén suspendidas, como «El filtro X…» (0051). Invariante I104.
+
 ## [Sin publicar] - 2026-11-02 — Revisión del lunes: ninguna hipótesis, y es lo esperado
 
 Datos del 26-10 al 2-11 (0043, 0052 y 0053; el 2-11, con el mercado aún abierto).
