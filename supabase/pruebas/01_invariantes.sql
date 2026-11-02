@@ -5488,6 +5488,46 @@ end
 $i103$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I104 · Peticiones del grupo de control rechazadas el 2-11 (0054).
+--
+-- «Ampliar mi riesgo…» y «Mi saldo queda atrapado…», rechazadas, no se
+-- reabren en un agente con las consecuencias suspendidas, pero cuentan la
+-- ocurrencia.
+-- ═════════════════════════════════════════════════════════════════════
+do $i104$
+declare
+    v_ag    bigint;
+    v_clave text;
+    v_b     public.agente_backlog;
+begin
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+        values ('prueba-0054', 2, 'pausado', '{}', false) returning id into v_ag;
+        foreach v_clave in array array['diagnostico:riesgo_clase_lleno:agente_' || v_ag,
+                                       'diagnostico:saldo_atrapado:agente_' || v_ag] loop
+            perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', v_clave, 'Petición', 'semana 1', 'j', '{"n": 1}', 2);
+            update public.agente_backlog set estado = 'rechazado', resolucion = 'Revisado'
+             where clave_deduplicacion = v_clave;
+            delete from public.agente_backlog_ocurrencias
+             where backlog_id = (select id from public.agente_backlog where clave_deduplicacion = v_clave);
+            perform public.fn_registrar_backlog(v_ag, 'ajuste_regla', v_clave, 'Petición', 'semana 2', 'j', '{"n": 2}', 2);
+            select * into v_b from public.agente_backlog where clave_deduplicacion = v_clave;
+            if v_b.estado <> 'rechazado' or v_b.ocurrencias <> 2 or v_b.resolucion <> 'Revisado' then
+                raise exception 'I104 FALLO: % debía seguir rechazada y contar la ocurrencia: % / % / %',
+                                v_clave, v_b.estado, v_b.ocurrencias, v_b.resolucion;
+            end if;
+        end loop;
+        raise exception 'I104 OK';
+    exception when others then
+        if sqlerrm <> 'I104 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I104 las peticiones rechazadas del grupo de control no se reabren durante el experimento';
+end
+$i104$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del
