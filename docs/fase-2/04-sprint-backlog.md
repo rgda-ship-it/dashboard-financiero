@@ -1,6 +1,6 @@
 # D. Sprint Backlog — historias listas para desarrollo
 
-> **Vigencia (revisada el 2026-10-27)**: **Registro histórico.** Las historias de los seis sprints y las decisiones D1–D24: siguen siendo la referencia de *por qué* se decidió cada cosa, no de cómo funciona hoy ([`../SISTEMA-HOY.md`](../SISTEMA-HOY.md)).
+> **Vigencia (revisada el 2026-10-27)**: **Registro histórico.** Las historias de los seis sprints y las decisiones D1–D25: siguen siendo la referencia de *por qué* se decidió cada cosa, no de cómo funciona hoy ([`../SISTEMA-HOY.md`](../SISTEMA-HOY.md)).
 
 > **Autor**: Project Manager (equipo virtual)
 > **Fecha**: 2026-09-20
@@ -785,6 +785,7 @@ primer corte semanal. Requisitos 7, 8, 9 y 10.
 > | Cripto en los agentes (2026-10-10) | Ninguna cripto real pasó los filtros en 11 días: Prudencia no la admitía, el tope de ATR de Cadencia dejaba fuera a BTC, y 12 de los 20 huecos de cripto no eran criptos líquidas | **D22 — prudencia como tamaño: perfiles por mercado (`por_clase`), riesgo escalado por volatilidad (`riesgo_atr_ref`) y riesgo abierto por mercado (`riesgo_abierto_mult`); los tres operan cripto; seis criptos líquidas al universo; si los límites dejan fuera candidatas de forma repetida, el agente lo pide** (0032) |
 > | Spread (2026-10-11) | El simulador entraba y salía a un único precio: el spread no existía y todo resultado era optimista | **D23 — se compra al precio de compra y se vende al de venta, con valores pesimistas de QuantFury (acciones 0,03 $, BTC 5 $, ETH 0,10 $, resto de cripto 0,10 %); sin comisiones ni financiación, que QuantFury no cobra** (0034) |
 > | Agentes con ventaja (2026-10-11) | Los agentes perseguían metas diarias inalcanzables (2 % diario son × 147 al año) con señales sin ventaja demostrada | **D24 — los tres agentes con metas quedan como grupo de control y se crea el agente experimental «Tendencia cripto»**. Es la única estrategia que pasó el laboratorio y la prueba de robustez la deja en «real pero no demostrada». Riesgo del 1 % por operación, sin meta diaria y con criterio de retirada fijado de antemano: si a las 30 operaciones la expectativa es negativa, se retira (doc 06 y doc 07; 0037 pendiente) |
+> | Saldo para operar con base (2026-11-02) | El saldo para operar era equity × tope: bajaba con las pérdidas (Audacia, con 415 $, tenía 2.078 $), y el dueño lo entendía fijo, como en el bróker | **D25 — saldo para operar = base × tope de la fase; la base es el saldo inicial o el último escalón de la 0014 y nunca baja; el tope se mide sobre la base** (regla protegida nº1 reformulada: con pérdidas, cada orden admite más apalancamiento sobre el equity real, con 20× de techo). Para los agentes y el simulador, a mitad del experimento (0055) |
 >
 > Diferencias con la spec, con motivo (el detalle, en la cabecera de la
 > migración):

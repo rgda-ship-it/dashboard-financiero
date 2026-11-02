@@ -223,17 +223,17 @@ export const SECCIONES = [
       {
         termino: "Poder de trading y tope de apalancamiento",
         formula:
-          "poder de trading (lo que el bróker permite, escalas QuantFury):\n  equity <  1.000 $  →  20 × equity\n  equity ≥  1.000 $  →     20.000 $\n  equity ≥  2.000 $  →     40.000 $\n  equity ≥  5.000 $  →    100.000 $\n  equity ≥ 10.000 $  →    200.000 $\n  equity ≥ 15.000 $  →    300.000 $\n  equity ≥ 20.000 $  →    400.000 $\n  equity ≥ 25.000 $  →    500.000 $\n  equity ≥ 50.000 $  →  1.000.000 $\n\ntope de apalancamiento (lo recomendable): 5× en Fase 1, 3× en Fase 2",
+          "poder de trading (lo que el bróker permite, escalas QuantFury):\n  equity <  1.000 $  →  20 × equity\n  equity ≥  1.000 $  →     20.000 $\n  equity ≥  2.000 $  →     40.000 $\n  equity ≥  5.000 $  →    100.000 $\n  equity ≥ 10.000 $  →    200.000 $\n  equity ≥ 15.000 $  →    300.000 $\n  equity ≥ 20.000 $  →    400.000 $\n  equity ≥ 25.000 $  →    500.000 $\n  equity ≥ 50.000 $  →  1.000.000 $\n\ntope de apalancamiento (lo recomendable): 5× en Fase 1, 3× en Fase 2,\nmedido sobre la base del saldo para operar",
         lectura:
-          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar y lo que el servidor impone en cada orden: de él sale tu saldo para operar. «En uso» es el nominal de tus posiciones abiertas: con el tope de 5× nunca pasa de 5 veces tu equity, muy lejos del poder de trading.",
+          "Son dos cifras distintas y ninguna sustituye a la otra. El poder de trading es la capacidad que la cuenta tendría en el bróker por su saldo, hasta 20×. El tope de apalancamiento es lo que el sistema considera razonable operar: de él sale tu saldo para operar. Se mide sobre la base (tu saldo inicial o el último escalón alcanzado), no sobre el equity de cada momento: si pierdes, cada orden admite algo más de apalancamiento sobre lo que te queda, y el nominal abierto nunca pasa de base × tope. El techo absoluto es el poder de trading.",
         nota: "Por encima de 50.000 $ de equity la escala no tiene más tramos: el poder de trading se queda en 1.000.000 $.",
       },
       {
         termino: "Saldo para operar",
         formula:
-          "saldo para operar = equity × tope de la fase\n                    (500 $ × 5 = 2.500 $ en Fase 1; × 3 en Fase 2)\n\nconsumo de una posición = margen × tope de la fase",
+          "saldo para operar = base × tope de la fase\n                    (500 $ × 5 = 2.500 $ en Fase 1; × 3 en Fase 2)\n\nbase = saldo inicial o el último escalón alcanzado\n       (1.000 · 2.000 · 5.000 · 10.000 · 15.000 · 20.000 · 25.000 · 50.000 $)\n       y nunca baja\n\nconsumo de una posición = margen × tope de tu cuenta",
         lectura:
-          "Es la pregunta que importa al abrir una posición: qué parte de tu saldo para operar se lleva. Cada posición muestra su consumo en dólares y en % del saldo, en lugar del apalancamiento con el que entró. A 5× una posición consume exactamente su nominal; a 3× consume más: 300 $ nominales a 3× bloquean 100 $ de margen, lo mismo que 500 $ a 5×. Por eso lo volátil cuesta más saldo.",
+          "Es la pregunta que importa al abrir una posición: qué parte de tu saldo para operar se lleva. El saldo para operar no baja cuando pierdes: sigue en base × tope. Solo sube cuando tu equity toca el siguiente escalón, y entonces se queda ahí. Cada posición muestra su consumo en dólares y en % del saldo, en lugar del apalancamiento con el que entró. A 5× una posición consume exactamente su nominal; a 3× consume más: 300 $ nominales a 3× bloquean 100 $ de margen, lo mismo que 500 $ a 5×. Por eso lo volátil cuesta más saldo.",
         nota: "El apalancamiento de cada posición no desaparece: lo baja el motor con la volatilidad y lo baja el dimensionado para que la liquidación quede por debajo del stop. Sigue siendo la protección; ya no es la cifra que tienes que leer.",
       },
       {
@@ -246,7 +246,7 @@ export const SECCIONES = [
       {
         termino: "Los cinco límites del servidor",
         formula:
-          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2)\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes en cuarentena: una posición abierta como mucho\n5 · solo señales operables y de menos de 90 minutos",
+          "1 · apalancamiento ≤ tope de la fase (5× en Fase 1, 3× en Fase 2) medido sobre la base\n2 · riesgo por operación ≤ 10 % del equity\n3 · margen comprometido total ≤ 100 % del equity (o el uso máximo que elijas)\n4 · agentes en cuarentena: una posición abierta como mucho\n5 · solo señales operables y de menos de 90 minutos",
         lectura:
           "Los impone PostgreSQL, no esta pantalla. Da lo mismo desde dónde llegue la petición —el navegador, un script, un agente del Sprint 6 con un fallo—: una orden que cruce cualquiera de los cinco se rechaza con el motivo escrito. Que el límite viva en el navegador sería no tener límite.",
       },

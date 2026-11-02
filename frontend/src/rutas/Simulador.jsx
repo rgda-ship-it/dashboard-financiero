@@ -404,7 +404,8 @@ function LimitesCuenta({ cuenta, alGuardar, avisar }) {
         Con estos límites puedes usar{" "}
         <strong>{Number.isFinite(usable) ? formatearPrecio(usable) : "—"}</strong> de tu saldo para
         operar de {formatearPrecio(Number(cuenta.saldo_operar))}, repartidos entre las sugerencias
-        que marques. El tope de apalancamiento no se ajusta: lo fija la fase de la cuenta. Si
+        que marques. El tope de apalancamiento no se ajusta: lo fija la fase de la cuenta, medido
+        sobre su base, que no baja aunque pierdas. Si
         quieres dejar colchón, baja el uso máximo; lo que limita la pérdida es el riesgo por
         operación.
       </p>
@@ -653,7 +654,7 @@ export default function Simulador() {
                   </span>
                   <span className="label">Tope de la fase</span>
                   <span className="num sim__tope">
-                    {formatearTope(Number(cuenta.leverage_tope))}x
+                    {formatearTope(Number(cuenta.tope_fase ?? cuenta.leverage_tope))}x
                   </span>
                 </>
               ) : null
@@ -672,12 +673,14 @@ export default function Simulador() {
                     nota="disponible + bloqueado + P&L flotante"
                   />
                   {/* 0022: la cifra con la que se piensa una operación. Lo
-                      que consume cada posición se mide contra ella. */}
+                      que consume cada posición se mide contra ella. 0055:
+                      base × tope de la fase, y la base no baja. */}
                   <Cifra
                     etiqueta="Saldo para operar"
                     valor={formatearPrecio(Number(cuenta.saldo_operar ?? 0))}
                     nota={
-                      `equity × ${formatearTope(Number(cuenta.leverage_tope))} · en uso ` +
+                      `base ${formatearPrecio(Number(cuenta.base_operar ?? 0))} × ` +
+                      `${formatearTope(Number(cuenta.tope_fase ?? cuenta.leverage_tope))} · en uso ` +
                       `${formatearPrecio(Number(cuenta.saldo_operar_en_uso ?? 0))} · libre ` +
                       `${formatearPrecio(saldoLibre(cuenta) ?? 0)}` +
                       (Number(cuenta.margen_comprometido_max_pct) < 100

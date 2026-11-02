@@ -4,11 +4,11 @@
  * Esto solo traduce el margen de una posición a la pregunta que importa:
  * qué parte del saldo para operar se lleva.
  *
- *   saldo para operar = equity × tope de la fase
- *   consumo           = margen × tope de la fase
+ *   saldo para operar = base × tope de la fase   (0055: la base no baja)
+ *   consumo           = margen × tope de la cuenta (`leverage_tope`)
  *
- * A 5× el consumo es el nominal; a 3× es más que el nominal, porque esos
- * dólares bloquean más margen.
+ * A su tope el consumo es el nominal; por debajo es más que el nominal,
+ * porque esos dólares bloquean más margen.
  */
 
 const finito = (v) => (Number.isFinite(v) ? v : null);
