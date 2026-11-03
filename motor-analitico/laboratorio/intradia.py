@@ -3,6 +3,7 @@
 Modo de 1 hora del laboratorio (doc fase-3/08 §4.3; doc fase-3/10).
 
     python -m laboratorio.intradia --estrategia rebote_caida --semillas 20
+    python -m laboratorio.intradia --estrategia ruptura_primera_hora
 
 El motor es el mismo que el diario: trabaja por VELAS, no por días, así que
 con velas de 1 hora cada fila es una hora. Las reglas de ejecución no
@@ -11,8 +12,9 @@ t + 1 con medio spread, stop y objetivo con el máximo y el mínimo de cada
 hora, el stop gana el empate. Yahoo da unos 730 días de velas horarias.
 
 Qué prueba: «pocas entradas, en momentos concretos, para una ganancia
-rápida» (idea del dueño, 2026-11-03). La primera es el rebote tras una
-caída brusca en cripto (`ReboteCaida`). Cómo se juzga:
+rápida» (idea del dueño, 2026-11-03): el rebote tras una caída brusca en
+cripto (`ReboteCaida`) y la ruptura de la primera hora en acciones
+(`RupturaPrimeraHora`). Cómo se juzga:
 
   1. Una rejilla pequeña, fijada antes de mirar los datos, sobre el tramo
      de DISEÑO (el 70 % inicial del calendario). Se elige la combinación
@@ -20,8 +22,9 @@ caída brusca en cripto (`ReboteCaida`). Cómo se juzga:
   2. Esa combinación, y solo esa, se juzga en VALIDACIÓN (el 30 % final)
      con el criterio del laboratorio (`metricas.veredicto`).
   3. Frente al azar: las MISMAS salidas entrando a horas al azar con la
-     misma frecuencia (`AzarRebote`), en `--semillas` tiradas. Aporta si en
-     validación supera al 90 % de ellas.
+     misma frecuencia, en `--semillas` tiradas. Aporta si en validación
+     supera al 90 % de ellas, más un punto por cada prueba anterior de este
+     modo (`PRUEBAS_PREVIAS`): probar mucho no regala validaciones.
 
 Las estrategias de 1 hora no están en `estrategias.ESTRATEGIAS`: el
 laboratorio diario las correría con velas diarias.
@@ -46,7 +49,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import CRIPTO_YAHOO, cargar, spread_de  # noqa: E402
+from laboratorio.datos import cargar, spread_de, universo  # noqa: E402
 from laboratorio.estrategias import _atr  # noqa: E402
 from laboratorio.motor import Entrada, Posicion, simular  # noqa: E402
 
@@ -72,10 +75,15 @@ class ReboteCaida:
         self.caida_atr, self.ventana, self.atr_n = caida_atr, ventana, atr_n
         self.stop_atr, self.objetivo_atr, self.horas = stop_atr, objetivo_atr, horas
 
-    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """Lo que no depende de la rejilla: se calcula una vez."""
         out = df.copy()
-        if "ATR_H" not in out.columns:      # el runner lo calcula una vez para toda la rejilla
-            out["ATR_H"] = _atr(df, self.atr_n)
+        out["ATR_H"] = _atr(df, cls().atr_n)
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy() if "ATR_H" in df.columns else self.precalcular(df)
         maximo = out["High"].rolling(self.ventana, min_periods=self.ventana).max()
         out["CAIDA_ATR"] = (maximo - out["Close"]) / out["ATR_H"]
         return out
@@ -117,11 +125,112 @@ class AzarRebote(ReboteCaida):
         return self._niveles(df, t)
 
 
-ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote)}
+class RupturaPrimeraHora:
+    """Ruptura del rango de la primera hora en acciones (doc fase-3/10 §6).
+    La primera vela de la sesión (9:30–10:30 de Nueva York) marca un
+    máximo y un mínimo. El PRIMER cierre de una hora por encima de ese
+    máximo, entre las 10:30 y las 13:30, compra en la apertura siguiente.
+
+    · Stop: el mínimo de la primera hora (`stop="rango"`) o la mitad del
+      rango (`stop="mitad"`).
+    · Objetivo: `objetivo_r` veces el riesgo (0 = sin objetivo).
+    · Nunca pasa la noche: sale en la apertura de la última vela (15:30).
+    · Una entrada al día como mucho, y solo en sesiones completas (7 velas;
+      las sesiones cortas están en el calendario de la bolsa)."""
+
+    nombre = "ruptura_primera_hora"
+    ULTIMA_SENAL = 4        # la vela de las 13:30: entra a las 14:30 como tarde
+    SALIDA = 5              # al cierre de la vela de las 14:30, sale a las 15:30
+
+    def __init__(self, stop: str = "rango", objetivo_r: float = 0.0):
+        self.stop, self.objetivo_r = stop, objetivo_r
+        self._dias: set = set()
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        dia = out.index.normalize()
+        g = out.groupby(dia)
+        out["N_DIA"] = g.cumcount()
+        out["VELAS_DIA"] = g["Close"].transform("size")
+        out["MAX_1H"] = g["High"].transform("first")
+        out["MIN_1H"] = g["Low"].transform("first")
+        # ¿Algún cierre anterior de la sesión estaba ya por encima del máximo?
+        encima = (out["Close"] > out["MAX_1H"]).astype(int)
+        out["YA_ROTO"] = encima.groupby(dia).cummax().groupby(dia).shift(1).fillna(0).astype(bool)
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        self._dias = set()      # una simulación por activo
+        return df.copy() if "N_DIA" in df.columns else self.precalcular(df)
+
+    def _elegible(self, df: pd.DataFrame, t: int) -> bool:
+        fila = df.iloc[t]
+        return bool(fila["VELAS_DIA"] == 7 and 1 <= fila["N_DIA"] <= self.ULTIMA_SENAL
+                    and df.index[t].normalize() not in self._dias)
+
+    def _riesgo(self, df: pd.DataFrame, t: int) -> float:
+        rango = float(df["MAX_1H"].iloc[t] - df["MIN_1H"].iloc[t])
+        return rango if self.stop == "rango" else rango / 2
+
+    def _con_objetivo(self, df: pd.DataFrame, t: int, c: float, sl: float) -> Entrada:
+        # El día se marca al dar la señal: si el stop salta en la misma hora
+        # de la entrada, `actualizar` no llega a llamarse.
+        self._dias.add(df.index[t].normalize())
+        return Entrada(sl=sl, tp=c + self.objetivo_r * (c - sl) if self.objetivo_r > 0 else None)
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if not self._elegible(df, t):
+            return None
+        fila = df.iloc[t]
+        c = float(fila["Close"])
+        if c <= fila["MAX_1H"] or fila["YA_ROTO"]:
+            return None
+        sl = float(fila["MIN_1H"]) if self.stop == "rango" else float(fila["MAX_1H"] + fila["MIN_1H"]) / 2
+        return self._con_objetivo(df, t, c, sl)
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, bool(df["N_DIA"].iloc[t] >= self.SALIDA)
+
+
+class AzarPrimeraHora(RupturaPrimeraHora):
+    """La referencia de `RupturaPrimeraHora`: entra a una hora al azar del
+    mismo tramo (10:30–13:30), con un stop del MISMO tamaño (el rango de la
+    primera hora o su mitad, bajo el cierre), el mismo objetivo en R y la
+    misma salida. Lo único que cambia es que no hace falta romper el
+    máximo."""
+
+    nombre = "azar_primera_hora"
+
+    def __init__(self, probabilidad: float = 0.1, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if not self._elegible(df, t):
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        riesgo = self._riesgo(df, t)
+        if not riesgo > 0:
+            return None
+        c = float(df["Close"].iloc[t])
+        return self._con_objetivo(df, t, c, c - riesgo)
+
+
+# (estrategia, su referencia al azar, clase de activo)
+ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
+                  "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion")}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
-# fase-3/10 §2): 9 combinaciones, todas sobre el tramo de diseño.
-REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}}
+# fase-3/10 §2 y §6), toda sobre el tramo de diseño.
+REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)},
+            "ruptura_primera_hora": {"stop": ("rango", "mitad"), "objetivo_r": (0.0, 1.0, 2.0)}}
+
+# Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
+# frente al azar sube un punto por cada una.
+PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -140,18 +249,18 @@ def _fila(nombre: str, m: metricas.Medidas | None) -> str:
             f"{m.aciertos_pct:.0f} % | {m.coste_pct:.0f} % | {m.dias_medios:.1f} h |")
 
 
-def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
-    base, azar = ESTRATEGIAS_1H[nombre]
+def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
+    base, azar, clase = ESTRATEGIAS_1H[nombre]
+    minimo = PERCENTIL_MINIMO + PRUEBAS_PREVIAS[nombre]
     desde = min(df.index[0] for df in datos.values())
     hasta = max(df.index[-1] for df in datos.values())
     corte = desde + (hasta - desde) * metricas.TRAMO_DISENO
     rejilla = REJILLAS[nombre]
     claves = list(rejilla)
 
-    # El ATR no depende de la rejilla: se calcula una vez.
-    datos = {k: base().preparar(df)[["Open", "High", "Low", "Close", "Volume", "ATR_H"]] for k, df in datos.items()}
+    datos = {k: base.precalcular(df) for k, df in datos.items()}
 
-    filas, resultados = [], {}
+    resultados = {}
     for valores in itertools.product(*(rejilla[k] for k in claves)):
         params = dict(zip(claves, valores))
         ops = operar(datos, base(**params))
@@ -182,11 +291,15 @@ def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
     _, val_ops = metricas.partir(ops, corte)
     ic_meses = metricas.ic90_por_meses(val_ops)
 
-    # Azar con la misma frecuencia de entrada: una posición a la vez, así
-    # que la probabilidad se mide sobre las horas en que se podía entrar.
+    # Azar con la misma frecuencia de entrada: una primera estimación por
+    # hora en que se podía entrar, ajustada con una tirada de prueba para que
+    # dé las mismas operaciones (cada estrategia limita cuándo puede entrar).
     barras = sum(len(df) for df in datos.values())
     horas_abiertas = sum(o.dias + 1 for o in ops)
     probabilidad = len(ops) / max(barras - horas_abiertas, 1)
+    prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
+    if prueba:
+        probabilidad = min(probabilidad * len(ops) / prueba, 1.0)
     tiradas = []
     for s in range(semillas):
         _, av = metricas.partir(operar(datos, azar(probabilidad=probabilidad, semilla=s, **params)), corte)
@@ -195,7 +308,7 @@ def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
             tiradas.append(m)
     az = np.array([m.expectativa_r for m in tiradas])
     pct = float((az < v.expectativa_r).mean() * 100) if v is not None and len(az) else 0.0
-    supera = pct >= PERCENTIL_MINIMO
+    supera = pct >= minimo
 
     lineas += [
         "",
@@ -207,7 +320,7 @@ def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
         _fila("**Validación**", v),
     ]
     if ic_meses is not None:
-        lineas += ["", f"IC 90 % remuestreando meses (las caídas de cripto llegan en bloque): "
+        lineas += ["", f"IC 90 % remuestreando meses (las operaciones de un mismo mes no son independientes): "
                        f"{ic_meses[0]:+.3f} – {ic_meses[1]:+.3f} R."]
     if v is not None:
         # Sin el «por mes en cartera»: con operaciones de pocas horas, encadenar
@@ -221,7 +334,7 @@ def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
     if len(az):
         lineas += [f"Azar en validación: mediana {np.median(az):+.3f} R, p5 – p95 {np.quantile(az, 0.05):+.3f} – "
                    f"{np.quantile(az, 0.95):+.3f} R, {np.median([m.operaciones for m in tiradas]):.0f} operaciones. "
-                   f"La elegida supera al **{pct:.0f} %** (mínimo {PERCENTIL_MINIMO} %).", ""]
+                   f"La elegida supera al **{pct:.0f} %** (mínimo {minimo} %).", ""]
     lineas += ["## Validación de toda la rejilla (solo para ver; no elige)", "",
                "| Parámetros | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto | Duración |",
                "|---|---|---|---|---|---|---|"]
@@ -235,19 +348,27 @@ def informe(nombre: str, datos: dict, clase: str, semillas: int = 20) -> str:
         if not ok:
             lineas += [f"- {m}" for m in motivos]
         if not supera:
-            lineas.append(f"- no supera al azar: percentil {pct:.0f} (mínimo {PERCENTIL_MINIMO})")
+            lineas.append(f"- no supera al azar: percentil {pct:.0f} (mínimo {minimo})")
         lineas += ["", "❌ **no tiene ventaja**."]
+        if supera and v is not None and v.expectativa_r <= 0:
+            # Superar al azar perdiendo dinero es ser menos malo, no tener ventaja.
+            lineas += ["", f"⚠️ Supera al azar, pero pierde dinero ({v.expectativa_r:+.3f} R en validación): "
+                           "es menos mala que el azar, no una ventaja."]
     return "\n".join(lineas)
 
 
-def cargar_cripto(cache: Path | None = None) -> dict:
+def cargar_1h(clase: str, cache: Path | None = None) -> dict:
+    """Velas de 1 hora del universo activo de una clase (en local, sin
+    acceso a la base de datos, la semilla de la 0003 y las criptos de la 0032)."""
     if cache is not None and cache.exists():
         return pickle.loads(cache.read_bytes())
     datos = {}
-    for simbolo in CRIPTO_YAHOO:
-        df = cargar(simbolo, "cripto", PERIODO, intervalo="1h")
-        if df is not None and len(df) >= 24 * 60:
-            datos[(simbolo, "cripto")] = df
+    for simbolo, c in universo():
+        if c != clase:
+            continue
+        df = cargar(simbolo, clase, PERIODO, intervalo="1h")
+        if df is not None and len(df) >= BARRAS_MES[clase] * 2:
+            datos[(simbolo, clase)] = df
     if cache is not None:
         cache.write_bytes(pickle.dumps(datos))
     return datos
@@ -261,11 +382,11 @@ def main() -> int:
     p.add_argument("--cache", default="", help="pickle con las velas, para repetir sin descargar")
     a = p.parse_args()
 
-    datos = cargar_cripto(Path(a.cache) if a.cache else None)
+    datos = cargar_1h(ESTRATEGIAS_1H[a.estrategia][2], Path(a.cache) if a.cache else None)
     if not datos:
         print("Sin datos: nada que medir.")
         return 1
-    texto = informe(a.estrategia, datos, "cripto", a.semillas)
+    texto = informe(a.estrategia, datos, a.semillas)
     salida = Path(a.salida)
     salida.mkdir(parents=True, exist_ok=True)
     (salida / "intradia.md").write_text(texto, encoding="utf-8")
