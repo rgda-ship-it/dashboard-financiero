@@ -1,4 +1,4 @@
-# Fase 3 — Modo de 1 hora y el rebote tras una caída en cripto
+# Fase 3 — Modo de 1 hora: rebote en cripto y ruptura de la primera hora
 
 > **Para qué sirve**: responde a la idea del dueño del 2026-11-03:
 > «pocas posiciones, en momentos concretos, que den una ganancia rápida».
@@ -81,8 +81,8 @@ las primeras horas.
 Las otras ideas propuestas el 2026-11-03, todas con el mismo modo y el
 mismo criterio:
 
-1. **Ruptura del rango de la primera hora en acciones** (Yahoo da también
-   730 días en 1 hora).
+1. ~~Ruptura del rango de la primera hora en acciones~~: probada en el §6,
+   sin ventaja.
 2. **El hueco del día de resultados**: ¿sigue o se cierra en las horas
    siguientes? Las fechas ya se cargan (`datos.cargar_resultados`).
 3. **Horas de más movimiento en cripto** frente al resto del día.
@@ -91,3 +91,47 @@ Cada prueba nueva sube el percentil exigido: probar mucho no regala
 validaciones. Y aunque alguna validara, en producción las señales llegan
 con hasta 90 minutos de retraso, así que operar por horas necesitaría un
 ETL más frecuente.
+
+---
+
+## 6. Segunda prueba: ruptura de la primera hora en acciones (2026-11-03)
+
+> **Método**: velas de 1 hora de Yahoo de las 21 acciones del universo
+> (la semilla de la 0003), del **2023-12-06 al 2026-11-03** (en acciones,
+> Yahoo da casi 3 años). Diseño hasta el 2025-12-19; validación desde ahí.
+> Spread de 0,03 $. Segunda prueba del modo: el percentil exigido sube a 91.
+
+`ruptura_primera_hora`. La primera vela de la sesión (9:30–10:30) marca un
+máximo y un mínimo. El **primer** cierre de una hora por encima de ese
+máximo, entre las 10:30 y las 13:30, compra en la apertura siguiente.
+Nunca pasa la noche: sale en la apertura de la última vela (15:30). Una
+entrada al día como mucho, y solo en sesiones completas. La rejilla: stop
+en el mínimo de la primera hora o en la mitad del rango; objetivo a 1R o
+2R, o ninguno.
+
+La referencia al azar entra a una hora al azar del mismo tramo, con un
+stop **del mismo tamaño** (el rango o su mitad), el mismo objetivo y la
+misma salida: lo único que quita es la condición de romper el máximo.
+
+| | Ops | Neto | Coste (spread) | Antes de costes |
+|---|---|---|---|---|
+| Diseño, mejor combinación (stop en el mínimo, sin objetivo) | 3.401 | −0,057 R | 0,061 R | +0,003 R |
+| **Validación** | 1.317 | **−0,023 R** | 0,050 R | +0,027 R |
+| Azar con las mismas salidas (validación) | 1.316 | −0,063 R (mediana) | 0,064 R | −0,008 R |
+
+- **Pierde dinero en las seis combinaciones**, en diseño y en validación.
+  El IC 90 % de la elegida en validación es −0,043 – −0,005 R.
+- **Supera al azar en el 100 % de las tiradas**, pero es menos mala que el
+  azar, no una ventaja: el +0,03 R que añade la ruptura no paga el
+  spread.
+- El spread se lleva el 29–37 % del bruto (en diario, las reversiones
+  pagaban el 7–12 %): 0,03 $ por operación pesa mucho frente a un stop
+  del tamaño del rango de una hora.
+- Por acción, en validación: de +0,09 R (WFC) a −0,16 R (AGNC), 14 de
+  21 negativas. Elegir las buenas sería mirar el resultado.
+
+**Conclusión de las dos pruebas**: con los costes de QuantFury, las ideas
+de pocas horas parten con unos −0,05 a −0,08 R por operación en contra.
+Las dos que se han probado añaden algo frente al azar (la ruptura, más),
+pero no lo suficiente. Lo que queda (§5) tendría que mover bastante más que
+eso, como el hueco del día de resultados, que suele ser de varios ATR.

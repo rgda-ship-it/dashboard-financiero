@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-03 — Ruptura de la primera hora en acciones, sin ventaja
+
+### Añadido
+- `ruptura_primera_hora` en el modo de 1 hora, con su azar (misma hora del día, mismo tamaño de stop y misma salida). El modo carga el universo activo de la clase de cada estrategia, sube el percentil exigido con cada prueba (`PRUEBAS_PREVIAS`) y avisa cuando algo supera al azar perdiendo dinero.
+
+### Resultado
+- 21 acciones, del 2023-12-06 al 2026-11-03: pierde en las seis combinaciones (−0,023 R en validación con 1.317 operaciones). Supera al azar en el 100 % de las tiradas, pero antes de costes solo gana +0,03 R y el spread se lleva 0,05 R (doc fase-3/10 §6).
+
 ## [Sin publicar] - 2026-11-03 — Modo de 1 hora del laboratorio; el rebote tras una caída en cripto, sin ventaja
 
 ### Añadido

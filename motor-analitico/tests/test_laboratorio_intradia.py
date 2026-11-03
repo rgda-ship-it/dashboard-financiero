@@ -13,7 +13,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.intradia import AzarRebote, ReboteCaida, informe  # noqa: E402
+from laboratorio.intradia import AzarPrimeraHora, AzarRebote, ReboteCaida, RupturaPrimeraHora, informe  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
 SIN_SPREAD = lambda precio: 0.0  # noqa: E731
@@ -88,5 +88,58 @@ def test_el_informe_elige_en_diseno_y_compara_con_el_azar():
         for en in range(200, 3000, 60):           # caídas frecuentes para tener operaciones
             cierres[en:] -= 6
         datos[(f"x{i}", "cripto")] = _horas(cierres - cierres.min() + 50)
-    texto = informe("rebote_caida", datos, "cripto", semillas=3)
+    texto = informe("rebote_caida", datos, semillas=3)
     assert "Rejilla en diseño" in texto and "Veredicto" in texto
+
+
+def _sesiones(dias):
+    """Sesiones de 7 velas (14:30–20:30 UTC). `dias` es una lista de listas
+    de 7 tuplas (apertura, máximo, mínimo, cierre)."""
+    filas, idx = [], []
+    for d, velas in enumerate(dias):
+        for h, vela in enumerate(velas):
+            idx.append(pd.Timestamp("2025-03-03 14:30") + pd.Timedelta(days=d, hours=h))
+            filas.append(vela)
+    return pd.DataFrame(filas, columns=["Open", "High", "Low", "Close"], index=pd.DatetimeIndex(idx)).assign(Volume=1e6)
+
+
+PLANA = [(100, 100.5, 99.5, 100)] * 7
+
+
+def test_la_ruptura_compra_tras_el_primer_cierre_sobre_el_maximo_y_sale_antes_del_cierre():
+    dia = [(100, 101, 99, 100), (100, 100.8, 99.8, 100.5), (100.5, 101.6, 100.4, 101.5),
+           (101.5, 102, 101, 101.8), (101.8, 102.5, 101.5, 102), (102, 102.4, 101.8, 102.2),
+           (102.2, 102.6, 102, 102.4)]
+    df = _sesiones([PLANA, dia, PLANA])
+    ops = simular(df, RupturaPrimeraHora(stop="rango"), SIN_SPREAD)
+    assert len(ops) == 1
+    o = ops[0]
+    assert o.fecha_senal.hour == 16 and o.fecha_entrada.hour == 17     # cierre de las 11:30, entra a las 12:30
+    assert o.sl_inicial == 99 and o.precio_entrada == 101.5
+    assert o.motivo == "regla" and o.fecha_salida.hour == 20             # sale en la apertura de las 15:30
+    assert o.fecha_salida.normalize() == o.fecha_entrada.normalize()
+
+
+def test_la_ruptura_no_entra_dos_veces_ni_si_ya_estaba_rota_ni_en_sesiones_cortas():
+    dia = [(100, 101, 99, 100), (100, 102, 100, 101.5), (101.5, 101.6, 100.2, 100.5),
+           (100.5, 101.8, 100.4, 101.6), (101.6, 101.7, 101.4, 101.5), (101.5, 101.6, 101.4, 101.5),
+           (101.5, 101.6, 101.4, 101.5)]
+    ops = simular(_sesiones([PLANA, dia]), RupturaPrimeraHora(stop="mitad", objetivo_r=1), SIN_SPREAD)
+    assert len(ops) == 1 and ops[0].sl_inicial == 100        # la mitad del rango 99–101
+    corta = _sesiones([PLANA, dia]).iloc[:-2]                 # la segunda sesión, de 5 velas
+    assert simular(corta, RupturaPrimeraHora(), SIN_SPREAD) == []
+
+
+def test_el_azar_de_la_primera_hora_usa_el_mismo_tamano_de_stop_y_la_misma_salida():
+    rng = np.random.default_rng(2)
+    dias = []
+    for _ in range(40):
+        c = 100 + np.cumsum(rng.normal(0, 0.3, 7))
+        dias.append([(x, x + 0.4, x - 0.4, x + 0.1) for x in c])
+    df = _sesiones(dias)
+    ops = simular(df, AzarPrimeraHora(probabilidad=0.5, semilla=1, stop="rango"), SIN_SPREAD)
+    assert ops
+    for o in ops:
+        assert o.fecha_salida.normalize() == o.fecha_entrada.normalize()
+        assert 15 <= o.fecha_entrada.hour <= 19
+    assert len({o.fecha_entrada.normalize() for o in ops}) == len(ops)   # una al día
