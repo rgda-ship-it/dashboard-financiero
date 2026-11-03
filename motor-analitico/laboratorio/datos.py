@@ -342,20 +342,25 @@ def ticker_yahoo(simbolo: str, clase: str) -> str | None:
     return CRIPTO_YAHOO.get(simbolo)
 
 
-def cargar(simbolo: str, clase: str, periodo: str = "5y") -> pd.DataFrame | None:
-    """Velas diarias OHLCV, o None si Yahoo no las da."""
+def cargar(simbolo: str, clase: str, periodo: str = "5y", intervalo: str = "1d") -> pd.DataFrame | None:
+    """Velas OHLCV (diarias por defecto; `intervalo="1h"` con un periodo de
+    hasta "730d" para el modo de 1 hora), o None si Yahoo no las da. Las
+    horas quedan en UTC."""
     import yfinance as yf
 
     ticker = ticker_yahoo(simbolo, clase)
     if ticker is None:
         return None
     try:
-        df = yf.Ticker(ticker).history(period=periodo, interval="1d", auto_adjust=True)
+        df = yf.Ticker(ticker).history(period=periodo, interval=intervalo, auto_adjust=True)
     except Exception as exc:  # noqa: BLE001
         print(f"  [datos] {simbolo}: {exc}")
         return None
     if df is None or df.empty or not {"Open", "High", "Low", "Close"} <= set(df.columns):
         return None
     df = df[["Open", "High", "Low", "Close", "Volume"]].dropna(subset=["Open", "High", "Low", "Close"])
-    df.index = pd.to_datetime(df.index).tz_localize(None)
+    indice = pd.to_datetime(df.index)
+    if intervalo != "1d" and indice.tz is not None:
+        indice = indice.tz_convert("UTC")
+    df.index = indice.tz_localize(None)
     return df

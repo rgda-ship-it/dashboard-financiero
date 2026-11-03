@@ -37,7 +37,9 @@ class Medidas:
     mes_pct: float = 0.0             # rendimiento por mes (21 sesiones) en cartera, en %
 
 
-def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
+def medir(ops: list[Operacion], semilla: int = 7, barras_mes: int = 21) -> Medidas | None:
+    """`barras_mes`: cuántas velas son un mes (21 sesiones en diario; en el
+    modo de 1 hora, 720 en cripto)."""
     if not ops:
         return None
     r = np.array([o.r for o in ops], dtype=float)
@@ -71,7 +73,7 @@ def medir(ops: list[Operacion], semilla: int = 7) -> Medidas | None:
     # durante tiempos muy distintos, donde la R por operación favorece a la
     # que mantiene más (doc 06 §3.11).
     sesiones = sum(max(o.dias, 1) for o in ops)
-    mes = float(np.expm1(np.log1p(np.clip(pct / 100, -0.999, None)).sum() / sesiones * 21) * 100)
+    mes = float(np.expm1(np.log1p(np.clip(pct / 100, -0.999, None)).sum() / sesiones * barras_mes) * 100)
 
     return Medidas(
         mes_pct=mes,

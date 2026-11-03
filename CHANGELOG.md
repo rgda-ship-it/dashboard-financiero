@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-03 — Modo de 1 hora del laboratorio; el rebote tras una caída en cripto, sin ventaja
+
+### Añadido
+- `laboratorio/intradia.py`: el laboratorio con velas de 1 hora (730 días de Yahoo), con rejilla en diseño, validación y 20 tiradas al azar con las mismas salidas. Modo `intradia` en `laboratorio.yml`. `datos.cargar` admite `intervalo` y `metricas.medir`, `barras_mes`.
+
+### Resultado
+- Rebote tras una caída brusca en cripto (14 criptos, del 2024-11-04 al 2026-11-03): lo mejor del diseño da −0,005 R en validación y supera al azar en el 80 % (mínimo 90 %). El spread de entrar y salir en horas cuesta unos −0,08 R por operación (doc fase-3/10).
+
 ## [Sin publicar] - 2026-11-02 — 0055: saldo para operar con base fija y escalones (D25)
 
 ### Cambiado
