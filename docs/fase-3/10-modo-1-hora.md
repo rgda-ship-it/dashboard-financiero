@@ -1,0 +1,93 @@
+# Fase 3 — Modo de 1 hora y el rebote tras una caída en cripto
+
+> **Para qué sirve**: responde a la idea del dueño del 2026-11-03:
+> «pocas posiciones, en momentos concretos, que den una ganancia rápida».
+> El laboratorio solo veía velas diarias; aquí se le añade un modo de 1
+> hora y se prueba la primera de esas ideas.
+> **Método**: velas de 1 hora de Yahoo de las 14 criptos del universo, del
+> **2024-11-04 al 2026-11-03** (lo máximo que da Yahoo: 730 días). Diseño
+> hasta el 2026-03-29; validación desde ahí. Spread de la 0034. No usa
+> datos de producción ni toca a los agentes.
+> **Fecha**: 2026-11-03.
+
+---
+
+## 1. El modo de 1 hora
+
+`laboratorio/intradia.py`. El motor es el de siempre: trabaja por velas,
+así que con velas horarias cada fila es una hora y las reglas de ejecución
+no cambian (señal al cierre de la hora, entrada en la apertura de la
+siguiente con medio spread, el stop gana el empate, salida en hueco).
+
+- `datos.cargar(…, intervalo="1h")`: velas horarias en UTC.
+- `metricas.medir(…, barras_mes=…)`: cuántas velas son un mes. El informe
+  no da el «por mes en cartera»: con operaciones de pocas horas,
+  encadenarlas como si se estuviera siempre dentro da cifras irreales (la
+  primera pasada decía +15 % al mes con una expectativa de −0,005 R).
+- Las estrategias de 1 hora tienen su propio registro: el laboratorio
+  diario no las corre.
+- En GitHub Actions: `laboratorio.yml`, modo `intradia`.
+
+Cómo se juzga una estrategia (fijado antes de mirar los datos):
+
+1. Una rejilla pequeña sobre el tramo de **diseño** (70 %). Se elige la
+   combinación de mejor expectativa con al menos 30 operaciones.
+2. Esa, y solo esa, se juzga en **validación** con el criterio del
+   laboratorio (≥ 30 operaciones, > +0,10 R, IC 90 % sin el cero, factor
+   de beneficio > 1,2).
+3. **Frente al azar**: las mismas salidas entrando a horas al azar con la
+   misma frecuencia, en 20 tiradas. Tiene que superar al 90 %.
+
+## 2. La hipótesis: rebote tras una caída brusca
+
+`rebote_caida`. Al cierre de una hora, si el precio está a *k* ATR de
+1 hora (ATR de 48 horas) por debajo del máximo de las últimas 6 horas, se
+compra en la apertura siguiente. Stop y objetivo a 2 ATR; si no toca
+ninguno, se sale a las *H* horas. La rejilla: *k* = 4, 6 u 8 y *H* = 6,
+12 o 24.
+
+La pregunta viene del freno por choque (doc fase-3/09 §6): los agentes
+compraban el mismo retroceso días después; quizá la ganancia estaba en
+las primeras horas.
+
+## 3. Resultado: no hay ventaja
+
+| | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto |
+|---|---|---|---|---|---|
+| Diseño, mejor combinación (*k* = 8, *H* = 6) | 303 | +0,019 R | −0,067 – +0,104 | 53 % | 12 % |
+| **Validación** | 49 | **−0,005 R** | −0,210 – +0,188 | 55 % | 25 % |
+| Azar con las mismas salidas (validación, mediana de 20) | 107 | −0,081 R | p5–p95: −0,191 – +0,070 | | |
+
+- La elegida supera al azar en el 80 % de las tiradas (mínimo, 90 %).
+- Las caídas más pequeñas (4 y 6 ATR) pierden en diseño en las seis
+  combinaciones (−0,09 a −0,13 R). En validación, toda la rejilla está
+  entre −0,04 y +0,02 R: **nada se acerca al +0,10 R**.
+- Cuanto más extrema la caída, algo mejor (8 ATR es la única que no
+  pierde en diseño), pero son pocas operaciones y el intervalo es muy
+  ancho.
+
+## 4. Lo que enseña para las ideas rápidas
+
+- **El spread pesa el doble.** Entrar y salir en pocas horas con stops de
+  2 ATR horarios cuesta, de media, **unos −0,08 R por operación** (es lo
+  que pierde el azar, que no tiene ventaja ni desventaja). En diario, las
+  reversiones pagaban un 7–12 % del bruto; aquí, el 12–25 %. Para ganar
+  hay que superar ese listón antes de tener ventaja.
+- **Un desplome en cripto no rebota de forma fiable en las horas
+  siguientes**, igual que no rebotaba en los días siguientes.
+
+## 5. Qué queda
+
+Las otras ideas propuestas el 2026-11-03, todas con el mismo modo y el
+mismo criterio:
+
+1. **Ruptura del rango de la primera hora en acciones** (Yahoo da también
+   730 días en 1 hora).
+2. **El hueco del día de resultados**: ¿sigue o se cierra en las horas
+   siguientes? Las fechas ya se cargan (`datos.cargar_resultados`).
+3. **Horas de más movimiento en cripto** frente al resto del día.
+
+Cada prueba nueva sube el percentil exigido: probar mucho no regala
+validaciones. Y aunque alguna validara, en producción las señales llegan
+con hasta 90 minutos de retraso, así que operar por horas necesitaría un
+ETL más frecuente.
