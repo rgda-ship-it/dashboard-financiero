@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-04 — Deriva tras resultados con velas diarias: casi valida
+
+### Añadido
+- `deriva_resultados` en `laboratorio/intradia.py`, con su azar: el mismo método del modo de 1 hora con velas diarias (`CARGA` admite `intervalo` y `periodo`). Entra al día siguiente de un hueco de resultados, en su dirección, y sale a las 5, 10 o 20 sesiones.
+
+### Resultado
+- 101 acciones del S&P 100, del 2016-11-04 al 2026-11-04: hueco de 2 ATR y 20 sesiones da +0,434 R en diseño y +0,226 R en validación (212 operaciones), pero el IC 90 % toca el cero y supera al azar en el 90 % (mínimo 93 %). Separado por lado, los largos dan +0,71 R en validación y los cortos pierden: queda una prueba nueva, solo en largo y fuera del S&P 100 (doc fase-3/10 §8).
+
 ## [Sin publicar] - 2026-11-04 — Hueco del día de resultados, sin ventaja
 
 ### Añadido

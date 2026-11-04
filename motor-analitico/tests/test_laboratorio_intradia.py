@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from laboratorio import metricas  # noqa: E402
 from laboratorio.intradia import (AzarHueco, AzarPrimeraHora, AzarRebote, HuecoResultados, ReboteCaida,  # noqa: E402
-                                  RupturaPrimeraHora, con_dia_resultados, informe)
+                                  AzarDeriva, DerivaResultados, RupturaPrimeraHora, con_dia_resultados, informe)
 from laboratorio.motor import simular  # noqa: E402
 
 SIN_SPREAD = lambda precio: 0.0  # noqa: E731
@@ -195,3 +195,42 @@ def test_el_azar_del_hueco_entra_cualquier_dia_a_las_10_30_en_la_direccion_de_la
         assert o.motivo != "regla" or o.fecha_salida.hour == 20
         primera = df.loc[o.fecha_senal]
         assert o.lado == ("largo" if primera["Close"] >= primera["Open"] else "corto")
+
+
+def _diaria(velas):
+    idx = pd.bdate_range("2024-01-01", periods=len(velas))
+    return pd.DataFrame(velas, columns=["Open", "High", "Low", "Close"], index=idx).assign(Volume=1e6)
+
+
+def test_la_deriva_entra_al_dia_siguiente_en_la_direccion_del_hueco_y_sale_a_las_n_sesiones():
+    plana = [(100, 100.5, 99.5, 100)] * 20
+    sube = plana + [(102, 104, 101.5, 103.5)] + [(103.5, 104, 103, 103.8)] * 12
+    df = con_dia_resultados(_diaria(sube), pd.DatetimeIndex([_diaria(sube).index[20]]))
+    ops = simular(df, DerivaResultados(hueco_atr=1.0, sesiones=5), SIN_SPREAD)
+    assert len(ops) == 1
+    o = ops[0]
+    assert o.lado == "largo" and o.sl_inicial == 101.5 and o.precio_entrada == 103.5
+    assert o.fecha_entrada == df.index[21] and o.fecha_salida == df.index[26] and o.motivo == "regla"
+    baja = plana + [(98, 98.5, 96, 96.5)] + [(96.5, 97, 96, 96.2)] * 12
+    df = con_dia_resultados(_diaria(baja), pd.DatetimeIndex([_diaria(baja).index[20]]))
+    ops = simular(df, DerivaResultados(hueco_atr=1.0, sesiones=5), SIN_SPREAD)
+    assert len(ops) == 1 and ops[0].lado == "corto" and ops[0].sl_inicial == 98.5
+    # Sin resultados, o con la sesión cerrando en contra del hueco, no entra.
+    assert simular(df.assign(DIA_RESULTADOS=False), DerivaResultados(hueco_atr=1.0), SIN_SPREAD) == []
+    contra = plana + [(98, 99.5, 97.5, 99.2)] + [(99, 99.5, 98.5, 99)] * 12
+    df = con_dia_resultados(_diaria(contra), pd.DatetimeIndex([_diaria(contra).index[20]]))
+    assert simular(df, DerivaResultados(hueco_atr=1.0), SIN_SPREAD) == []
+
+
+def test_el_azar_de_la_deriva_sigue_a_la_sesion_con_la_misma_salida():
+    rng = np.random.default_rng(4)
+    c = 100 + np.cumsum(rng.normal(0, 1, 300))
+    o = np.concatenate([[c[0]], c[:-1]]) + rng.normal(0, 0.3, 300)
+    df = _diaria(np.column_stack([o, np.maximum(o, c) + 0.5, np.minimum(o, c) - 0.5, c]))
+    ops = simular(df, AzarDeriva(probabilidad=0.2, semilla=2, sesiones=5), SIN_SPREAD)
+    assert ops
+    for op in ops:
+        senal = df.loc[op.fecha_senal]
+        assert op.lado == ("largo" if senal["Close"] >= senal["Open"] else "corto")
+        assert op.sl_inicial == (senal["Low"] if op.lado == "largo" else senal["High"])
+        assert df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 5
