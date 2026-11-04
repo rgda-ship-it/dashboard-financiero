@@ -270,6 +270,28 @@ que dé el diseño; y superar a las tiradas al azar en al menos el **94 %**
 hipótesis, también se mira que el diseño (el 70 % inicial) vaya en la
 misma dirección.
 
-### Resultado
+### Resultado: no se sostiene
 
-*(pendiente)*
+95 de las 98 acciones tienen velas y fechas de resultados en Yahoo (faltan
+BLD y dos más), del **2016-11-04 al 2026-11-04**. Diseño hasta el
+2023-11-04.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño | 146 | +0,029 R | −0,171 – +0,241 |
+| **Validación** | 71 | **+0,247 R** | −0,095 – +0,628 |
+| Largos al azar con las mismas salidas (validación, 100 tiradas) | 69 | +0,078 R (mediana) | p5 – p95: −0,476 – +1,351 |
+
+- **Supera a los largos al azar solo en el 63 %** de las tiradas (mínimo
+  94 %), y el IC 90 % incluye el cero.
+- **En el diseño (2016–2023) casi no gana**: +0,03 R con 146 operaciones,
+  frente a los +0,65 R de los largos en el S&P 100. Lo que daba el §8 no
+  aparece en acciones nuevas.
+- El +0,25 R de la validación no es una señal: con unas 70 operaciones,
+  las tiradas al azar van de −0,48 a +1,35 R. Comprar cualquier día al alza
+  en 2024–2026 daba lo mismo.
+
+**Conclusión**: la deriva tras resultados con hueco era, sobre todo, una
+propiedad de las acciones grandes que han subido en los últimos diez años,
+no una ventaja que se lleve a otras acciones. Se cierra aquí: no se
+cambian los parámetros para buscar otra versión que pase.
