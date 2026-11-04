@@ -111,3 +111,32 @@ Lo que dice:
   esta tanda, así que el percentil exigido sería el 95. La medición del §3
   apunta más a una reversión a un mes que a una tendencia: las lecturas
   bajistas también rinden por encima de la media.
+
+## 6. La prueba: comprar el rebote con fondo bajista (2026-11-04)
+
+> **Fijada antes de mirar los datos** (este apartado se escribió y se
+> guardó en un commit antes de ejecutar la prueba).
+
+**Qué se prueba**: `rebote_fondo_bajista`. Al cierre del día en que el
+histograma del MACD pasa a positivo con la media de 50 por debajo de la de
+200 (el momento en que una acción entra en el estado de O), compra en la
+apertura siguiente. Stop a 1,5 o 3 ATR del cierre, sin objetivo, salida a
+las 10 o 20 sesiones: cuatro combinaciones, elegidas en el diseño.
+
+**Dónde**: el S&P 100 con velas diarias de 10 años (`laboratorio/intradia.py`,
+con el mismo método de la fase-3/10), spread de 0,03 $.
+
+**Referencia**: 100 tiradas de largos un día cualquiera **con la media de
+50 bajo la de 200**, sin esperar al giro, con el mismo stop y la misma
+salida. En acciones que hoy siguen en el S&P 100, comprar en una caída ya
+tiende a salir bien (sesgo de supervivencia), así que lo que se mide es si
+el giro del MACD aporta algo sobre eso.
+
+**Criterio** (el del laboratorio, sin cambios): en validación (el 30 %
+final), ≥ 30 operaciones, > +0,10 R, IC 90 % por encima de cero, factor de
+beneficio > 1,2 y al menos un tercio del diseño; y superar al azar en al
+menos el **95 %** de las tiradas (sexta prueba del modo).
+
+### Resultado
+
+*(pendiente)*
