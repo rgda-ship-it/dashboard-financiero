@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-04 — Hueco del día de resultados, sin ventaja
+
+### Añadido
+- `hueco_resultados` en el modo de 1 hora, con su azar (un día cualquiera a las 10:30, en la dirección de la primera hora, con el mismo stop y la misma salida). Puede ir en largo y en corto. El modo puede cargar otro universo y los días de resultados (`CARGA`); el hueco usa el S&P 100.
+
+### Resultado
+- 101 acciones del S&P 100, del 2023-12-07 al 2026-11-04: dentro del día pierde siempre. Dejarlo correr cinco sesiones tras un hueco de 2 ATR da +0,106 R en validación (57 operaciones), con el IC 90 % incluyendo el cero y el percentil 90 frente al azar (mínimo 92). Queda como idea medir esa deriva con velas diarias (doc fase-3/10 §7).
+
 ## [Sin publicar] - 2026-11-03 — Ruptura de la primera hora en acciones, sin ventaja
 
 ### Añadido

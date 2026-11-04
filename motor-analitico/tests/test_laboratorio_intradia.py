@@ -13,7 +13,8 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.intradia import AzarPrimeraHora, AzarRebote, ReboteCaida, RupturaPrimeraHora, informe  # noqa: E402
+from laboratorio.intradia import (AzarHueco, AzarPrimeraHora, AzarRebote, HuecoResultados, ReboteCaida,  # noqa: E402
+                                  RupturaPrimeraHora, con_dia_resultados, informe)
 from laboratorio.motor import simular  # noqa: E402
 
 SIN_SPREAD = lambda precio: 0.0  # noqa: E731
@@ -143,3 +144,54 @@ def test_el_azar_de_la_primera_hora_usa_el_mismo_tamano_de_stop_y_la_misma_salid
         assert o.fecha_salida.normalize() == o.fecha_entrada.normalize()
         assert 15 <= o.fecha_entrada.hour <= 19
     assert len({o.fecha_entrada.normalize() for o in ops}) == len(ops)   # una al día
+
+
+def _con_resultados(hueco, primera, resto, previas=15):
+    """`previas` sesiones planas (ATR diario 1 $, cierre 100) y una de
+    resultados que abre en 100 + `hueco` con la primera vela `primera`."""
+    o = 100 + hueco
+    dia = [primera] + [resto] * 6
+    df = _sesiones([PLANA] * previas + [dia, [resto] * 7])
+    return con_dia_resultados(df, pd.DatetimeIndex([df.index[previas * 7].normalize()])), o
+
+
+def test_el_hueco_al_alza_compra_a_las_10_30_con_stop_en_el_minimo_y_sale_el_mismo_dia():
+    df, _ = _con_resultados(2, (102, 103, 101.5, 102.8), (102.8, 103.2, 102.6, 103))
+    ops = simular(df, HuecoResultados(hueco_atr=1.0), SIN_SPREAD)
+    assert len(ops) == 1
+    o = ops[0]
+    assert o.lado == "largo" and o.sl_inicial == 101.5 and o.precio_entrada == 102.8
+    assert o.fecha_entrada.hour == 15 and o.fecha_salida.hour == 20 and o.motivo == "regla"
+    assert o.fecha_salida.normalize() == o.fecha_entrada.normalize()
+    # Hueco más pequeño que el exigido, o sin resultados: no entra.
+    assert simular(df, HuecoResultados(hueco_atr=3.0), SIN_SPREAD) == []
+    assert simular(df.assign(DIA_RESULTADOS=False), HuecoResultados(hueco_atr=1.0), SIN_SPREAD) == []
+
+
+def test_el_hueco_a_la_baja_vende_en_corto_y_puede_dejar_correr_varias_sesiones():
+    df, _ = _con_resultados(-2, (98, 98.5, 97, 97.2), (97.2, 97.4, 96.8, 97))
+    ops = simular(df, HuecoResultados(hueco_atr=1.0, sesiones=2), SIN_SPREAD)
+    assert len(ops) == 1
+    o = ops[0]
+    assert o.lado == "corto" and o.sl_inicial == 98.5
+    assert o.fecha_salida.normalize() - o.fecha_entrada.normalize() == pd.Timedelta(days=1)
+    assert o.fecha_salida.hour == 20
+    # La primera hora en contra del hueco anula la señal.
+    contra, _ = _con_resultados(-2, (98, 99, 97.8, 98.9), (98.9, 99.1, 98.7, 99))
+    assert simular(contra, HuecoResultados(hueco_atr=1.0), SIN_SPREAD) == []
+
+
+def test_el_azar_del_hueco_entra_cualquier_dia_a_las_10_30_en_la_direccion_de_la_primera_hora():
+    rng = np.random.default_rng(3)
+    dias = []
+    for _ in range(60):
+        c = 100 + np.cumsum(rng.normal(0, 0.3, 7))
+        dias.append([(x, x + 0.4, x - 0.4, x + rng.choice([-0.1, 0.1])) for x in c])
+    df = _sesiones(dias)
+    ops = simular(df, AzarHueco(probabilidad=0.5, semilla=1), SIN_SPREAD)
+    assert ops and ops == simular(df, AzarHueco(probabilidad=0.5, semilla=1), SIN_SPREAD)
+    for o in ops:
+        assert o.fecha_entrada.hour == 15 and o.fecha_salida.normalize() == o.fecha_entrada.normalize()
+        assert o.motivo != "regla" or o.fecha_salida.hour == 20
+        primera = df.loc[o.fecha_senal]
+        assert o.lado == ("largo" if primera["Close"] >= primera["Open"] else "corto")
