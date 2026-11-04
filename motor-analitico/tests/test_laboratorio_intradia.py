@@ -234,3 +234,20 @@ def test_el_azar_de_la_deriva_sigue_a_la_sesion_con_la_misma_salida():
         assert op.lado == ("largo" if senal["Close"] >= senal["Open"] else "corto")
         assert op.sl_inicial == (senal["Low"] if op.lado == "largo" else senal["High"])
         assert df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 5
+
+
+def test_la_deriva_en_largo_ignora_los_huecos_a_la_baja_y_su_azar_solo_compra_dias_al_alza():
+    from laboratorio.intradia import AzarDerivaLargos, DerivaLargos
+    plana = [(100, 100.5, 99.5, 100)] * 20
+    for velas, esperadas in ((plana + [(103, 105, 102.5, 104.5)] + [(104.5, 105, 104, 104.8)] * 25, 1),
+                             (plana + [(97, 97.5, 95, 95.5)] + [(95.5, 96, 95, 95.2)] * 25, 0)):
+        df = con_dia_resultados(_diaria(velas), pd.DatetimeIndex([_diaria(velas).index[20]]))
+        ops = simular(df, DerivaLargos(), SIN_SPREAD)
+        assert len(ops) == esperadas and all(o.lado == "largo" for o in ops)
+    rng = np.random.default_rng(5)
+    c = 100 + np.cumsum(rng.normal(0, 1, 300))
+    o = np.concatenate([[c[0]], c[:-1]]) + rng.normal(0, 0.3, 300)
+    df = _diaria(np.column_stack([o, np.maximum(o, c) + 0.5, np.minimum(o, c) - 0.5, c]))
+    ops = simular(df, AzarDerivaLargos(probabilidad=0.3, semilla=1), SIN_SPREAD)
+    assert ops and all(op.lado == "largo" for op in ops)
+    assert all(df.loc[op.fecha_senal, "Close"] >= df.loc[op.fecha_senal, "Open"] for op in ops)

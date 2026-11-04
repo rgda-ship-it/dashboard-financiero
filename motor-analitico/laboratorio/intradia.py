@@ -377,30 +377,71 @@ class AzarDeriva(DerivaResultados):
     entrada = AzarHueco.entrada
 
 
+class DerivaLargos(DerivaResultados):
+    """La prueba fuera de la muestra del §8 (doc fase-3/10 §9), fijada antes
+    de mirar los datos: solo largos tras un hueco al alza de resultados, con
+    la combinación que eligió el diseño en el S&P 100 (2 ATR, 20 sesiones)."""
+
+    nombre = "deriva_largos"
+
+    def __init__(self, hueco_atr: float = 2.0, sesiones: int = 20):
+        super().__init__(hueco_atr=hueco_atr, sesiones=sesiones)
+
+    def entrada(self, df, t):
+        e = DerivaResultados.entrada(self, df, t)
+        return e if e is not None and e.lado == "largo" else None
+
+
+class AzarDerivaLargos(DerivaLargos):
+    """La referencia de `DerivaLargos`: largos un día cualquiera que cierre
+    al alza, con el mismo stop (el mínimo de ese día) y la misma salida. En
+    un universo que sube, cualquier largo gana algo: lo que cuenta es ganar
+    a estos largos al azar."""
+
+    nombre = "azar_deriva_largos"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if df["Close"].iloc[t] < df["Open"].iloc[t]:
+            return None
+        return AzarHueco.entrada(self, df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
                   "hueco_resultados": (HuecoResultados, AzarHueco, "accion"),
-                  "deriva_resultados": (DerivaResultados, AzarDeriva, "accion")}
+                  "deriva_resultados": (DerivaResultados, AzarDeriva, "accion"),
+                  "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
 # tres años, pocos para validar: el hueco usa el S&P 100. La deriva usa el
 # mismo método con velas diarias de 10 años.
 CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
-         "deriva_resultados": {"universo": "sp100", "resultados": True, "intervalo": "1d", "periodo": "10y"}}
+         "deriva_resultados": {"universo": "sp100", "resultados": True, "intervalo": "1d", "periodo": "10y"},
+         "deriva_largos": {"universo": "medianas", "resultados": True, "intervalo": "1d", "periodo": "10y"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
 REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)},
             "ruptura_primera_hora": {"stop": ("rango", "mitad"), "objetivo_r": (0.0, 1.0, 2.0)},
             "hueco_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (1, 5)},
-            "deriva_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (5, 10, 20)}}
+            "deriva_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (5, 10, 20)},
+            # Fuera de la muestra: sin rejilla, la combinación que eligió el §8.
+            "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
 PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
-                   "deriva_resultados": 3}
+                   "deriva_resultados": 3, "deriva_largos": 4}
+
+# Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
+# fuera de la muestra se fijó con 100.
+SEMILLAS = {"deriva_largos": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -563,7 +604,7 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--estrategia", default="rebote_caida", choices=ESTRATEGIAS_1H)
-    p.add_argument("--semillas", type=int, default=20)
+    p.add_argument("--semillas", type=int, default=None, help="por defecto, SEMILLAS o 20")
     p.add_argument("--salida", default="laboratorio_salida")
     p.add_argument("--cache", default="", help="pickle con las velas, para repetir sin descargar")
     a = p.parse_args()
@@ -573,7 +614,7 @@ def main() -> int:
     if not datos:
         print("Sin datos: nada que medir.")
         return 1
-    texto = informe(a.estrategia, datos, a.semillas)
+    texto = informe(a.estrategia, datos, a.semillas or SEMILLAS.get(a.estrategia, 20))
     salida = Path(a.salida)
     salida.mkdir(parents=True, exist_ok=True)
     (salida / "intradia.md").write_text(texto, encoding="utf-8")

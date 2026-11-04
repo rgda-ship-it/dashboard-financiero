@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-04 — Largos tras resultados fuera de la muestra: no se sostiene
+
+### Añadido
+- `deriva_largos` y su azar de largos en `laboratorio/intradia.py`: la combinación del doc fase-3/10 §8 (hueco al alza de 2 ATR, 20 sesiones), sin rejilla, con 100 tiradas (`SEMILLAS`). Universo `medianas` en `datos.py` (98 acciones del S&P 400, ninguna del S&P 100), también en `laboratorio.yml`.
+
+### Resultado
+- Prueba fijada en un commit antes de ejecutarla. En 95 medianas, del 2016-11-04 al 2026-11-04: +0,029 R en diseño y +0,247 R en validación, pero supera a los largos al azar solo en el 63 % (mínimo 94 %). La deriva del S&P 100 no se lleva a otras acciones; la línea se cierra (doc fase-3/10 §9).
+
 ## [Sin publicar] - 2026-11-04 — Deriva tras resultados con velas diarias: casi valida
 
 ### Añadido

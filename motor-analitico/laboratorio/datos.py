@@ -324,7 +324,19 @@ ETF_GRUPO = {
     **{t: "País" for t in "EWJ EWG EWU EWC EWA EWZ EWY EWT EWH EWW".split()},
 }
 
-UNIVERSOS = ("activo", "sp100", "etf")
+# Acciones medianas FUERA del S&P 100 (doc fase-3/10 §9): 98 del S&P 400
+# de hoy o de hace poco (algunas ya han subido al S&P 500), elegidas antes
+# de mirar sus datos para probar fuera de la muestra la deriva tras
+# resultados. Mismo sesgo de supervivencia que el S&P 100: son las de hoy.
+MEDIANAS = tuple("""
+ACM AFG AGCO ALLY AN AR ARW ATR AVT AYI BC BJ BLD BRBR BRKR BWXT CACI CASY CBSH CCK
+CELH CFR CHDN CHE CIEN CLF CMC CNM COHR COKE CR CSL CUBE CW DAR DCI DINO DKS DT EGP
+EHC ELS EWBC EXEL FAF FBIN FCN FHN FIVE FLR FND FNF G GGG GLPI GME GNTX H HLI HOG
+HRB HXL INGR ITT JAZZ JEF JLL KBR KEX KNSL KNX LAD LAMR LEA LECO LNW LPX LSCC MANH
+MASI MEDP MIDD MKSI MORN MTDR MTG MTZ MUSA NBIX NOV NVT NYT OC OGE OHI OLED ORI OSK
+""".split())
+
+UNIVERSOS = ("activo", "sp100", "etf", "medianas")
 
 
 def universo_nombrado(nombre: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
@@ -333,6 +345,8 @@ def universo_nombrado(nombre: str) -> tuple[list[tuple[str, str]], dict[str, str
         return [(t, "accion") for t in SP100_SECTOR], dict(SP100_SECTOR)
     if nombre == "etf":
         return [(t, "accion") for t in ETF_GRUPO], dict(ETF_GRUPO)
+    if nombre == "medianas":
+        return [(t, "accion") for t in MEDIANAS], {t: "Mediana" for t in MEDIANAS}
     return universo(), {}
 
 
