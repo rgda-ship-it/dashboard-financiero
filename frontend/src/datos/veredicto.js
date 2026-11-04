@@ -75,6 +75,26 @@ export function motivoAgente(estrategia, senal, rr) {
 }
 
 /**
+ * Por qué una lectura sale sin dirección. Casi siempre es un empate 1 a 1
+ * entre las medias 50/200 (la tendencia de fondo) y el MACD (el impulso):
+ * dos de cada tres activos del escáner están así (doc fase-3/11).
+ */
+export function motivoSinDireccion(senal) {
+  const voto = (nombre) => (senal.senales ?? []).find((s) => s.nombre === nombre)?.direccion;
+  const medias = voto("cruce_medias");
+  const macd = voto("macd");
+  if (medias === "bajista" && macd === "alcista") {
+    return "Empate: el precio rebota (MACD alcista), pero la tendencia de fondo sigue bajista (media de 50 bajo la de 200). " +
+      "El escáner no lo cuenta como alcista hasta que se alineen: ni comprar ni vender.";
+  }
+  if (medias === "alcista" && macd === "bajista") {
+    return "Empate: la tendencia de fondo es alcista (media de 50 sobre la de 200), pero el impulso se ha girado a la baja (MACD). " +
+      "Ni comprar ni vender hasta que se alineen.";
+  }
+  return "Sin dirección clara: ni comprar ni vender.";
+}
+
+/**
  * @param senal  fila del escáner (senales.js)
  * @param opciones { spread: número medido o null, agentes: [{nombre, tipo, estado, estrategia}],
  *                   bolsaAbierta: bool }
@@ -100,7 +120,7 @@ export function veredicto(senal, { spread = null, agentes = [], bolsaAbierta = t
       motivo:
         senal.direccion === "bajista"
           ? "La lectura es bajista. El sistema solo opera en largo: vender en corto se probó y no tiene ventaja."
-          : "Sin dirección clara: ni comprar ni vender.",
+          : motivoSinDireccion(senal),
     };
   }
   if (!senal.operable || !Number.isFinite(senal.sl) || !Number.isFinite(senal.tp)) {
