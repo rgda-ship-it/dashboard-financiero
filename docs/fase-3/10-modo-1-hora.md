@@ -240,3 +240,36 @@ datos. Para darla por buena hace falta una prueba **nueva, fijada de
 antemano**, solo en largo, en acciones que no estén en el S&P 100 (por
 ejemplo, medianas), comparando con largos al azar. No toca a los agentes:
 el grupo de control no se cambia durante el experimento.
+
+---
+
+## 9. Quinta prueba: largos tras resultados, fuera de la muestra (2026-11-04)
+
+> **Fijada antes de mirar los datos** (este apartado se escribió y se
+> guardó en un commit antes de ejecutar la prueba).
+
+**Qué se prueba**: la hipótesis del §8, tal cual salió. `deriva_largos`
+compra al día siguiente de una sesión de resultados que abrió con un hueco
+al alza de al menos **2 ATR** y cerró al alza; stop en el mínimo de esa
+sesión, sin objetivo, salida a las **20 sesiones**. Sin rejilla: nada se
+elige con estos datos.
+
+**Dónde**: 98 acciones medianas del S&P 400 (de hoy o de hace poco),
+ninguna del S&P 100 (`datos.MEDIANAS`), con velas diarias de 10 años y
+spread de 0,03 $. Siguen siendo las acciones de hoy: el sesgo de
+supervivencia sigue ahí, y por eso la referencia son largos al azar.
+
+**Referencia**: 100 tiradas de largos un día cualquiera que cierre al alza,
+con el mismo stop y la misma salida y la misma frecuencia.
+
+**Criterio** (el del laboratorio, sin cambios): en el tramo de validación
+(el 30 % final), ≥ 30 operaciones, expectativa > +0,10 R, IC 90 % por
+encima de cero, factor de beneficio > 1,2 y no menos de un tercio de lo
+que dé el diseño; y superar a las tiradas al azar en al menos el **94 %**
+(quinta prueba del modo). Como todo el periodo es nuevo para esta
+hipótesis, también se mira que el diseño (el 70 % inicial) vaya en la
+misma dirección.
+
+### Resultado
+
+*(pendiente)*
