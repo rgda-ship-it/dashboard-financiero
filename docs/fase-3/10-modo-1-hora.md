@@ -182,3 +182,61 @@ de varios días tras unos resultados con hueco, que se mide mejor con velas
 diarias: con 10 años de historia habría unas tres veces más días de
 resultados que aquí. No se ha probado; queda como idea para el laboratorio
 diario.
+
+---
+
+## 8. Cuarta prueba: la deriva tras resultados, con velas diarias (2026-11-04)
+
+> **Método**: velas **diarias** de Yahoo de las **101 acciones del S&P 100**,
+> del **2016-11-04 al 2026-11-04**, con 3.944 días de resultados (unos 40
+> por acción; Yahoo los da desde 2017). Diseño hasta el 2023-11-04;
+> validación desde ahí. El mismo método del modo de 1 hora (rejilla en
+> diseño, 20 tiradas al azar), con `intervalo="1d"`. Spread de 0,03 $ y la
+> financiación del corto. Cuarta prueba: el percentil exigido sube a 93.
+>
+> **Ojo**: la idea salió del §7, cuyos datos (2023-12 → 2026-11) caen
+> dentro de esta validación. El diseño (2016–2023) no se había mirado.
+
+`deriva_resultados`. Al cierre de la sesión que reacciona a unos
+resultados, si abrió con un hueco de al menos 0,5, 1 o 2 ATR y cerró a
+favor del hueco, se entra en la apertura siguiente en la dirección del
+hueco (en corto si baja). El stop va en el otro extremo de esa sesión y no
+hay objetivo. Sale a las 5, 10 o 20 sesiones. El azar entra un día
+cualquiera en la dirección de esa sesión, con el mismo stop y la misma
+salida.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño, mejor combinación (hueco de 2 ATR, 20 sesiones) | 342 | +0,434 R | +0,168 – +0,730 |
+| **Validación** | 212 | **+0,226 R** | −0,003 – +0,472 |
+| Azar con las mismas salidas (validación) | 178 | −0,155 R (mediana) | p5 – p95: −0,400 – +0,320 |
+
+- **No valida, por poco.** El IC 90 % toca el cero (−0,003 R) y supera al
+  azar en el 90 % de las tiradas (mínimo 93 %). Con 100 tiradas, como
+  comprobación, el percentil baja a 85.
+- **Es lo mejor que ha dado el laboratorio en esta fase.** Las nueve
+  combinaciones ganan en diseño, todas con el IC por encima de cero, y
+  las nueve siguen en positivo en validación (de +0,03 a +0,23 R). El
+  spread se lleva el 5–12 % del bruto.
+- **Todo lo pone el lado largo** (separado después, no estaba previsto):
+
+| Elegida, por lado | Diseño | Validación |
+|---|---|---|
+| Largos tras un hueco al alza | 171 ops, +0,654 R | 103 ops, **+0,714 R** (IC +0,34 – +1,13) |
+| Cortos tras un hueco a la baja | 171 ops, +0,215 R | 109 ops, −0,235 R |
+| Azar, solo largos (mediana de 20 tiradas) | +0,18 R | +0,18 R |
+| Azar, solo cortos (mediana de 20 tiradas) | −0,46 R | −0,46 R |
+
+  En un universo que subió diez años, y que además son las acciones que
+  hoy están en el S&P 100 (sesgo de supervivencia), cualquier largo gana
+  algo y cualquier corto pierde. Aun así, los largos tras un hueco al alza
+  superan a 19 de las 20 tiradas de largos al azar, en diseño y en
+  validación.
+- Por año, la elegida gana en todos menos en 2024 (−0,07 R con 88 ops).
+
+**Lo que queda**: «comprar tras un hueco al alza de resultados y mantener
+unas 20 sesiones» es una hipótesis concreta, pero salió de mirar estos
+datos. Para darla por buena hace falta una prueba **nueva, fijada de
+antemano**, solo en largo, en acciones que no estén en el S&P 100 (por
+ejemplo, medianas), comparando con largos al azar. No toca a los agentes:
+el grupo de control no se cambia durante el experimento.

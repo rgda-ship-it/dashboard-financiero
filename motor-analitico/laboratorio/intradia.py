@@ -16,6 +16,8 @@ Qué prueba: «pocas entradas, en momentos concretos, para una ganancia
 rápida» (idea del dueño, 2026-11-03): el rebote tras una caída brusca en
 cripto (`ReboteCaida`), la ruptura de la primera hora en acciones
 (`RupturaPrimeraHora`) y el hueco del día de resultados (`HuecoResultados`).
+La deriva tras resultados (`DerivaResultados`) usa el mismo método con velas
+diarias (`CARGA`).
 Cómo se juzga:
 
   1. Una rejilla pequeña, fijada antes de mirar los datos, sobre el tramo
@@ -323,25 +325,82 @@ def con_dia_resultados(df: pd.DataFrame, reaccion: pd.DatetimeIndex) -> pd.DataF
     return out
 
 
+class DerivaResultados:
+    """La deriva tras unos resultados con hueco, con velas DIARIAS (doc
+    fase-3/10 §8). Es lo único con algo de vida del §7, que con velas de 1
+    hora no tenía casos para validar. Al cierre de la sesión que reacciona
+    a unos resultados, si abrió con un hueco de al menos `hueco_atr` ATR
+    (el de 14 sesiones, hasta la víspera) y cerró a favor del hueco, se
+    entra en la apertura siguiente en la dirección del hueco.
+
+    · Stop: el otro extremo de la sesión de resultados (el mínimo en
+      largo, el máximo en corto). Sin objetivo.
+    · Sale en la apertura siguiente a `sesiones` sesiones dentro."""
+
+    nombre = "deriva_resultados"
+
+    def __init__(self, hueco_atr: float = 1.0, sesiones: int = 10):
+        self.hueco_atr, self.sesiones = hueco_atr, sesiones
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        atr = _atr(df, 14).shift(1)
+        out["HUECO_ATR"] = (out["Open"] - out["Close"].shift(1)) / atr
+        if "DIA_RESULTADOS" not in out.columns:
+            out["DIA_RESULTADOS"] = False
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "HUECO_ATR" in df.columns else self.precalcular(df)
+
+    def _elegible(self, df: pd.DataFrame, t: int) -> bool:
+        return not pd.isna(df["HUECO_ATR"].iloc[t])
+
+    _niveles = staticmethod(HuecoResultados._niveles)
+    entrada = HuecoResultados.entrada
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.sesiones - 1
+
+
+class AzarDeriva(DerivaResultados):
+    """La referencia de `DerivaResultados`: un día cualquiera al azar, en la
+    dirección de esa sesión, con el mismo stop y la misma salida."""
+
+    nombre = "azar_deriva"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    entrada = AzarHueco.entrada
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
-                  "hueco_resultados": (HuecoResultados, AzarHueco, "accion")}
+                  "hueco_resultados": (HuecoResultados, AzarHueco, "accion"),
+                  "deriva_resultados": (DerivaResultados, AzarDeriva, "accion")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
-# tres años, pocos para validar: el hueco usa el S&P 100.
-CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True}}
+# tres años, pocos para validar: el hueco usa el S&P 100. La deriva usa el
+# mismo método con velas diarias de 10 años.
+CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
+         "deriva_resultados": {"universo": "sp100", "resultados": True, "intervalo": "1d", "periodo": "10y"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
 REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)},
             "ruptura_primera_hora": {"stop": ("rango", "mitad"), "objetivo_r": (0.0, 1.0, 2.0)},
-            "hueco_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (1, 5)}}
+            "hueco_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (1, 5)},
+            "deriva_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (5, 10, 20)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
-PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2}
+PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
+                   "deriva_resultados": 3}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -349,19 +408,25 @@ def operar(datos: dict, estrategia) -> list:
             for o in simular(df, estrategia, spread_de(s, c), s, c, financiacion_corto_pct=financiacion_de(c))]
 
 
-def medir(ops: list, clase: str) -> metricas.Medidas | None:
-    return metricas.medir(ops, barras_mes=BARRAS_MES[clase])
+def barras_mes(clase: str, intervalo: str = "1h") -> int:
+    return 21 if intervalo == "1d" else BARRAS_MES[clase]
 
 
-def _fila(nombre: str, m: metricas.Medidas | None) -> str:
+def medir(ops: list, clase: str, intervalo: str = "1h") -> metricas.Medidas | None:
+    return metricas.medir(ops, barras_mes=barras_mes(clase, intervalo))
+
+
+def _fila(nombre: str, m: metricas.Medidas | None, unidad: str = "h") -> str:
     if m is None:
         return f"| {nombre} | 0 | — | — | — | — | — |"
     return (f"| {nombre} | {m.operaciones} | {m.expectativa_r:+.3f} R | {m.ic90[0]:+.3f} – {m.ic90[1]:+.3f} | "
-            f"{m.aciertos_pct:.0f} % | {m.coste_pct:.0f} % | {m.dias_medios:.1f} h |")
+            f"{m.aciertos_pct:.0f} % | {m.coste_pct:.0f} % | {m.dias_medios:.1f} {unidad} |")
 
 
 def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     base, azar, clase = ESTRATEGIAS_1H[nombre]
+    intervalo = CARGA.get(nombre, {}).get("intervalo", "1h")
+    unidad, vela = ("ses.", "diarias") if intervalo == "1d" else ("h", "de 1 hora")
     minimo = PERCENTIL_MINIMO + PRUEBAS_PREVIAS[nombre]
     desde = min(df.index[0] for df in datos.values())
     hasta = max(df.index[-1] for df in datos.values())
@@ -376,13 +441,13 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         params = dict(zip(claves, valores))
         ops = operar(datos, base(**params))
         d, v = metricas.partir(ops, corte)
-        resultados[valores] = (params, ops, medir(d, clase), medir(v, clase))
+        resultados[valores] = (params, ops, medir(d, clase, intervalo), medir(v, clase, intervalo))
 
     candidatas = [r for r in resultados.values() if r[2] is not None and r[2].operaciones >= metricas.MIN_OPERACIONES]
     lineas = [
-        f"# Modo de 1 hora: {nombre}",
+        f"# Laboratorio por velas: {nombre} (velas {vela})",
         "",
-        f"{len(datos)} activos de {clase}, velas de 1 hora del {desde:%Y-%m-%d} al {hasta:%Y-%m-%d}. "
+        f"{len(datos)} activos de {clase}, velas {vela} del {desde:%Y-%m-%d} al {hasta:%Y-%m-%d}. "
         f"Diseño hasta el {corte:%Y-%m-%d %H:%M}; validación desde ahí. Spread de la 0034 en cada entrada y salida.",
         "",
         "## Rejilla en diseño (aquí se elige)",
@@ -391,7 +456,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         "|---|---|---|---|---|---|---|",
     ]
     for params, _, d, _ in resultados.values():
-        lineas.append(_fila(", ".join(f"{k}={v}" for k, v in params.items()), d))
+        lineas.append(_fila(", ".join(f"{k}={v}" for k, v in params.items()), d, unidad))
     if not candidatas:
         lineas += ["", "❌ **Ninguna combinación llega a 30 operaciones en diseño.**"]
         return "\n".join(lineas)
@@ -414,7 +479,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     tiradas = []
     for s in range(semillas):
         _, av = metricas.partir(operar(datos, azar(probabilidad=probabilidad, semilla=s, **params)), corte)
-        m = medir(av, clase)
+        m = medir(av, clase, intervalo)
         if m is not None:
             tiradas.append(m)
     az = np.array([m.expectativa_r for m in tiradas])
@@ -427,8 +492,8 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         "",
         "| Tramo | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto | Duración |",
         "|---|---|---|---|---|---|---|",
-        _fila("Diseño", d),
-        _fila("**Validación**", v),
+        _fila("Diseño", d, unidad),
+        _fila("**Validación**", v, unidad),
     ]
     if ic_meses is not None:
         lineas += ["", f"IC 90 % remuestreando meses (las operaciones de un mismo mes no son independientes): "
@@ -439,7 +504,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         lineas += [f"Factor de beneficio {v.factor_beneficio:.2f}."]
     lineas += [
         "",
-        f"## Frente a {len(tiradas)} tiradas al azar (mismas salidas, probabilidad {probabilidad:.4f} por hora)",
+        f"## Frente a {len(tiradas)} tiradas al azar (mismas salidas, probabilidad {probabilidad:.4f} por vela)",
         "",
     ]
     if len(az):
@@ -450,7 +515,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
                "| Parámetros | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto | Duración |",
                "|---|---|---|---|---|---|---|"]
     for p_, _, _, vv in resultados.values():
-        lineas.append(_fila(", ".join(f"{k}={x}" for k, x in p_.items()), vv))
+        lineas.append(_fila(", ".join(f"{k}={x}" for k, x in p_.items()), vv, unidad))
 
     lineas += ["", "## Veredicto", ""]
     if ok and supera:
@@ -469,8 +534,8 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
 
 
 def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
-              resultados: bool = False) -> dict:
-    """Velas de 1 hora de una clase en un universo (`datos.universo_nombrado`;
+              resultados: bool = False, intervalo: str = "1h", periodo: str = PERIODO) -> dict:
+    """Velas (de 1 hora por defecto) de una clase en un universo (`datos.universo_nombrado`;
     el activo, en local y sin acceso a la base de datos, es la semilla de la
     0003 y las criptos de la 0032). Con `resultados`, marca los días de
     resultados y deja fuera las acciones de las que Yahoo no da fechas."""
@@ -481,8 +546,8 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
     for simbolo, c in activos:
         if c != clase:
             continue
-        df = cargar(simbolo, clase, PERIODO, intervalo="1h")
-        if df is None or len(df) < BARRAS_MES[clase] * 2:
+        df = cargar(simbolo, clase, periodo, intervalo=intervalo)
+        if df is None or len(df) < barras_mes(clase, intervalo) * 2:
             continue
         if resultados:
             reaccion = cargar_resultados(simbolo)
