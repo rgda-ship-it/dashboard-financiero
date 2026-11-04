@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-04 — Lecturas «sin dirección»: el escáner explica el empate
+
+### Cambiado
+- `veredicto.js`: una lectura sin dirección dice qué indicadores empatan (`motivoSinDireccion`): rebote con la tendencia de fondo bajista, o retroceso con la de fondo alcista. La confluencia del motor no cambia.
+
+### Hallazgo
+- O (2026-11-04) empata 1 a 1: medias 50/200 bajistas y MACD alcista; datos y cálculo correctos. 31 de los 48 activos están igual, y desde la 0030 son el 66–69 % de las lecturas. A 10 años (S&P 100 y acciones activas), la dirección del escáner no anticipa las 20 sesiones siguientes: las alcistas rinden algo menos que la media de cada acción (doc fase-3/11).
+
 ## [Sin publicar] - 2026-11-04 — Largos tras resultados fuera de la muestra: no se sostiene
 
 ### Añadido

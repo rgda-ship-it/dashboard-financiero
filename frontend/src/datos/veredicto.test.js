@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { motivoAgente, spreadDe, veredicto, RANGO_ACCION } from "./veredicto.js";
+import { motivoAgente, motivoSinDireccion, spreadDe, veredicto, RANGO_ACCION } from "./veredicto.js";
 
 const base = {
   ticker: "AMZN",
@@ -90,4 +90,16 @@ test("el spread supuesto por clase", () => {
 
 test("lo accionable va primero", () => {
   assert.ok(RANGO_ACCION.comprar < RANGO_ACCION.esperar && RANGO_ACCION.esperar < RANGO_ACCION.no_comprar);
+});
+
+test("sin dirección: explica qué indicadores empatan", () => {
+  const voto = (medias, macd) => [
+    { nombre: "cruce_medias", direccion: medias },
+    { nombre: "macd", direccion: macd },
+  ];
+  const rebote = veredicto({ ...base, direccion: "neutral", senales: voto("bajista", "alcista") });
+  assert.equal(rebote.accion, "no_comprar");
+  assert.match(rebote.motivo, /rebota.*tendencia de fondo sigue bajista/);
+  assert.match(motivoSinDireccion({ senales: voto("alcista", "bajista") }), /impulso se ha girado a la baja/);
+  assert.equal(motivoSinDireccion({ senales: [] }), "Sin dirección clara: ni comprar ni vender.");
 });
