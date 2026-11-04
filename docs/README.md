@@ -44,7 +44,7 @@ entender el pasado. Cada documento lleva su vigencia en la cabecera.
 | [`fase-3/08`](fase-3/08-que-falta.md) | Qué falta para cumplir los objetivos (2026-10-27) | Vigente |
 | [`fase-3/09`](fase-3/09-hackeo-binance-y-fundamentales.md) | El hackeo a Binance (29-10); fundamentales gratuitos | Vigente |
 | [`fase-3/10`](fase-3/10-modo-1-hora.md) | Modo de 1 hora del laboratorio; rebote en cripto, ruptura de la primera hora y hueco de resultados, sin ventaja; la deriva tras resultados con velas diarias, casi en el S&P 100 y nada fuera | Vigente |
-| [`fase-3/11`](fase-3/11-lecturas-sin-direccion.md) | Lecturas «sin dirección» (el caso de O): dos de cada tres son un empate entre medias y MACD; a 10 años, la dirección del escáner no anticipa las 20 sesiones siguientes | Vigente |
+| [`fase-3/11`](fase-3/11-lecturas-sin-direccion.md) | Lecturas «sin dirección» (el caso de O): dos de cada tres son un empate entre medias y MACD; a 10 años, la dirección del escáner no anticipa las 20 sesiones siguientes; comprar el rebote como O no supera a comprar cualquier caída | Vigente |
 
 ### Fase 2 (2026-09-20 → 10-13): la nube, el simulador y los agentes
 

@@ -111,3 +111,56 @@ Lo que dice:
   esta tanda, así que el percentil exigido sería el 95. La medición del §3
   apunta más a una reversión a un mes que a una tendencia: las lecturas
   bajistas también rinden por encima de la media.
+
+## 6. La prueba: comprar el rebote con fondo bajista (2026-11-04)
+
+> **Fijada antes de mirar los datos** (este apartado se escribió y se
+> guardó en un commit antes de ejecutar la prueba).
+
+**Qué se prueba**: `rebote_fondo_bajista`. Al cierre del día en que el
+histograma del MACD pasa a positivo con la media de 50 por debajo de la de
+200 (el momento en que una acción entra en el estado de O), compra en la
+apertura siguiente. Stop a 1,5 o 3 ATR del cierre, sin objetivo, salida a
+las 10 o 20 sesiones: cuatro combinaciones, elegidas en el diseño.
+
+**Dónde**: el S&P 100 con velas diarias de 10 años (`laboratorio/intradia.py`,
+con el mismo método de la fase-3/10), spread de 0,03 $.
+
+**Referencia**: 100 tiradas de largos un día cualquiera **con la media de
+50 bajo la de 200**, sin esperar al giro, con el mismo stop y la misma
+salida. En acciones que hoy siguen en el S&P 100, comprar en una caída ya
+tiende a salir bien (sesgo de supervivencia), así que lo que se mide es si
+el giro del MACD aporta algo sobre eso.
+
+**Criterio** (el del laboratorio, sin cambios): en validación (el 30 %
+final), ≥ 30 operaciones, > +0,10 R, IC 90 % por encima de cero, factor de
+beneficio > 1,2 y al menos un tercio del diseño; y superar al azar en al
+menos el **95 %** de las tiradas (sexta prueba del modo).
+
+### Resultado: gana, pero lo mismo que comprar cualquier día de una caída
+
+101 acciones, del **2016-11-07 al 2026-11-04**; diseño hasta el 2023-11-05.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño, mejor combinación (stop a 1,5 ATR, 20 sesiones) | 1.840 | +0,244 R | +0,178 – +0,309 |
+| **Validación** | 837 | **+0,327 R** | +0,216 – +0,445 |
+| Largos al azar en caídas (validación, 100 tiradas) | 651 | **+0,331 R** (mediana) | p5 – p95: +0,239 – +0,452 |
+
+- **Por sí sola pasaría el criterio**: +0,33 R en validación, IC 90 % por
+  encima de cero (también remuestreando meses: +0,09 – +0,57), factor de
+  beneficio 1,54, y las cuatro combinaciones ganan en los dos tramos.
+- **Pero no supera al azar**: percentil 47 (mínimo 95). Comprar **cualquier
+  día** con la media de 50 bajo la de 200 da lo mismo, +0,33 R. El giro del
+  MACD no aporta nada.
+- **Lo que gana es comprar caídas en acciones que hoy están en el S&P 100.**
+  Son las que se recuperaron: las que cayeron y no volvieron ya no están en
+  la lista. Es el sesgo de supervivencia, y no se puede operar, porque no
+  se sabe de antemano qué acción en caída va a seguir en el índice.
+
+**Conclusión**: en el estado de O no se escapa una ventaja. Y queda una
+lección para el laboratorio: en el S&P 100 o en las medianas de hoy, una
+estrategia que compra caídas siempre se juzga contra largos al azar **en
+caídas**, nunca solo contra el cero. Para saber si comprar caídas funciona
+de verdad hace falta un universo sin sesgo de supervivencia (por ejemplo,
+los ETF del laboratorio). No se ha probado.

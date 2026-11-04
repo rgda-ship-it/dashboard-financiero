@@ -410,12 +410,79 @@ class AzarDerivaLargos(DerivaLargos):
         return AzarHueco.entrada(self, df, t)
 
 
+class ReboteFondoBajista:
+    """El rebote con la tendencia de fondo bajista (doc fase-3/11 §6): el
+    caso de O el 2026-11-04, que el escáner deja «sin dirección». Al cierre
+    del día en que el histograma del MACD pasa a positivo con la media de 50
+    por debajo de la de 200, compra en la apertura siguiente. Stop a
+    `stop_atr` ATR del cierre, sin objetivo; sale en la apertura siguiente
+    a `sesiones` sesiones dentro. Velas diarias."""
+
+    nombre = "rebote_fondo_bajista"
+
+    def __init__(self, stop_atr: float = 2.0, sesiones: int = 20):
+        self.stop_atr, self.sesiones = stop_atr, sesiones
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        import pandas_ta as ta
+
+        out = df.copy()
+        c = out["Close"]
+        out["FONDO_BAJISTA"] = ta.sma(c, 50) < ta.sma(c, 200)
+        macd = ta.macd(c)
+        h = macd[[k for k in macd.columns if k.startswith("MACDh_")][0]] if macd is not None else pd.Series(np.nan, index=out.index)
+        out["GIRO_MACD"] = (h > 0) & (h.shift(1) <= 0)
+        out["ATR_D"] = _atr(df, 14)
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "GIRO_MACD" in df.columns else self.precalcular(df)
+
+    def _niveles(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        atr = df["ATR_D"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        return Entrada(sl=float(df["Close"].iloc[t]) - self.stop_atr * float(atr))
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if not (df["FONDO_BAJISTA"].iloc[t] and df["GIRO_MACD"].iloc[t]):
+            return None
+        return self._niveles(df, t)
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.sesiones - 1
+
+
+class AzarFondoBajista(ReboteFondoBajista):
+    """La referencia de `ReboteFondoBajista`: largos un día cualquiera con
+    la media de 50 bajo la de 200, sin esperar al giro del MACD, con el
+    mismo stop y la misma salida. Mide si el giro aporta algo sobre comprar
+    cualquier día de una caída, que en acciones que hoy siguen en el S&P 100
+    ya tiende a salir bien (sesgo de supervivencia)."""
+
+    nombre = "azar_fondo_bajista"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if not df["FONDO_BAJISTA"].iloc[t]:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
                   "hueco_resultados": (HuecoResultados, AzarHueco, "accion"),
                   "deriva_resultados": (DerivaResultados, AzarDeriva, "accion"),
-                  "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion")}
+                  "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion"),
+                  "rebote_fondo_bajista": (ReboteFondoBajista, AzarFondoBajista, "accion")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -423,7 +490,8 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
 # mismo método con velas diarias de 10 años.
 CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          "deriva_resultados": {"universo": "sp100", "resultados": True, "intervalo": "1d", "periodo": "10y"},
-         "deriva_largos": {"universo": "medianas", "resultados": True, "intervalo": "1d", "periodo": "10y"}}
+         "deriva_largos": {"universo": "medianas", "resultados": True, "intervalo": "1d", "periodo": "10y"},
+         "rebote_fondo_bajista": {"universo": "sp100", "intervalo": "1d", "periodo": "10y"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -432,16 +500,17 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "hueco_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (1, 5)},
             "deriva_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (5, 10, 20)},
             # Fuera de la muestra: sin rejilla, la combinación que eligió el §8.
-            "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)}}
+            "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)},
+            "rebote_fondo_bajista": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
 PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
-                   "deriva_resultados": 3, "deriva_largos": 4}
+                   "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5}
 
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
-SEMILLAS = {"deriva_largos": 100}
+SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100}
 
 
 def operar(datos: dict, estrategia) -> list:

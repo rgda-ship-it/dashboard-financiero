@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-04 — Rebote con fondo bajista: gana, pero igual que el azar
+
+### Añadido
+- `rebote_fondo_bajista` en `laboratorio/intradia.py`, con su azar (largos un día cualquiera con la media de 50 bajo la de 200, mismo stop y misma salida), velas diarias del S&P 100 y 100 tiradas.
+
+### Resultado
+- Prueba fijada en un commit antes de ejecutarla. Del 2016-11-07 al 2026-11-04: +0,327 R en validación (837 operaciones, IC 90 % +0,22 – +0,45), pero el azar en caídas da +0,331 R y la supera el 53 % de las tiradas (percentil 47, mínimo 95). Gana el sesgo de supervivencia, no el giro del MACD (doc fase-3/11 §6).
+
 ## [Sin publicar] - 2026-11-04 — Lecturas «sin dirección»: el escáner explica el empate
 
 ### Cambiado

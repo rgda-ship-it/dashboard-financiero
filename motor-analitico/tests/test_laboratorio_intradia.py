@@ -251,3 +251,22 @@ def test_la_deriva_en_largo_ignora_los_huecos_a_la_baja_y_su_azar_solo_compra_di
     ops = simular(df, AzarDerivaLargos(probabilidad=0.3, semilla=1), SIN_SPREAD)
     assert ops and all(op.lado == "largo" for op in ops)
     assert all(df.loc[op.fecha_senal, "Close"] >= df.loc[op.fecha_senal, "Open"] for op in ops)
+
+
+def test_el_rebote_con_fondo_bajista_compra_al_girar_el_macd_y_su_azar_solo_en_caidas():
+    from laboratorio.intradia import AzarFondoBajista, ReboteFondoBajista
+    # 250 sesiones de caída y 60 de rebote: medias bajistas y un giro del MACD.
+    c = np.concatenate([np.linspace(150, 100, 250), np.linspace(100, 112, 60)])
+    c = c + np.sin(np.arange(len(c)) / 3)
+    o = np.concatenate([[c[0]], c[:-1]])
+    df = _diaria(np.column_stack([o, np.maximum(o, c) + 0.5, np.minimum(o, c) - 0.5, c]))
+    pre = ReboteFondoBajista.precalcular(df)
+    ops = simular(df, ReboteFondoBajista(stop_atr=3.0, sesiones=10), SIN_SPREAD)
+    assert ops
+    for op in ops:
+        fila = pre.loc[op.fecha_senal]
+        assert fila["FONDO_BAJISTA"] and fila["GIRO_MACD"]
+        assert abs(op.sl_inicial - (fila["Close"] - 3.0 * fila["ATR_D"])) < 1e-9
+        assert df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 10
+    azar = simular(df, AzarFondoBajista(probabilidad=0.2, semilla=3, sesiones=10), SIN_SPREAD)
+    assert azar and all(pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)
