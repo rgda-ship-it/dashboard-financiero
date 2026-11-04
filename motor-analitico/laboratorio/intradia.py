@@ -4,6 +4,7 @@ Modo de 1 hora del laboratorio (doc fase-3/08 §4.3; doc fase-3/10).
 
     python -m laboratorio.intradia --estrategia rebote_caida --semillas 20
     python -m laboratorio.intradia --estrategia ruptura_primera_hora
+    python -m laboratorio.intradia --estrategia hueco_resultados
 
 El motor es el mismo que el diario: trabaja por VELAS, no por días, así que
 con velas de 1 hora cada fila es una hora. Las reglas de ejecución no
@@ -13,8 +14,9 @@ hora, el stop gana el empate. Yahoo da unos 730 días de velas horarias.
 
 Qué prueba: «pocas entradas, en momentos concretos, para una ganancia
 rápida» (idea del dueño, 2026-11-03): el rebote tras una caída brusca en
-cripto (`ReboteCaida`) y la ruptura de la primera hora en acciones
-(`RupturaPrimeraHora`). Cómo se juzga:
+cripto (`ReboteCaida`), la ruptura de la primera hora en acciones
+(`RupturaPrimeraHora`) y el hueco del día de resultados (`HuecoResultados`).
+Cómo se juzga:
 
   1. Una rejilla pequeña, fijada antes de mirar los datos, sobre el tramo
      de DISEÑO (el 70 % inicial del calendario). Se elige la combinación
@@ -49,7 +51,8 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from laboratorio import metricas  # noqa: E402
-from laboratorio.datos import cargar, spread_de, universo  # noqa: E402
+from laboratorio.datos import (cargar, cargar_resultados, financiacion_de, spread_de,  # noqa: E402
+                               universo_nombrado)
 from laboratorio.estrategias import _atr  # noqa: E402
 from laboratorio.motor import Entrada, Posicion, simular  # noqa: E402
 
@@ -219,23 +222,131 @@ class AzarPrimeraHora(RupturaPrimeraHora):
         return self._con_objetivo(df, t, c, c - riesgo)
 
 
+class HuecoResultados:
+    """El hueco del día de resultados (doc fase-3/10 §7). En la sesión que
+    reacciona a unos resultados (`datos.cargar_resultados`), si abre con un
+    hueco de al menos `hueco_atr` ATR diarios sobre el cierre anterior y la
+    primera hora cierra a favor del hueco, se entra en la apertura de las
+    10:30 en la dirección del hueco: en largo si sube, en corto si baja.
+
+    · Stop: el otro extremo de la primera hora (el mínimo en largo, el
+      máximo en corto).
+    · Sin objetivo. Sale en la apertura de la última vela (15:30) de la
+      sesión `sesiones`-ésima contando la de la entrada: 1 = el mismo día;
+      más = deja correr la deriva tras los resultados.
+    · El ATR diario es el de las `ATR_N` sesiones anteriores, con velas
+      diarias hechas con las de 1 hora; solo sesiones completas (7 velas)."""
+
+    nombre = "hueco_resultados"
+    SALIDA = 5              # al cierre de la vela de las 14:30, sale a las 15:30
+    ATR_N = 14
+
+    def __init__(self, hueco_atr: float = 1.0, sesiones: int = 1):
+        self.hueco_atr, self.sesiones = hueco_atr, sesiones
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        dia = out.index.normalize()
+        g = out.groupby(dia)
+        out["N_DIA"] = g.cumcount()
+        out["VELAS_DIA"] = g["Close"].transform("size")
+        diario = pd.DataFrame({"Open": g["Open"].first(), "High": g["High"].max(),
+                               "Low": g["Low"].min(), "Close": g["Close"].last()})
+        previo = diario["Close"].shift(1)
+        rango = pd.concat([diario["High"] - diario["Low"], (diario["High"] - previo).abs(),
+                           (diario["Low"] - previo).abs()], axis=1).max(axis=1)
+        # El ATR de las sesiones ANTERIORES: a la apertura de hoy ya se sabe.
+        atr = rango.rolling(cls.ATR_N, min_periods=cls.ATR_N).mean().shift(1)
+        out["HUECO_ATR"] = ((diario["Open"] - previo) / atr).reindex(dia).to_numpy()
+        out["SESION"] = pd.Series(np.arange(len(diario)), index=diario.index).reindex(dia).to_numpy()
+        if "DIA_RESULTADOS" not in out.columns:
+            out["DIA_RESULTADOS"] = False
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "HUECO_ATR" in df.columns else self.precalcular(df)
+
+    def _elegible(self, df: pd.DataFrame, t: int) -> bool:
+        fila = df.iloc[t]
+        return bool(fila["N_DIA"] == 0 and fila["VELAS_DIA"] == 7 and not pd.isna(fila["HUECO_ATR"]))
+
+    @staticmethod
+    def _niveles(df: pd.DataFrame, t: int, lado: str) -> Entrada | None:
+        fila = df.iloc[t]
+        if not fila["High"] > fila["Low"]:
+            return None
+        return Entrada(sl=float(fila["Low"] if lado == "largo" else fila["High"]), lado=lado)
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if not self._elegible(df, t) or not df["DIA_RESULTADOS"].iloc[t]:
+            return None
+        fila = df.iloc[t]
+        hueco = float(fila["HUECO_ATR"])
+        if hueco >= self.hueco_atr and fila["Close"] >= fila["Open"]:
+            return self._niveles(df, t, "largo")
+        if hueco <= -self.hueco_atr and fila["Close"] <= fila["Open"]:
+            return self._niveles(df, t, "corto")
+        return None
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        transcurridas = df["SESION"].iloc[t] - df["SESION"].iloc[pos.indice_entrada]
+        return pos.sl, bool(transcurridas >= self.sesiones - 1 and df["N_DIA"].iloc[t] >= self.SALIDA)
+
+
+class AzarHueco(HuecoResultados):
+    """La referencia de `HuecoResultados`: un día cualquiera al azar (haya
+    resultados o no, sin mirar el hueco), en la dirección de la primera
+    hora, con el mismo stop y la misma salida. Mide si el día de resultados
+    con hueco aporta algo sobre seguir a la primera hora un día normal."""
+
+    nombre = "azar_hueco"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if not self._elegible(df, t):
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t, "largo" if df["Close"].iloc[t] >= df["Open"].iloc[t] else "corto")
+
+
+def con_dia_resultados(df: pd.DataFrame, reaccion: pd.DatetimeIndex) -> pd.DataFrame:
+    """Marca DIA_RESULTADOS en las velas de las sesiones que reaccionan a
+    unos resultados."""
+    out = df.copy()
+    out["DIA_RESULTADOS"] = out.index.normalize().isin(reaccion)
+    return out
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
-                  "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion")}
+                  "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
+                  "hueco_resultados": (HuecoResultados, AzarHueco, "accion")}
+
+# De dónde salen los activos y si hacen falta los días de resultados. Con
+# las 21 acciones del universo activo hay unos 250 días de resultados en
+# tres años, pocos para validar: el hueco usa el S&P 100.
+CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
 REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)},
-            "ruptura_primera_hora": {"stop": ("rango", "mitad"), "objetivo_r": (0.0, 1.0, 2.0)}}
+            "ruptura_primera_hora": {"stop": ("rango", "mitad"), "objetivo_r": (0.0, 1.0, 2.0)},
+            "hueco_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (1, 5)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
-PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1}
+PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2}
 
 
 def operar(datos: dict, estrategia) -> list:
     return [o for (s, c), df in datos.items()
-            for o in simular(df, estrategia, spread_de(s, c), s, c)]
+            for o in simular(df, estrategia, spread_de(s, c), s, c, financiacion_corto_pct=financiacion_de(c))]
 
 
 def medir(ops: list, clase: str) -> metricas.Medidas | None:
@@ -357,18 +468,28 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     return "\n".join(lineas)
 
 
-def cargar_1h(clase: str, cache: Path | None = None) -> dict:
-    """Velas de 1 hora del universo activo de una clase (en local, sin
-    acceso a la base de datos, la semilla de la 0003 y las criptos de la 0032)."""
+def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
+              resultados: bool = False) -> dict:
+    """Velas de 1 hora de una clase en un universo (`datos.universo_nombrado`;
+    el activo, en local y sin acceso a la base de datos, es la semilla de la
+    0003 y las criptos de la 0032). Con `resultados`, marca los días de
+    resultados y deja fuera las acciones de las que Yahoo no da fechas."""
     if cache is not None and cache.exists():
         return pickle.loads(cache.read_bytes())
     datos = {}
-    for simbolo, c in universo():
+    activos, _ = universo_nombrado(universo)
+    for simbolo, c in activos:
         if c != clase:
             continue
         df = cargar(simbolo, clase, PERIODO, intervalo="1h")
-        if df is not None and len(df) >= BARRAS_MES[clase] * 2:
-            datos[(simbolo, clase)] = df
+        if df is None or len(df) < BARRAS_MES[clase] * 2:
+            continue
+        if resultados:
+            reaccion = cargar_resultados(simbolo)
+            if reaccion is None or not len(reaccion):
+                continue
+            df = con_dia_resultados(df, reaccion)
+        datos[(simbolo, clase)] = df
     if cache is not None:
         cache.write_bytes(pickle.dumps(datos))
     return datos
@@ -382,7 +503,8 @@ def main() -> int:
     p.add_argument("--cache", default="", help="pickle con las velas, para repetir sin descargar")
     a = p.parse_args()
 
-    datos = cargar_1h(ESTRATEGIAS_1H[a.estrategia][2], Path(a.cache) if a.cache else None)
+    datos = cargar_1h(ESTRATEGIAS_1H[a.estrategia][2], Path(a.cache) if a.cache else None,
+                      **CARGA.get(a.estrategia, {}))
     if not datos:
         print("Sin datos: nada que medir.")
         return 1

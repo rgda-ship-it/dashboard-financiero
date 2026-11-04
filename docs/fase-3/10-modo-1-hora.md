@@ -83,8 +83,7 @@ mismo criterio:
 
 1. ~~Ruptura del rango de la primera hora en acciones~~: probada en el §6,
    sin ventaja.
-2. **El hueco del día de resultados**: ¿sigue o se cierra en las horas
-   siguientes? Las fechas ya se cargan (`datos.cargar_resultados`).
+2. ~~El hueco del día de resultados~~: probado en el §7, sin ventaja.
 3. **Horas de más movimiento en cripto** frente al resto del día.
 
 Cada prueba nueva sube el percentil exigido: probar mucho no regala
@@ -135,3 +134,51 @@ de pocas horas parten con unos −0,05 a −0,08 R por operación en contra.
 Las dos que se han probado añaden algo frente al azar (la ruptura, más),
 pero no lo suficiente. Lo que queda (§5) tendría que mover bastante más que
 eso, como el hueco del día de resultados, que suele ser de varios ATR.
+
+---
+
+## 7. Tercera prueba: el hueco del día de resultados (2026-11-04)
+
+> **Método**: velas de 1 hora de Yahoo de las **101 acciones del S&P 100**
+> con fechas de resultados en Yahoo, del **2023-12-07 al 2026-11-04**.
+> Diseño hasta el 2025-12-20; validación desde ahí. Con las 21 acciones del
+> universo activo habría unos 250 días de resultados en tres años, pocos
+> para validar. Spread de 0,03 $. Tercera prueba del modo: el percentil
+> exigido sube a 92.
+
+`hueco_resultados`. Solo se opera en la sesión que reacciona a unos
+resultados (`datos.cargar_resultados`). Si abre con un hueco de al menos
+`hueco_atr` ATR diarios sobre el cierre anterior y la primera hora cierra a
+favor del hueco, se entra en la apertura de las 10:30 **en la dirección del
+hueco** (en corto si baja). El stop va en el otro extremo de la primera
+hora y no hay objetivo. La rejilla:
+- hueco de 0,5, 1 o 2 ATR;
+- salida a las 15:30 del mismo día, o de la quinta sesión, para dejar
+  correr la deriva tras los resultados.
+
+La referencia al azar entra un día cualquiera a las 10:30, en la dirección
+de la primera hora, con el mismo stop y la misma salida: mide si el día de
+resultados aporta algo sobre seguir a la primera hora un día normal.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño, mejor combinación (hueco de 2 ATR, 5 sesiones) | 163 | +0,125 R | −0,074 – +0,337 |
+| **Validación** | 57 | **+0,106 R** | −0,234 – +0,486 |
+| Azar con las mismas salidas (validación) | 85 | −0,150 R (mediana) | p5 – p95: −0,506 – +0,306 |
+
+- **No valida**: el IC 90 % incluye el cero y supera al azar en el 90 %
+  de las tiradas, por debajo del 92 % exigido. Con 57 operaciones en
+  validación, el resultado es demasiado ruidoso para afirmar nada.
+- **Dentro del día pierde siempre**: las tres versiones de salida a las
+  15:30 dan de −0,03 a −0,07 R en validación. Lo positivo es dejarla
+  correr cinco sesiones, y solo en diseño se ve con claridad: en
+  validación, con huecos de 0,5 ATR ya pierde (−0,09 R).
+- **El spread deja de ser el problema**: se lleva el 3–6 % del bruto,
+  porque un stop del tamaño de la primera hora de un día de resultados es
+  ancho. Lo que falla aquí es la señal, no el coste.
+
+**Lo que sugiere**: la idea con algo de vida no es rápida. Es la deriva
+de varios días tras unos resultados con hueco, que se mide mejor con velas
+diarias: con 10 años de historia habría unas tres veces más días de
+resultados que aquí. No se ha probado; queda como idea para el laboratorio
+diario.
