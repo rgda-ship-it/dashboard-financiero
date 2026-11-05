@@ -5757,6 +5757,62 @@ end
 $i108$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I109 · El veredicto se fija una vez (0059).
+--
+-- Cada agente de la semilla tiene su criterio; no se puede cambiar ni
+-- borrar; sin cierres, el estado es «pocas_operaciones», y la vara se
+-- calcula desde cualquier fecha.
+-- ═════════════════════════════════════════════════════════════════════
+do $i109$
+declare
+    v_n  int;
+    v_e  text;
+    v_a  bigint;
+begin
+    select count(*) into v_n from public.agente_veredicto_criterio k
+      join public.agentes g on g.id = k.agente_id
+     where g.nombre in ('Prudencia', 'Cadencia', 'Audacia', 'Tendencia cripto');
+    if v_n <> (select count(*) from public.agentes
+                where nombre in ('Prudencia', 'Cadencia', 'Audacia', 'Tendencia cripto')) then
+        raise exception 'I109 FALLO: falta el criterio de algún agente (% filas)', v_n;
+    end if;
+    begin
+        update public.agente_veredicto_criterio set expectativa_validar_r = 0.01;
+        raise exception 'I109 FALLO: el criterio se dejó cambiar';
+    exception when sqlstate 'P0001' then
+        if sqlerrm not like '%no se cambia%' then raise; end if;
+    end;
+    begin
+        delete from public.agente_veredicto_criterio;
+        raise exception 'I109 FALLO: el criterio se dejó borrar';
+    exception when sqlstate 'P0001' then
+        if sqlerrm not like '%no se cambia%' then raise; end if;
+    end;
+    select estado into v_e from public.v_veredicto_agentes v
+      where v.cerradas < v.operaciones_min
+        and (v.drawdown_pct is null or v.drawdown_pct > -v.caida_max_pct) limit 1;
+    if v_e is distinct from 'pocas_operaciones' then
+        raise exception 'I109 FALLO: con menos de 30 cierres el estado debía ser pocas_operaciones: %', v_e;
+    end if;
+    begin
+        update public.activos set estado = 'suspendido' where estado = 'activo';
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZV1', 'accion', 'yahoo', 'ZZV1', 'activo') returning id into v_a;
+        insert into public.precios_diarios (activo_id, fecha, cierre, origen) values
+            (v_a, date '2026-11-10', 50, 'yahoo'), (v_a, date '2026-12-01', 55, 'yahoo');
+        if public.fn_vara('acciones', date '2026-11-09') <> 10.00
+           or public.fn_vara('acciones', date '2026-11-01') is not null then
+            raise exception 'I109 FALLO: fn_vara debía dar +10 %% desde el 9-11 y nada desde el 1-11';
+        end if;
+        raise exception 'I109 OK';
+    exception when others then
+        if sqlerrm <> 'I109 OK' then raise; end if;
+    end;
+    raise notice 'PASS  I109 el veredicto se fija una vez: un criterio por agente, sin cambios, y la vara desde cualquier fecha';
+end
+$i109$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

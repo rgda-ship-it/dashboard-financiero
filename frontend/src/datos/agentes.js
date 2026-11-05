@@ -43,6 +43,12 @@ export const leerComparativa = () =>
 /** Comprar y mantener el universo desde las mismas fechas (0056). Hasta
  *  que se aplique la migración, la vista no existe: sin referencia, en vez
  *  de romper la pantalla. */
+/** El veredicto fijado de antemano (0059). [] si la vista aún no existe. */
+export const leerVeredicto = async () => {
+  const { data, error } = await supabase.from("v_veredicto_agentes").select("*").order("agente_id");
+  return error ? [] : data;
+};
+
 export const leerReferencia = async () => {
   const { data, error } = await supabase.from("v_referencia_mercado").select("*");
   return error ? [] : data;

@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — El veredicto, fijado de antemano
+
+### Añadido
+- 0059: `agente_veredicto_criterio` (una fila por agente, sin poder cambiarse ni borrarse), `fn_vara(referencia, desde)` y `v_veredicto_agentes`, con el estado de cada agente (`pocas_operaciones`, `observar`, `validado`, `sin_ventaja`, `retirar`, `pausar`) y su concordancia con el laboratorio. Invariante I109.
+- Lo que espera el laboratorio a 10 años (universo del 5-11, reglas de hoy): Prudencia −0,041 R (σ 1,71), Cadencia −0,154 R (2,06), Audacia +0,064 R (1,44), Tendencia cripto +0,913 R (4,11).
+- Agentes → Veredicto, en pantalla.
+
+### Cambiado
+- La comparativa calcula el «faltan X para concluir» con los cierres y la σ desde el experimento, no desde el alta.
+
+### Hallazgo
+- Recalculados con el universo de hoy, Cadencia con ADX ≥ 25 y Audacia sin acciones de menos de 10 $ solo mejoran en la validación; en el diseño empeoran. Con el criterio nuevo no pasarían.
+
 ## [Sin publicar] - 2026-11-05 — Los índices se leen, no se operan
 
 ### Añadido

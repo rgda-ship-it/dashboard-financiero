@@ -70,3 +70,80 @@ La **0058** los deja solo de referencia:
 El ETL los sigue leyendo: precios e indicadores diarios al día. Son la
 serie que necesita la fuerza relativa frente al mercado, el siguiente
 indicador pendiente.
+
+## 3. El veredicto, fijado de antemano (recomendaciones 1, 2 y 3)
+
+**Qué pidió el dueño**: fijar valores de expectativa calculados con los
+experimentos. La 0059 los guarda en `agente_veredicto_criterio`, una fila
+por agente. **No se pueden cambiar ni borrar**: un disparador lo impide,
+porque cambiar el criterio a mitad sería mover la portería.
+`v_veredicto_agentes` da el estado de cada agente, y la pantalla lo
+enseña en Agentes → Veredicto.
+
+### 3.1 Lo que espera el laboratorio
+
+Velas diarias de Yahoo del 2016-11-05 al 2026-11-05, sobre el universo
+de producción del 2026-11-05 sin índices (45 de los 48 activos tienen
+260 sesiones o más). Cada agente, con su estrategia de hoy (versiones 11,
+10 y 9). Se guarda la cifra de **los 10 años enteros**, que es lo que se
+espera en vivo:
+
+| Agente | Expectativa | σ de la R | Operaciones | Diseño (2016–2023) | Validación (2023–2026) |
+|---|---|---|---|---|---|
+| Prudencia | **−0,041 R** | 1,71 | 595 | −0,063 R | −0,006 R |
+| Cadencia | **−0,154 R** | 2,06 | 273 | −0,258 R | +0,034 R |
+| Audacia | **+0,064 R** | 1,44 | 594 | +0,060 R | +0,069 R |
+| Tendencia cripto | **+0,913 R** | 4,11 | 507 | — | — |
+
+Tendencia cripto usa la estrategia `tendencia`, sin la cartera. Su doc
+(fase-2/07 §6) da +1,03 R con la cartera; su criterio no cambia.
+
+### 3.2 Los umbrales
+
+Son los de Tendencia cripto (doc fase-2/07 §6) y el laboratorio (doc
+fase-2/06 §3.5), iguales para todos:
+
+| Estado | Cuándo |
+|---|---|
+| `pocas_operaciones` | Menos de 30 cierres desde `desde` |
+| `pausar` | La caída desde el máximo pasa del 35 % |
+| `retirar` | Expectativa negativa con 30 cierres o más |
+| `validado` | Expectativa ≥ +0,10 R, el intervalo del 90 % por encima de cero y más rentable que su vara desde su comienzo |
+| `sin_ventaja` | A los 60 cierres, sin validar |
+| `observar` | Todo lo demás |
+
+**Concordancia**: si la expectativa en vivo se sale de lo que espera el
+laboratorio (su cifra ± 1,645 σ / √n), el agente opera distinto de lo
+que se probó. Eso se revisa antes de concluir nada.
+
+**Desde cuándo**:
+
+- **Grupo de control**: cuenta sus cierres desde el experimento (el alta
+  de Tendencia cripto, ya con las reglas de la 0030). Compara su
+  rentabilidad desde el alta con la vara del universo desde el alta.
+- **Tendencia cripto y las v2**: todo desde su propio comienzo. Su vara
+  es la de su universo.
+
+### 3.3 Lo que esto implica (y conviene saber ya)
+
+- **El laboratorio no espera que el grupo de control pase**: Prudencia y
+  Cadencia, con expectativa negativa; Audacia, positiva pero por debajo
+  de +0,10 R.
+- **Demostrar +0,10 R exige muchos cierres**. Con σ ≈ 1,0–1,7 R, el
+  intervalo del 90 % deja de incluir el cero hacia las
+  (1,645 × σ / 0,10)² = **270–780 operaciones**. Al ritmo de hoy, de 0 a 7
+  entradas por semana, no se llega antes del 2027-04-30. Con 60 cierres
+  solo se valida una expectativa de unos **+0,2 a +0,35 R**. Por eso
+  «sin ventaja» a los 60 no quiere decir «perdedor»: quiere decir que no
+  se demostró.
+- **La comparativa concluye ahora desde el experimento** (recomendación
+  3). El «faltan X para concluir» usa los cierres y la σ desde el 11-10.
+  Antes de la 0030 los stops estaban a 0,1 ATR, y la σ de Cadencia (8,1 R
+  desde el alta, 1,2 desde el experimento) no decía nada de las reglas de
+  hoy.
+- **Los dos cambios «validados» ya no pasan el criterio nuevo**.
+  Recalculados con el universo de hoy, Cadencia con ADX ≥ 25 da −0,490 R
+  en el diseño y +0,316 en la validación; Audacia sin acciones de menos de
+  10 $, −0,022 y +0,119. Solo mejoran en la validación. El dueño decidió
+  (2026-11-05) que las v2 los lleven igualmente, como prueba en vivo
+  juzgada con este criterio (§4).
