@@ -143,7 +143,9 @@ que se probó. Eso se revisa antes de concluir nada.
   hoy.
 - **Los dos cambios «validados» ya no pasan el criterio nuevo**.
   Recalculados con el universo de hoy, Cadencia con ADX ≥ 25 da −0,490 R
-  en el diseño y +0,316 en la validación; Audacia sin acciones de menos de
-  10 $, −0,022 y +0,119. Solo mejoran en la validación. El dueño decidió
+  en el diseño y +0,316 en la validación (sin el filtro, −0,258 y +0,034).
+  Audacia sin acciones de menos de 10 $ (las criptos baratas siguen, como
+  en la prueba original) da +0,033 y +0,085 (sin el cambio, +0,060 y
+  +0,069). Solo mejoran en la validación. El dueño decidió
   (2026-11-05) que las v2 los lleven igualmente, como prueba en vivo
   juzgada con este criterio (§4).
