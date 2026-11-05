@@ -277,6 +277,8 @@ function TarjetaEstrategia({ a, e }) {
 const NOMBRE_REFERENCIA = {
   universo: "Todo el universo",
   acciones: "Acciones",
+  sp500: "S&P 500",
+  nasdaq100: "Nasdaq 100",
   cripto: "Criptos",
   bitcoin: "Bitcoin",
 };

@@ -51,6 +51,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-10-31 | 0052: ajustes automáticos congelados mientras `consecuencias_semanales = false` | — (las reglas dejan de moverse solas) |
 | Al aplicarla | 0053: Prudencia vuelve a salir por deterioro (decisión del dueño; deshace el ajuste del 29-10) | Cierres de Prudencia entre el 29-10 y la 0053 |
 | 2026-10-26 | 0050–0051: credenciales; backlog revisado | Backlog: «Ampliar el universo» ya no salta por el R:R |
+| 2026-11-05 18:54 | Alta del S&P 500 y el Nasdaq 100 como acciones activas; la 0058 los deja solo de referencia | Vara de las acciones (33 activos antes, 35 hasta la 0058) |
 | 2026-11-05 | Criterio del laboratorio (doc fase-3/12 §1): percentil por la cuenta global de pruebas, el diseño contra el azar y ventanas móviles | Veredictos del laboratorio de antes (se juzgaron con el criterio de entonces) |
 | 2026-11-02 21:48 | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
 | **2026-11-02 21:48** | **0055 (D25)**: saldo para operar = base × tope de la fase, con base fija y escalones; el tope se mide sobre la base (decisión del dueño, a mitad del experimento) | Apalancamiento y margen de cada orden, y cuántas posiciones caben a la vez en los tres agentes con metas y en el simulador. El riesgo por operación y el R no cambian |

@@ -5695,6 +5695,68 @@ end
 $i107$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I108 · Los índices se leen, no se operan (0058).
+--
+-- Un símbolo con «^» es referencia: sale en las señales vigentes como
+-- 'referencia' (fuera del universo de los agentes), ninguna orden lo
+-- acepta, y la vara lo da aparte sin contarlo en las acciones.
+-- ═════════════════════════════════════════════════════════════════════
+do $i108$
+declare
+    v_i  bigint;
+    v_a  bigint;
+    v_r  record;
+begin
+    begin
+        update public.activos set estado = 'suspendido' where estado = 'activo';
+        update public.agentes set creado_en = timestamptz '2026-09-29 10:00+00' where tipo = 'metas';
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('^GSPC', 'accion', 'yahoo', '^GSPC', 'activo') returning id into v_i;
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZI1', 'accion', 'yahoo', 'ZZI1', 'activo') returning id into v_a;
+        if not (select referencia from public.activos where id = v_i)
+           or (select referencia from public.activos where id = v_a) then
+            raise exception 'I108 FALLO: referencia tenía que ser verdadera solo para el símbolo con «^»';
+        end if;
+        insert into public.precios_diarios (activo_id, fecha, cierre, origen) values
+            (v_i, date '2026-09-29', 100, 'yahoo'), (v_i, date '2026-11-04', 90, 'yahoo'),
+            (v_a, date '2026-09-29', 10, 'yahoo'), (v_a, date '2026-11-04', 12, 'yahoo');
+        insert into public.senales (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor)
+        values (v_i, false, 5, 1, 'i108'), (v_a, false, 5, 1, 'i108');
+
+        if (select estado_activo from public.senales_vigentes where activo_id = v_i) <> 'referencia'
+           or (select estado_activo from public.senales_vigentes where activo_id = v_a) <> 'activo' then
+            raise exception 'I108 FALLO: el índice tenía que salir como referencia en las señales vigentes';
+        end if;
+
+        select * into v_r from public.v_referencia_mercado where referencia = 'acciones' and ventana = 'alta';
+        if v_r.activos <> 1 or v_r.rentabilidad_pct <> 20.00 then
+            raise exception 'I108 FALLO: el índice no debía contar en las acciones: %', to_jsonb(v_r);
+        end if;
+        select * into v_r from public.v_referencia_mercado where referencia = 'sp500' and ventana = 'alta';
+        if v_r.activos <> 1 or v_r.rentabilidad_pct <> -10.00 then
+            raise exception 'I108 FALLO: la vara del S&P 500 debía dar −10 %%: %', to_jsonb(v_r);
+        end if;
+
+        begin
+            insert into public.ordenes (activo_id) values (v_i);
+            raise exception 'I108 FALLO: se aceptó una orden sobre un índice';
+        exception when sqlstate 'P0001' then
+            if sqlerrm not like '%índice de referencia%' then
+                raise;
+            end if;
+        end;
+        raise exception 'I108 OK';
+    exception when others then
+        if sqlerrm <> 'I108 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I108 los índices se leen, no se operan: fuera del universo, sin órdenes y con su propia vara';
+end
+$i108$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

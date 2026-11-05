@@ -106,6 +106,10 @@ export function veredicto(senal, { spread = null, agentes = [], bolsaAbierta = t
   if (senal.error || !Number.isFinite(senal.precio_actual)) {
     return { ...base, accion: "sin_datos", titulo: "Sin datos", motivo: "El proveedor no dio datos de este activo." };
   }
+  if (senal.estado_activo === "referencia") {
+    // 0058: un índice (S&P 500, Nasdaq 100) es la vara del mercado: se lee, no se compra.
+    return { ...base, accion: "no_comprar", titulo: "Índice", motivo: "Índice de referencia: sirve para comparar con el mercado; no se opera." };
+  }
   if (senal.suspendido) {
     return { ...base, accion: "sin_datos", titulo: "Sin datos", motivo: "Suspendido por fallos del proveedor: la lectura no es fiable." };
   }

@@ -6,7 +6,8 @@
 
 /** Las filas de referencia de la comparativa: la rentabilidad desde el alta
  *  y desde el experimento de cada vara, en un orden fijo. */
-export const ORDEN_REFERENCIA = ["universo", "acciones", "cripto", "bitcoin"];
+// 0058: el S&P 500 y el Nasdaq 100, como índices aparte (no cuentan en «acciones»).
+export const ORDEN_REFERENCIA = ["universo", "acciones", "sp500", "nasdaq100", "cripto", "bitcoin"];
 export function filasReferencia(vista) {
   return ORDEN_REFERENCIA.map((referencia) => {
     const de = (ventana) => (vista ?? []).find((v) => v.referencia === referencia && v.ventana === ventana);

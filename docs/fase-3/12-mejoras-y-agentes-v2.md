@@ -45,3 +45,28 @@ criterio que tenían en su momento; si se repiten, se juzgan con este.
 El registro, reconstruido de los docs (32 ideas, del 2026-10-10 al
 2026-11-05), está en `criterio.REGISTRO`, con la fecha y el documento de
 cada una.
+
+## 2. Los índices como vara (recomendación 13)
+
+El dueño dio de alta el **S&P 500 (`^GSPC`) y el Nasdaq 100 (`^NDX`)** el
+2026-11-05 a las 18:54 UTC, con dos años de cierres diarios. Entraron como
+acciones activas, y eso tenía dos efectos:
+
+- **La vara los contaba** como dos acciones más: las acciones pasaron de
+  33 activos a 35.
+- **Los agentes podían comprarlos** en cuanto el escáner les diera una
+  señal operable. Esa tarde la señal era neutral y no hubo órdenes.
+
+La **0058** los deja solo de referencia:
+
+| Pieza | Qué hace |
+|---|---|
+| `activos.referencia` | Columna generada: verdadera para todo símbolo de Yahoo que empieza por «^» |
+| `senales_vigentes.estado_activo` | Vale `referencia`. El universo de los agentes pide `activo`, así que ya no los ve; tampoco sus descartes ni el autodiagnóstico |
+| `ordenes` | Un disparador rechaza cualquier orden sobre un índice, de agente o del simulador |
+| `v_referencia_mercado` | Los índices salen de «universo» y «acciones» y entran como varas propias: `sp500` y `nasdaq100` |
+| Escáner | Los enseña con el veredicto «Índice: sirve para comparar con el mercado; no se opera» |
+
+El ETL los sigue leyendo: precios e indicadores diarios al día. Son la
+serie que necesita la fuerza relativa frente al mercado, el siguiente
+indicador pendiente.
