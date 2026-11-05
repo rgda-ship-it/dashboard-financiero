@@ -109,3 +109,12 @@ test("un índice de referencia (0058) nunca es comprar, aunque la lectura sea al
   assert.equal(v.accion, "no_comprar");
   assert.equal(v.titulo, "Índice");
 });
+
+test("Audacia v2 (0060) no toma acciones de menos de 10 $; las criptos baratas sí", () => {
+  const e = { ...AUDACIA.estrategia, precio_min_accion: 10, clases_admitidas: ["accion", "cripto"] };
+  const accion = { clase: "accion", fuerza: "alta", atr_pct: 3, precio_actual: 6.5, niveles_origen: "estructura" };
+  assert.match(motivoAgente(e, accion, 2), /menos de 10 \$/);
+  assert.equal(motivoAgente(e, { ...accion, precio_actual: 12 }, 2), null);
+  assert.equal(motivoAgente(e, { ...accion, clase: "cripto", atr_pct: 5, precio_actual: 0.2 }, 2), null);
+  assert.equal(motivoAgente(AUDACIA.estrategia, accion, 2), null);
+});

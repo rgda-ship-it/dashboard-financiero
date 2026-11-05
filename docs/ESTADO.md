@@ -98,6 +98,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | ✅ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Se juzgan con el criterio fijado de la 0059 (doc fase-3/12 §3): expectativa en R, intervalo, caída máxima y batir a su vara; la meta diaria queda informativa |
+| 👤 | Aplicar la 0060 con `scripts/aplicar-migraciones.cmd` | Crea y pone en marcha Prudencia v2, Cadencia v2 y Audacia v2 (500 $ cada una, ajustes congelados, veredicto fijado) y el botón «Añadir saldo». Antes, la 0058 y la 0059 |
 | 👤 | Aplicar la 0059 con `scripts/aplicar-migraciones.cmd` | El criterio del veredicto de cada agente, fijado y sin poder cambiarse; la vista y la pantalla Agentes → Veredicto. Solo lee |
 | 👤 | Aplicar la 0058 con `scripts/aplicar-migraciones.cmd` | Los índices (^GSPC, ^NDX) quedan solo de referencia: fuera del universo de los agentes, sin órdenes y con su propia vara. **Cuanto antes**: hasta entonces, los agentes podrían comprarlos con una señal operable |
 | 🗓️ | Volver a medir el escáner con más datos (sección `9b_escaner` de la revisión) | El 2026-11-05, con 35 «Comprar» de acciones (10-10 → 10-29), −0,19 % a 5 sesiones frente a +0,38 % de media; muy pocos casos y solapados para concluir |
@@ -108,9 +109,17 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | 👤 | ¿Segundo experimento en vivo con el Santo Grial en cripto? | Por defecto, no: es la misma apuesta que Tendencia cripto (que el universo de hoy siga en tendencia). Se reconsidera con su veredicto |
 | 👤 | Otros mercados (doc fase-3/00, E9) | Previsto desde la 0019, sin fecha. Primero saber qué mercados permite QuantFury |
 | 👤 | Decisiones abiertas con valor por defecto (doc fase-3/00 §5 y fase-3/01 §9) | Espera tras salir por deterioro y límite de stops por activo: no, mientras dure el experimento. Avisos fuera del dashboard: no, de momento |
-| ⏸️ 👤 | «Audacia sin acciones de menos de 10 $»: se guarda para el final del experimento (decisión del dueño, 2026-10-25) | Validada en el laboratorio (+0,30 → +0,39 R). Se aplica cuando acabe el experimento, junto con `consecuencias_semanales = true` |
-| ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Mismo trato que los otros dos cambios validados |
+| ⏸️ 👤 | «Audacia sin acciones de menos de 10 $»: se guarda para el final del experimento (decisión del dueño, 2026-10-25) | Validada en el laboratorio (+0,30 → +0,39 R), pero recalculada el 2026-11-05 con el universo de hoy solo mejora en la validación (doc fase-3/12 §3.3). En vivo, en Audacia v2 |
+| ⏸️ | «Cadencia solo con ADX ≥ 25»: se guarda para el final del experimento | Validada a 10 años y en la misma dirección a 5, con pocas operaciones (39 y 21). Recalculada el 2026-11-05: −0,49 R en el diseño, +0,32 en la validación (doc fase-3/12 §3.3). En vivo, en Cadencia v2 |
 | ⏸️ 👤 | I5: hipótesis propuestas por un LLM | **Esperamos** a la I3 y a la decisión del dueño sobre el coste |
+
+### 3.0 bis Agentes v2 (doc fase-3/12 §4)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| 🗓️ | Primeras operaciones de las v2: que entran y salen como su original, salvo sus filtros | Que Audacia v2 descarte acciones de menos de 10 $ (`precio_bajo`) y Cadencia v2 las de ADX < 25 (`adx`); que las tres registren sus decisiones |
+| 🗓️ | Veredicto de cada v2 a los 30 cierres (Agentes → Veredicto) | Criterio fijado en la 0060. El laboratorio espera −0,041, −0,175 y +0,054 R |
+| ✅ 👤 | Qué llevan las v2 (decisión del dueño, 2026-11-05) | Prudencia v2, sus reglas en cuenta limpia; Cadencia v2 con ADX ≥ 25 y Audacia v2 sin acciones de menos de 10 $, como prueba en vivo; ajustes congelados; 500 $ y saldo ampliable |
 
 ### 3.1 Agente experimental «Tendencia cripto» (doc 07)
 

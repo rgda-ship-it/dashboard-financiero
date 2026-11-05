@@ -150,6 +150,9 @@ $cuadre$;
 -- migración futura toca un saldo sin pasar por `fn_registrar_movimiento`,
 -- aquí se ve.
 --
+-- El saldo inicial es la suma de los depósitos: el inicial y, desde la
+-- 0060, las aportaciones (`rpc_aportar_saldo_agente` sube los dos a la vez).
+--
 -- Se excluyen las cuentas sin ningún apunte: son bancos de pruebas que
 -- otros ficheros crean a mano para ejercitar la máquina de fases, y no
 -- pretenden tener libro mayor.
@@ -164,12 +167,12 @@ begin
       from (
         select c.id, c.saldo_disponible,
                c.saldo_inicial + coalesce(sum(m.importe) filter (
-                 where m.tipo <> 'deposito_inicial'), 0) as recalculado
+                 where m.tipo not in ('deposito_inicial', 'aportacion')), 0) as recalculado
           from public.cuentas_simulacion c
           join public.movimientos_saldo m on m.cuenta_id = c.id
          group by c.id, c.saldo_disponible, c.saldo_inicial
         having abs(c.saldo_disponible - (c.saldo_inicial + coalesce(sum(m.importe) filter (
-                 where m.tipo <> 'deposito_inicial'), 0))) > 0.01
+                 where m.tipo not in ('deposito_inicial', 'aportacion')), 0))) > 0.01
       ) d;
 
     if v_descuadres <> 0 then

@@ -1517,7 +1517,7 @@ begin
           left join public.movimientos_saldo m on m.cuenta_id = c.id
          group by c.id, c.saldo_disponible, c.saldo_inicial
         having abs(c.saldo_disponible - (c.saldo_inicial + coalesce(sum(m.importe) filter (
-                 where m.tipo <> 'deposito_inicial'), 0))) > 0.01
+                 where m.tipo not in ('deposito_inicial', 'aportacion')), 0))) > 0.01
            -- Las cuentas que este fichero crea a mano para probar la
            -- máquina de fases no pasan por el libro mayor: no son un
            -- descuadre, son un banco de pruebas. Se identifican por no
@@ -2463,7 +2463,7 @@ begin
         raise exception 'I57 FALLO: el P&L realizado del día no incluye el cierre parcial';
     end if;
     -- El libro mayor sigue cuadrando al céntimo.
-    select c.saldo_inicial + coalesce(sum(m.importe) filter (where m.tipo <> 'deposito_inicial'), 0) - c.saldo_disponible
+    select c.saldo_inicial + coalesce(sum(m.importe) filter (where m.tipo not in ('deposito_inicial', 'aportacion')), 0) - c.saldo_disponible
       into v_num2
       from public.cuentas_simulacion c join public.movimientos_saldo m on m.cuenta_id = c.id
      where c.id = v_cuenta group by c.id;
@@ -5811,6 +5811,124 @@ begin
     raise notice 'PASS  I109 el veredicto se fija una vez: un criterio por agente, sin cambios, y la vara desde cualquier fecha';
 end
 $i109$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I110 · Las v2 y el saldo añadido (0060).
+--
+-- Tres agentes nuevos, fuera del grupo de control, con su cuenta, los
+-- ajustes congelados y su veredicto fijado. Sus filtros (precio mínimo de
+-- acción y ADX) actúan solo en ellos. Solo un administrador añade saldo,
+-- nunca al grupo de control, y queda en el libro mayor y en la auditoría.
+-- ═════════════════════════════════════════════════════════════════════
+do $i110$
+declare
+    v_admin  uuid;
+    v_user   uuid;
+    v_pv2    public.agentes;
+    v_cv2    public.agentes;
+    v_av2    public.agentes;
+    v_aud    public.agentes;
+    v_cad    public.agentes;
+    v_act    bigint;
+    v_cta    bigint;
+    v_ini    numeric;
+    v_m      text;
+    v_json   jsonb;
+begin
+    select * into v_pv2 from public.agentes where nombre = 'Prudencia v2';
+    select * into v_cv2 from public.agentes where nombre = 'Cadencia v2';
+    select * into v_av2 from public.agentes where nombre = 'Audacia v2';
+    select * into v_aud from public.agentes where nombre = 'Audacia';
+    select * into v_cad from public.agentes where nombre = 'Cadencia';
+    if v_pv2.id is null or v_cv2.id is null or v_av2.id is null then
+        raise exception 'I110 FALLO: faltan agentes v2';
+    end if;
+    if v_pv2.grupo_control or v_av2.consecuencias_semanales or v_cv2.deriva_de <> v_cad.id
+       or not v_aud.grupo_control or v_pv2.saldo_inicial <> 500 then
+        raise exception 'I110 FALLO: las v2 debían ser nuevas, sin consecuencias y derivar del grupo de control';
+    end if;
+    if (v_cv2.estrategia ->> 'adx_min')::numeric <> 25 or (v_av2.estrategia ->> 'precio_min_accion')::numeric <> 10
+       or v_cad.estrategia ? 'adx_min' or v_aud.estrategia ? 'precio_min_accion' then
+        raise exception 'I110 FALLO: los cambios tenían que ir solo en las v2';
+    end if;
+    if public.fn_cuenta_agente(v_av2.id) is null
+       or (select count(*) from public.agente_veredicto_criterio
+            where agente_id in (v_pv2.id, v_cv2.id, v_av2.id)) <> 3 then
+        raise exception 'I110 FALLO: cada v2 necesita cuenta y criterio de veredicto';
+    end if;
+
+    begin
+        -- Una acción de 5 $ con señal compradora y ADX 15: Audacia v2 la
+        -- descarta por precio, Cadencia v2 por ADX y el grupo de control no.
+        update public.activos set estado = 'suspendido' where estado = 'activo';
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZW1', 'accion', 'yahoo', 'ZZW1', 'activo') returning id into v_act;
+        insert into public.indicadores_diarios (activo_id, fecha, adx_14, version_motor)
+        values (v_act, (now() at time zone 'UTC')::date, 15, 'i110');
+        insert into public.senales (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor,
+                                    precio_actual, direccion, fuerza, indicadores_alcistas, indicadores_bajistas,
+                                    atr_pct, niveles_origen, soporte, resistencia, sl, tp, leverage_recomendado)
+        values (v_act, true, 5, 1, 'i110', 5, 'alcista', 'alta', 3, 0, 2.5, 'estructura', 4.5, 6, 4.5, 6, 2);
+        select u.motivo into v_m from public.fn_universo_agente(public.fn_parametros_agente(v_av2),
+                                       public.fn_cuenta_agente(v_av2.id), '[]'::jsonb) u where u.activo_id = v_act;
+        if v_m is distinct from 'precio_bajo' then
+            raise exception 'I110 FALLO: Audacia v2 debía descartar la acción de 5 $ por precio: %', v_m;
+        end if;
+        select u.motivo into v_m from public.fn_universo_agente(public.fn_parametros_agente(v_aud),
+                                       public.fn_cuenta_agente(v_aud.id), '[]'::jsonb) u where u.activo_id = v_act;
+        if v_m = 'precio_bajo' then
+            raise exception 'I110 FALLO: Audacia (grupo de control) no tiene precio mínimo';
+        end if;
+        select u.motivo into v_m from public.fn_universo_agente(
+                   public.fn_parametros_agente(v_cv2) || '{"atr_pct_max": null}'::jsonb,
+                   public.fn_cuenta_agente(v_cv2.id), '[]'::jsonb) u where u.activo_id = v_act;
+        if v_m is distinct from 'adx' then
+            raise exception 'I110 FALLO: Cadencia v2 debía descartar por ADX < 25: %', v_m;
+        end if;
+        select u.motivo into v_m from public.fn_universo_agente(
+                   public.fn_parametros_agente(v_cad) || '{"atr_pct_max": null}'::jsonb,
+                   public.fn_cuenta_agente(v_cad.id), '[]'::jsonb) u where u.activo_id = v_act;
+        if v_m = 'adx' then
+            raise exception 'I110 FALLO: Cadencia (grupo de control) no filtra por ADX';
+        end if;
+        raise exception 'I110 OK';
+    exception when others then
+        if sqlerrm <> 'I110 OK' then raise; end if;
+    end;
+
+    -- Añadir saldo.
+    select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+    select id into v_user from public.perfiles where rol <> 'admin' and estado = 'aprobado' limit 1;
+    v_cta := public.fn_cuenta_agente(v_pv2.id);
+    select saldo_inicial into v_ini from public.cuentas_simulacion where id = v_cta;
+    perform pg_temp.como(v_user);
+    begin
+        perform public.rpc_aportar_saldo_agente(v_pv2.id, 100);
+        perform pg_temp.como_dueno();
+        raise exception 'I110 FALLO: un usuario normal añadió saldo';
+    exception when sqlstate '42501' then
+        null;
+    end;
+    perform pg_temp.como(v_admin);
+    begin
+        perform public.rpc_aportar_saldo_agente(v_aud.id, 100);
+        perform pg_temp.como_dueno();
+        raise exception 'I110 FALLO: se añadió saldo al grupo de control';
+    exception when sqlstate 'P0001' then
+        null;
+    end;
+    v_json := public.rpc_aportar_saldo_agente(v_pv2.id, 250);
+    perform pg_temp.como_dueno();
+    if (select saldo_inicial from public.cuentas_simulacion where id = v_cta) <> v_ini + 250
+       or not exists (select 1 from public.movimientos_saldo where cuenta_id = v_cta and tipo = 'aportacion'
+                                                            and importe = 250)
+       or not exists (select 1 from public.auditoria_admin where accion = 'aportar_saldo'
+                                                          and objetivo_id = v_pv2.id::text) then
+        raise exception 'I110 FALLO: la aportación debía quedar en la cuenta, el libro mayor y la auditoría: %', v_json;
+    end if;
+    raise notice 'PASS  I110 las v2: agentes nuevos con sus filtros y su veredicto; saldo añadido solo por el administrador y fuera del grupo de control';
+end
+$i110$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

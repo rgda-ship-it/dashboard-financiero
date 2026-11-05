@@ -10,7 +10,9 @@ import { formatearPrecio, tiempoRelativo } from "../formato.js";
 import {
   ESTADOS_AGENTE,
   ESTADOS_BACKLOG,
+  GRUPO_CONTROL,
   TIPOS_BACKLOG,
+  aportarSaldoAgente,
   cambiarEstadoAgente,
   colorDe,
   revertirFase,
@@ -62,8 +64,12 @@ const ACCIONES = {
 // ── Agentes (Sprint 6, D13) ──────────────────────────────────────────
 // Nacen en pausa: ponerlos en marcha es una decisión humana y queda
 // auditada. Reiniciar tras un Game Over crea una cuenta NUEVA (N14).
-function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
+function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir, alAportar }) {
   const [confirmando, setConfirmando] = useState(false);
+  const [aportando, setAportando] = useState(false);
+  const [importe, setImporte] = useState("500");
+  const cantidad = Number(String(importe).replace(",", "."));
+  const importeValido = Number.isFinite(cantidad) && cantidad >= 10 && cantidad <= 100000;
   const [revirtiendo, setRevirtiendo] = useState(false);
   const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado };
   return (
@@ -84,6 +90,44 @@ function FilaAgente({ a, ocupado, alCambiar, alReiniciar, alRevertir }) {
         </p>
       </div>
       <div className="admin__acciones">
+        {/* 0060: solo fuera del grupo de control; la base de datos lo vuelve a comprobar. */}
+        {!GRUPO_CONTROL.includes(a.nombre) && a.estado !== "game_over" &&
+          (aportando ? (
+            <>
+              <label className="admin__importe">
+                <span className="sr-only">Importe en dólares</span>
+                <input
+                  type="number"
+                  min="10"
+                  max="100000"
+                  step="10"
+                  inputMode="decimal"
+                  value={importe}
+                  onChange={(e) => setImporte(e.target.value)}
+                  aria-label={`Saldo que se añade a ${a.nombre}, en dólares`}
+                />
+                $
+              </label>
+              <button
+                type="button"
+                className="btn btn--accent"
+                disabled={ocupado || !importeValido}
+                onClick={() => {
+                  setAportando(false);
+                  alAportar(a.agente_id, cantidad);
+                }}
+              >
+                Confirmar: añadir {importeValido ? formatearPrecio(cantidad) : "—"}
+              </button>
+              <button type="button" className="btn" onClick={() => setAportando(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn" disabled={ocupado} onClick={() => setAportando(true)}>
+              Añadir saldo
+            </button>
+          ))}
         {a.estado === "pausado" && (
           <button type="button" className="btn btn--accent" disabled={ocupado}
                   onClick={() => alCambiar(a.agente_id, "activo")}>
@@ -751,6 +795,7 @@ export default function Admin() {
                   alCambiar={(id, estado) => ejecutarAgente(() => cambiarEstadoAgente(id, estado))}
                   alReiniciar={(id) => ejecutarAgente(() => reiniciarAgente(id))}
                   alRevertir={(cuentaId) => ejecutarAgente(() => revertirFase(cuentaId))}
+                  alAportar={(id, importe) => ejecutarAgente(() => aportarSaldoAgente(id, importe))}
                 />
               ))}
             </ul>

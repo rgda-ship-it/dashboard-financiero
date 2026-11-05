@@ -24,6 +24,13 @@ def parametros_de_agente(estrategia: dict, clase: str) -> dict:
     fuerzas = propia.get("fuerzas_admitidas")
     if fuerzas:
         p["fuerza_minima"] = min({"baja": 1, "media": 2, "alta": 3}[f] for f in fuerzas)
+    # 0060 (las v2): sin acciones baratas y solo con tendencia fuerte.
+    if clase == "accion" and propia.get("precio_min_accion") is not None:
+        p["precio_min"] = float(propia["precio_min_accion"])
+    if propia.get("adx_min") is not None:
+        if float(propia["adx_min"]) != 25:
+            raise ValueError(f"adx_min={propia['adx_min']}: el laboratorio solo tiene el filtro adx_fuerte (ADX ≥ 25)")
+        p["filtro"] = "adx_fuerte"
     tp = propia.get("tp_parcial")
     if isinstance(tp, dict):
         p["parcial_recorrido"] = float(tp.get("recorrido", 0))

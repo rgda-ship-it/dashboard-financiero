@@ -4,6 +4,17 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — Prudencia v2, Cadencia v2 y Audacia v2
+
+### Añadido
+- 0060: tres agentes con metas nuevos, de 500 $, con los ajustes congelados y su veredicto fijado. Prudencia v2, las reglas de Prudencia; Cadencia v2, solo con ADX ≥ 25 (`adx_min`); Audacia v2, sin acciones de menos de 10 $ (`precio_min_accion`). `agentes.grupo_control` y `agentes.deriva_de`. Invariante I110.
+- `fn_universo_agente` con dos motivos de descarte, `precio_bajo` y `adx`, que solo actúan con esas claves (el grupo de control no las lleva).
+- `rpc_aportar_saldo_agente`: añadir saldo a un agente fuera del grupo de control. Apunte `aportacion`, sube el saldo inicial, auditado. Botón «Añadir saldo» en Administración → Agentes.
+- El laboratorio traduce `precio_min_accion` y `adx_min`; el escáner tiene en cuenta el precio mínimo de Audacia v2.
+
+### Cambiado
+- El cuadre del libro mayor cuenta las aportaciones como depósito (el saldo inicial es la suma de lo aportado).
+
 ## [Sin publicar] - 2026-11-05 — El veredicto, fijado de antemano
 
 ### Añadido
