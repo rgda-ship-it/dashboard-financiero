@@ -98,9 +98,8 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ 👤 | Qué pasa con los agentes con metas al acabar el experimento (doc fase-3/08 §4.1) | Propuesta: juzgarlos por expectativa en R, caída máxima y batir al mercado, no por la meta diaria. Se confirma antes del 2027-04-30 |
-| ⏭️ | Referencia de mercado (comprar y mantener) en la comparativa y en Agentes (doc fase-3/08 §4.5) | Sin decisiones pendientes |
-| ⏭️ | Medir el escáner: qué pasa tras cada «Comprar» (doc fase-3/08 §4.5) | Sin decisiones pendientes |
-| 🗓️ | «Operaciones que faltan para concluir» en la comparativa; `hipotesis.yml` desde `pg_cron`; `cron.job` legible para el rol de lectura (doc fase-3/08 §4.3, §4.6) | Pequeños |
+| 👤 | Aplicar la 0056 y la 0057 con `scripts/aplicar-migraciones.cmd` | 0056: la referencia de mercado y la desviación de la R en la comparativa (sin ella, la pantalla no enseña la vara). 0057: `hipotesis.yml` desde `pg_cron` y `cron.job` legible para el rol de lectura. Ninguna cambia cómo operan los agentes |
+| 🗓️ | Volver a medir el escáner con más datos (sección `9b_escaner` de la revisión) | El 2026-11-05, con 35 «Comprar» de acciones (10-10 → 10-29), −0,19 % a 5 sesiones frente a +0,38 % de media; muy pocos casos y solapados para concluir |
 | 🗓️ | Revisión del lunes 9-11: ¿llega la H3? | Con unos 30 descartes por `rr` ya con 5 sesiones vistas, la H3 puede evaluarse. Por ahora el filtro protege (ver la revisión del 2-11) |
 | 🗓️ | Stops de 2 a 3 ATR con objetivo hasta 4 en Prudencia y Cadencia: una pista, no un cambio | Pasa a 5 años en Prudencia (−0,04 → +0,19 R), pero a 10 años mejora sin demostrarse en los dos (Prudencia +0,09 R, Cadencia +0,16 R; el intervalo incluye el cero). Se reevalúa con operaciones reales con la regla de la 0030 |
 | 🗓️ | Revisar los stops con la regla de la 0030 cuando haya unos 30 (7 el 26-10: 3 «salvo» y 4 pendientes) | Comparar con el laboratorio (salva el 52–68 %, corta el 11–21 %). Con eso se reevalúa la pista de los stops anchos en Prudencia y Cadencia |
@@ -155,6 +154,10 @@ El registro de lo cerrado, por bloques. ✅ hecho y aplicado; ❌ descartado, co
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
+| ✅ | Apalancamiento de las órdenes con la 0055 (comprobado el 2026-11-05) | Una orden de agente desde la 0055: Cadencia, ripple, 4-11, a 3,2× (la señal pide 3,0× × 500 / 463,78 = 3,23×, al decimal hacia abajo), liquidación a 0,872 bajo el stop de 1,20. Topes de hoy: Prudencia 4,8× (Fase 1 desde la reversión manual del 5-11), Cadencia 5,2×, Audacia 5,5×. Todo como la fórmula |
+| ✅ | Medir el escáner (doc fase-3/08 §4.5): sección `9b_escaner` en la revisión de los lunes | Veredicto de cada activo y día desde la 0030 y lo que hizo el precio a 5 y 10 sesiones, frente a la media |
+| ✅ | Referencia de mercado y «operaciones que faltan para concluir» en la comparativa (0056, doc fase-3/08 §4.3 y §4.5) | Desde el 29-09: acciones +3,7 %, criptos −15,2 %, bitcoin −4,2 %. Pendiente de aplicar |
+| ✅ | `hipotesis.yml` desde `pg_cron` y `cron.job` legible para el rol de lectura (0057, doc fase-3/08 §4.6) | Pendiente de aplicar |
 | ✅ 👤 | Aplicar la 0055 (aplicada el 2026-11-02 a las 21:48) | Comprobado: base 500 $ en las cuatro cuentas de agente; saldo para operar 1.500 $ (Prudencia, Fase 2) y 2.500 $ (Cadencia, Audacia y Tendencia cripto); tope por orden 2,9×, 5,3× y 6,1×; `CHECK` a 20×. Los ciclos siguen sin fallos |
 | ✅ 👤 | Aplicar la 0054 (aplicada el 2026-11-02 a las 21:48) | Comprobado: las dos peticiones, rechazadas con su resolución |
 | ✅ | Saldo para operar con base fija y escalones (D25, decisión del dueño, 2026-11-02; 0055) | Base × tope de la fase, con la base en el saldo inicial o el último escalón de la 0014, que nunca baja. El tope se mide sobre la base (regla protegida nº1 reformulada): con 415 $ Audacia admite 6,0× por orden. Para los tres agentes y el simulador. Cambia el grupo de control a mitad del experimento: corte en `CRONOLOGIA.md` |

@@ -10,7 +10,7 @@
 -- Columnas:
 --   seccion  0_salud | 1_estado | 2_comparativa | 3_dias | 4_ordenes
 --            | 5_tendencia | 5b_tendencia_cerca | 6_stops | 7_hipotesis
---            | 8_backlog | 9_descartes
+--            | 8_backlog | 9_descartes | 9b_escaner
 --   agente   nombre del agente (o «sistema»)
 --   clave    fecha, símbolo u orden, según la sección
 --   detalle  JSON con los datos
@@ -19,6 +19,29 @@
 -- ─────────────────────────────────────────────────────────────────────
 with
 p as (select current_date - 7 as desde),
+-- 9b_escaner: el veredicto de cada activo y día (la última lectura del día,
+-- con las reglas de `veredicto.js` salvo el spread) y lo que hizo el precio
+-- 5 y 10 sesiones después. Siempre desde la 0030 (10-10): antes, la
+-- confluencia era otra (docs/CRONOLOGIA.md).
+esc_dia as (
+    select distinct on (s.activo_id, (s.calculado_en at time zone 'UTC')::date)
+           s.activo_id, (s.calculado_en at time zone 'UTC')::date as fecha,
+           case when s.direccion = 'alcista' and s.fuerza in ('media', 'alta') and s.operable
+                     and s.ratio_rr >= 1.2 then 'comprar'
+                when s.direccion = 'alcista' then 'esperar'
+                when s.direccion = 'bajista' then 'no comprar: bajista'
+                else 'no comprar: sin dirección' end as veredicto
+      from public.senales s
+     where s.calculado_en >= timestamptz '2026-10-10'
+     order by s.activo_id, (s.calculado_en at time zone 'UTC')::date, s.calculado_en desc
+),
+esc_pr as (
+    select activo_id, fecha, cierre,
+           lead(cierre, 5) over w / cierre - 1 as r5, lead(cierre, 10) over w / cierre - 1 as r10
+      from public.precios_diarios
+     where fecha >= date '2026-10-10'
+     window w as (partition by activo_id order by fecha)
+),
 ag as (
     select a.id, a.nombre, a.tipo, c.id as cuenta_id
       from public.agentes a
@@ -193,5 +216,18 @@ select '9_descartes', ag.nombre, d.motivo,
   join ag on ag.id = d.agente_id
  where d.fecha >= (select desde from p)
  group by ag.nombre, d.motivo
+
+union all
+-- El escáner medido (doc fase-3/08 §4.5): ¿ganan los «Comprar»? Los días
+-- de un mismo activo se solapan: describe, no valida. «suben_5» es el %
+-- de casos en positivo a 5 sesiones; la referencia es la fila «todos».
+select '9b_escaner', a.clase, coalesce(d.veredicto, 'todos'),
+       jsonb_build_object('casos_5', count(pr.r5), 'r5_pct', round(avg(pr.r5) * 100, 2),
+                          'suben_5', round(avg((pr.r5 > 0)::int) * 100),
+                          'casos_10', count(pr.r10), 'r10_pct', round(avg(pr.r10) * 100, 2))::text
+  from esc_dia d
+  join esc_pr pr using (activo_id, fecha)
+  join public.activos a on a.id = d.activo_id
+ group by grouping sets ((a.clase, d.veredicto), (a.clase))
 
 order by 1, 2, 3;

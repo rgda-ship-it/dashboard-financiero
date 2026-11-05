@@ -12,6 +12,17 @@ Claude Code) para no perder contexto entre sesiones.
 ### Resultado
 - Prueba fijada en un commit antes de ejecutarla. 14 criptos, del 2024-11-06 al 2026-11-05: la elegida (20:00 UTC, 8 horas) da −0,068 R en validación, frente a −0,029 R del azar (percentil 0, mínimo 97). Ninguna hora se aparta del azar en el diseño. Era la última idea del modo de 1 hora (doc fase-3/10 §10).
 
+## [Sin publicar] - 2026-11-05 — El escáner medido, la vara del mercado y cabos sueltos
+
+### Añadido
+- `scripts/revision_agentes.sql`, sección `9b_escaner`: el veredicto de cada activo y día desde la 0030 y el rendimiento a 5 y 10 sesiones. Primera lectura (10-10 → 10-29): los «Comprar» de acciones, −0,19 % a 5 sesiones (35 casos) frente a +0,38 % de media; los «sin dirección», +1,19 %.
+- 0056: `v_referencia_mercado` (comprar y mantener a partes iguales el universo, las acciones, las criptos y bitcoin, desde el alta y desde el experimento) y `desviacion_r` al final de `v_comparativa_agentes`. Invariante I106.
+- Agentes → Comparativa: las filas de la vara y, bajo la expectativa, cuántas operaciones faltan para concluir (`frontend/src/datos/comparativa.js`).
+- 0057: `hipotesis.yml` se dispara desde `pg_cron` (lunes 02:00 UTC); el `schedule` de GitHub queda de respaldo a las 06:00. El rol de lectura ve `cron.job`. Invariante I107.
+
+### Comprobado
+- Apalancamiento con la 0055: la única orden de agente desde entonces (Cadencia, ripple, 3,2×) cuadra con la fórmula. Prudencia volvió a Fase 1 por reversión manual del administrador el 5-11 a las 08:05 (anotado en `CRONOLOGIA.md`).
+
 ## [Sin publicar] - 2026-11-05 — Comprar caídas en los ETF: pasa el criterio, pero solo desde 2017
 
 ### Añadido
