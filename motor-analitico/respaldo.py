@@ -102,7 +102,7 @@ FUENTES = {"senales": "v_senales_evidencia"}
 
 # Columnas generadas: se respaldan (se leen) pero no se pueden escribir, así
 # que la restauración las quita antes del upsert.
-COLUMNAS_GENERADAS = {"ordenes": ["nominal"], "senales": ["ratio_rr"]}
+COLUMNAS_GENERADAS = {"ordenes": ["nominal"], "senales": ["ratio_rr"], "activos": ["referencia"]}  # 0058
 
 # Regenerables desde los proveedores: no se respaldan (pesan y se
 # reconstruyen). Se listan aquí para que quede escrito POR QUÉ faltan.
@@ -113,6 +113,9 @@ NO_RESPALDADAS = {
     "monitor_peticiones": "cola de peticiones de precio del monitor; se purga sola a diario",
     "control_despachos": "marca del último disparo de cada workflow",
     "limites_uso": "contadores por minuto del límite de uso",
+    # 0059: la siembran las migraciones y no se puede cambiar; el upsert de
+    # la restauración chocaría con su disparador.
+    "agente_veredicto_criterio": "criterio del veredicto, sembrado por las migraciones (0059 y siguientes)",
 }
 
 PAGINA = 1000

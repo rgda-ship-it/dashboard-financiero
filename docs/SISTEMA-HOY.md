@@ -127,6 +127,9 @@ Común a los tres:
 - **Comparativa de agentes** (Agentes): con la vara de comprar y mantener
   el universo (0056), del S&P 500 y del Nasdaq 100 (0058) y, bajo la expectativa, cuántas operaciones faltan
   para poder concluir con la dispersión observada.
+- **Veredicto** (Agentes → Veredicto, 0059): el criterio de cada agente,
+  fijado el 2026-11-05 y sin poder cambiarse (doc fase-3/12 §3): lo que
+  espera el laboratorio y los umbrales de Tendencia cripto para todos.
 - **Salud**: Administración → Sistema.
 - **Peticiones e hipótesis de los agentes**: Administración →
   Investigación. Durante el experimento se responden con datos; lo

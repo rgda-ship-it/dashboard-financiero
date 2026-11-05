@@ -28,6 +28,7 @@ import {
   resultadoLegible,
   leerComparativa,
   leerReferencia,
+  leerVeredicto,
   leerCurvas,
   leerDecisiones,
   leerEstrategias,
@@ -36,7 +37,14 @@ import {
   leerRanking,
 } from "../datos/agentes.js";
 import { construirSeries, diasHastaObjetivo } from "../datos/curvas.js";
-import { filasReferencia, paraConcluir, textoConcluir } from "../datos/comparativa.js";
+import {
+  ESTADO_VEREDICTO,
+  filasReferencia,
+  paraConcluir,
+  textoConcluir,
+  textoConcordancia,
+  textoVeredicto,
+} from "../datos/comparativa.js";
 import { FASES, MOTIVOS_CIERRE } from "../datos/simulador.js";
 import { paginar } from "../datos/paginacion.js";
 import {
@@ -323,9 +331,6 @@ function TablaComparativa({ filas, referencia = [] }) {
               <td className="num">{f.cerradas}</td>
               <td className={`num ${claseSigno(Number(f.expectativa_r ?? 0))}`}>
                 {r(f.expectativa_r, 3)}
-                {textoConcluir(paraConcluir(f.cerradas, f.expectativa_r, f.desviacion_r)) && (
-                  <span className="sim__sub">{textoConcluir(paraConcluir(f.cerradas, f.expectativa_r, f.desviacion_r))}</span>
-                )}
               </td>
               <td className={`num ${claseSigno(Number(f.r_total ?? 0))}`}>{r(f.r_total, 1)}</td>
               <td className="num">{f.aciertos_pct != null ? `${Number(f.aciertos_pct)} %` : "—"}</td>
@@ -333,6 +338,11 @@ function TablaComparativa({ filas, referencia = [] }) {
               <td className="num">
                 {f.cerradas_exp} ops · {r(f.expectativa_r_exp, 3)} R
                 <span className="sim__sub">{f.pnl_exp != null ? formatearImporte(Number(f.pnl_exp)) : "—"}</span>
+                {textoConcluir(paraConcluir(f.cerradas_exp, f.expectativa_r_exp, f.desviacion_r_exp)) && (
+                  <span className="sim__sub">
+                    {textoConcluir(paraConcluir(f.cerradas_exp, f.expectativa_r_exp, f.desviacion_r_exp))}
+                  </span>
+                )}
               </td>
             </tr>
           ))}
@@ -360,9 +370,78 @@ function TablaComparativa({ filas, referencia = [] }) {
         R = resultado de la operación ÷ lo que arriesgaba hasta el stop al abrirla (con los cierres parciales). Es la
         única medida comparable entre agentes con apalancamientos y riesgos distintos.
         {desde && ` «Desde el experimento» cuenta las operaciones abiertas desde el ${new Date(desde).toLocaleDateString("es-ES")}.`}{" "}
-        Con pocas operaciones, la diferencia es ruido: bajo la expectativa se dice cuántas faltan para que el
-        intervalo del 90 % deje de incluir el cero con la dispersión observada. El veredicto de Tendencia cripto llega a
-        las 30.
+        Con pocas operaciones, la diferencia es ruido: bajo «desde el experimento» se dice cuántas faltan para que el
+        intervalo del 90 % deje de incluir el cero con la dispersión observada. Se cuenta desde el experimento y no desde
+        el alta: antes de la 0030 los stops estaban a 0,1 ATR y la dispersión de entonces no dice nada de las reglas de
+        hoy.
+      </p>
+    </>
+  );
+}
+
+// ── Veredicto fijado de antemano (0059) ──────────────────────────────
+function TablaVeredicto({ filas }) {
+  const r = (v, d = 3) => (v != null ? `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(d)}` : "—");
+  if (!filas.length) {
+    return <p className="sim__nota">El criterio del veredicto aún no está en la base de datos (migración 0059).</p>;
+  }
+  return (
+    <>
+      <table className="sim__tabla">
+        <thead>
+          <tr>
+            <th>Agente</th>
+            <th>Estado</th>
+            <th className="num">Cerradas</th>
+            <th className="num">Expectativa (R)</th>
+            <th className="num">IC 90 %</th>
+            <th className="num">Laboratorio</th>
+            <th className="num">Rentab. / vara</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((f) => {
+            const est = ESTADO_VEREDICTO[f.estado] ?? { texto: f.estado, tono: "" };
+            const conc = textoConcordancia(f);
+            return (
+              <tr key={f.agente_id}>
+                <td>
+                  <span className="ag__punto" style={{ background: colorDe(f.nombre) }} aria-hidden="true" />
+                  {f.nombre}
+                  <span className="sim__sub">desde el {new Date(f.desde).toLocaleDateString("es-ES")}</span>
+                </td>
+                <td className={est.tono}>
+                  {est.texto}
+                  <span className="sim__sub">{textoVeredicto(f)}</span>
+                </td>
+                <td className="num">{f.cerradas}</td>
+                <td className={`num ${claseSigno(Number(f.expectativa_r ?? 0))}`}>
+                  {r(f.expectativa_r)}
+                  <span className="sim__sub">umbral {r(f.expectativa_validar_r, 2)}</span>
+                </td>
+                <td className="num">{f.ic90_inf != null ? `${r(f.ic90_inf, 2)} – ${r(f.ic90_sup, 2)}` : "—"}</td>
+                <td className="num">
+                  {r(f.expectativa_lab_r)}
+                  {conc && <span className="sim__sub">{conc}</span>}
+                </td>
+                <td className="num">
+                  {f.rentabilidad_pct != null ? formatearPorcentaje(Number(f.rentabilidad_pct)) : "—"}
+                  <span className="sim__sub">
+                    {NOMBRE_REFERENCIA[f.vara] ?? f.vara}{" "}
+                    {f.vara_pct != null ? formatearPorcentaje(Number(f.vara_pct)) : "—"}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="sim__nota">
+        Fijado antes de ver el resultado, y no se cambia (doc fase-3/12 §3). Con 30 cierres: expectativa negativa, se
+        retira; desde +0,10 R, con el intervalo del 90 % por encima de cero y más rentable que su vara, queda validado;
+        entre medias, se observa hasta los 60. Con una caída de más del 35 % desde el máximo, se pausa. «Laboratorio» es
+        lo que se espera con sus reglas a 10 años: si en vivo se aleja más de lo que explica el azar, opera distinto de
+        lo que se probó.
       </p>
     </>
   );
@@ -846,6 +925,7 @@ export default function Agentes() {
   const [estrategias, setEstrategias] = useState([]);
   const [comparativa, setComparativa] = useState([]);
   const [referencia, setReferencia] = useState([]);
+  const [veredicto, setVeredicto] = useState([]);
   const [curvas, setCurvas] = useState([]);
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
@@ -867,7 +947,7 @@ export default function Agentes() {
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p, d, j, e, k, h, m] = await Promise.all([
+      const [r, c, o, b, p, d, j, e, k, h, m, v] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
@@ -879,11 +959,13 @@ export default function Agentes() {
         leerComparativa(),
         leerHipotesis(),
         leerReferencia(),
+        leerVeredicto(),
       ]);
       setRanking(r ?? []);
       setEstrategias(e ?? []);
       setComparativa(k ?? []);
       setReferencia(filasReferencia(m));
+      setVeredicto(v ?? []);
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
@@ -1020,6 +1102,14 @@ export default function Agentes() {
             alPedirAyuda={() => setSeccionGuia("agentes")}
           >
             <TablaComparativa filas={comparativa} referencia={referencia} />
+          </Panel>
+
+          <Panel
+            titulo="Veredicto"
+            meta="criterio fijado de antemano · cómo se juzga a cada agente"
+            alPedirAyuda={() => setSeccionGuia("agentes")}
+          >
+            <TablaVeredicto filas={veredicto} />
           </Panel>
 
           <Panel

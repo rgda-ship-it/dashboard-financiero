@@ -39,3 +39,14 @@ test("los índices (0058) van entre las acciones y las criptos", () => {
   ];
   assert.deepEqual(filasReferencia(vista).map((f) => f.referencia), ["acciones", "sp500", "nasdaq100", "cripto"]);
 });
+
+test("el veredicto dice lo que falta en una frase", async () => {
+  const { textoVeredicto, textoConcordancia, ESTADO_VEREDICTO } = await import("./comparativa.js");
+  assert.equal(textoVeredicto({ estado: "pocas_operaciones", cerradas: 12, operaciones_min: 30 }), "12 de 30 cierres para juzgar");
+  assert.equal(textoVeredicto({ estado: "pausar", drawdown_pct: -36.5, caida_max_pct: 35 }), "caída de 36,5 % (tope 35 %)");
+  assert.equal(textoConcordancia({ concuerda_lab: null }), null);
+  assert.match(textoConcordancia({ concuerda_lab: false }), /revisar/);
+  for (const e of ["pocas_operaciones", "observar", "validado", "sin_ventaja", "retirar", "pausar"]) {
+    assert.ok(ESTADO_VEREDICTO[e]);
+  }
+});

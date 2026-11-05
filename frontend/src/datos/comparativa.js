@@ -51,3 +51,31 @@ export function textoConcluir(c) {
   if (c.faltan === 0) return "ya se puede concluir";
   return c.faltan > 1000 ? "faltan más de 1.000" : `faltan ${c.faltan.toLocaleString("es-ES")} para concluir`;
 }
+
+/** Los estados del veredicto fijado de antemano (0059, doc fase-3/12 §3). */
+export const ESTADO_VEREDICTO = {
+  pocas_operaciones: { texto: "pocas operaciones", tono: "" },
+  observar: { texto: "en observación", tono: "" },
+  validado: { texto: "validado", tono: "pos" },
+  sin_ventaja: { texto: "sin ventaja", tono: "neg" },
+  retirar: { texto: "a retirar", tono: "neg" },
+  pausar: { texto: "a pausar: caída", tono: "neg" },
+};
+
+/** Lo que falta para el veredicto, en una frase. */
+export function textoVeredicto(f) {
+  const n = Number(f.cerradas ?? 0);
+  if (f.estado === "pocas_operaciones") return `${n} de ${f.operaciones_min} cierres para juzgar`;
+  if (f.estado === "observar") return `${n} cierres; se juzga de nuevo a los ${f.operaciones_max}`;
+  if (f.estado === "pausar") return `caída de ${Math.abs(Number(f.drawdown_pct)).toLocaleString("es-ES")} % (tope ${Number(f.caida_max_pct).toLocaleString("es-ES")} %)`;
+  if (f.estado === "validado") return "expectativa e intervalo por encima del umbral, y bate a su vara";
+  if (f.estado === "retirar") return "expectativa negativa con 30 cierres o más";
+  if (f.estado === "sin_ventaja") return `${n} cierres sin llegar al umbral`;
+  return "";
+}
+
+/** ¿Opera como se probó? null sin datos. */
+export function textoConcordancia(f) {
+  if (f.concuerda_lab == null) return null;
+  return f.concuerda_lab ? "como en el laboratorio" : "fuera de lo esperado por el laboratorio: revisar antes de concluir";
+}
