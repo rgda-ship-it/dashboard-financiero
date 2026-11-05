@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — Criterio común del laboratorio
+
+### Añadido
+- `laboratorio/criterio.py`: registro global de pruebas (32 ideas, una por idea y no por variante) y percentil exigido `100 − 10/√(1 + previas)`, con techo de 99; el diseño también contra el azar (al menos la mitad de las tiradas); ventanas móviles de 5 bloques. Lo usan `intradia.py` y `contra_azar.py`. Una prueba sin registrar no se puede juzgar.
+- Aviso de sesgo de supervivencia en el informe por velas cuando se compran caídas en el universo activo, el S&P 100 o las medianas.
+- `tests/test_laboratorio_criterio.py` (354 tests del motor en verde).
+
 ## [Sin publicar] - 2026-11-05 — La 0056 y la 0057, aplicadas
 
 ### Comprobado

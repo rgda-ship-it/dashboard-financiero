@@ -27,8 +27,10 @@ Cómo se juzga:
      con el criterio del laboratorio (`metricas.veredicto`).
   3. Frente al azar: las MISMAS salidas entrando a horas al azar con la
      misma frecuencia, en `--semillas` tiradas. Aporta si en validación
-     supera al 90 % de ellas, más un punto por cada prueba anterior de este
-     modo (`PRUEBAS_PREVIAS`): probar mucho no regala validaciones.
+     supera al percentil que exige la cuenta GLOBAL de pruebas
+     (`criterio.percentil_exigido`) y, en el diseño, al menos a la mitad.
+  4. Ventanas móviles (`criterio.ventanas_moviles`): elegir con el pasado
+     y medir en el bloque siguiente tiene que dar expectativa positiva.
 
 Las estrategias de 1 hora no están en `estrategias.ESTRATEGIAS`: el
 laboratorio diario las correría con velas diarias.
@@ -52,13 +54,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from laboratorio import metricas  # noqa: E402
+from laboratorio import criterio, metricas  # noqa: E402
 from laboratorio.datos import (cargar, cargar_resultados, financiacion_de, spread_de,  # noqa: E402
                                universo_nombrado)
 from laboratorio.estrategias import _atr  # noqa: E402
 from laboratorio.motor import Entrada, Posicion, simular  # noqa: E402
 
-PERCENTIL_MINIMO = 90
 BARRAS_MES = {"cripto": 24 * 30, "accion": 7 * 21}   # velas de 1 hora en un mes
 PERIODO = "730d"                                     # lo máximo que da Yahoo en 1 hora
 
@@ -74,6 +75,8 @@ class ReboteCaida:
     tras un desplome el stop queda más ancho, como lo pondría el agente."""
 
     nombre = "rebote_caida"
+
+    COMPRA_CAIDAS = True
 
     def __init__(self, caida_atr: float = 6.0, ventana: int = 6, atr_n: int = 48,
                  stop_atr: float = 2.0, objetivo_atr: float = 2.0, horas: int = 12):
@@ -420,6 +423,8 @@ class ReboteFondoBajista:
 
     nombre = "rebote_fondo_bajista"
 
+    COMPRA_CAIDAS = True
+
     def __init__(self, stop_atr: float = 2.0, sesiones: int = 20):
         self.stop_atr, self.sesiones = stop_atr, sesiones
 
@@ -594,11 +599,16 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
             "hora_cripto": {"hora": (0, 8, 13, 20), "horas": (4, 8)}}
 
-# Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
-# frente al azar sube un punto por cada una.
-PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
-                   "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5,
-                   "caida_etf": 6, "hora_cripto": 7}
+# Hasta el 2026-11-05 el percentil exigido subía un punto por cada prueba
+# de ESTE modo (las 8 de abajo se juzgaron así). Desde entonces sale de la
+# cuenta global de `criterio.REGISTRO`.
+PRUEBAS_PREVIAS_HISTORICO = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
+                             "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5,
+                             "caida_etf": 6, "hora_cripto": 7}
+
+# Universos con sesgo de supervivencia: están hoy en el índice porque les
+# fue bien, y comprar sus caídas sale bien por eso (doc fase-3/11 §7).
+CON_SUPERVIVENCIA = {"activo", "sp100", "medianas"}
 
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
@@ -629,7 +639,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     base, azar, clase = ESTRATEGIAS_1H[nombre]
     intervalo = CARGA.get(nombre, {}).get("intervalo", "1h")
     unidad, vela = ("ses.", "diarias") if intervalo == "1d" else ("h", "de 1 hora")
-    minimo = PERCENTIL_MINIMO + PRUEBAS_PREVIAS[nombre]
+    minimo = criterio.percentil_exigido(nombre)
     desde = min(df.index[0] for df in datos.values())
     hasta = max(df.index[-1] for df in datos.values())
     corte = desde + (hasta - desde) * metricas.TRAMO_DISENO
@@ -678,15 +688,22 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
     if prueba:
         probabilidad = min(probabilidad * len(ops) / prueba, 1.0)
-    tiradas = []
+    tiradas, tiradas_d = [], []
     for s in range(semillas):
-        _, av = metricas.partir(operar(datos, azar(probabilidad=probabilidad, semilla=s, **params)), corte)
-        m = medir(av, clase, intervalo)
+        ad, av = metricas.partir(operar(datos, azar(probabilidad=probabilidad, semilla=s, **params)), corte)
+        m, md = medir(av, clase, intervalo), medir(ad, clase, intervalo)
         if m is not None:
             tiradas.append(m)
+        if md is not None:
+            tiradas_d.append(md)
     az = np.array([m.expectativa_r for m in tiradas])
+    az_d = np.array([m.expectativa_r for m in tiradas_d])
     pct = float((az < v.expectativa_r).mean() * 100) if v is not None and len(az) else 0.0
+    pct_d = float((az_d < d.expectativa_r).mean() * 100) if len(az_d) else 0.0
     supera = pct >= minimo
+    supera_d = pct_d >= criterio.PERCENTIL_DISENO_MIN
+    movil = criterio.ventanas_moviles(
+        {", ".join(f"{k}={x}" for k, x in p_.items()): o_ for p_, o_, _, _ in resultados.values()}, desde, hasta)
 
     lineas += [
         "",
@@ -712,7 +729,23 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     if len(az):
         lineas += [f"Azar en validación: mediana {np.median(az):+.3f} R, p5 – p95 {np.quantile(az, 0.05):+.3f} – "
                    f"{np.quantile(az, 0.95):+.3f} R, {np.median([m.operaciones for m in tiradas]):.0f} operaciones. "
-                   f"La elegida supera al **{pct:.0f} %** (mínimo {minimo} %).", ""]
+                   f"La elegida supera al **{pct:.0f} %** (mínimo {minimo} %, con "
+                   f"{criterio.previas(nombre)} ideas probadas antes).", ""]
+    if len(az_d):
+        lineas += [f"Azar en diseño: mediana {np.median(az_d):+.3f} R. La elegida supera al **{pct_d:.0f} %** "
+                   f"(mínimo {criterio.PERCENTIL_DISENO_MIN} %).", ""]
+    lineas += [f"## Ventanas móviles ({criterio.VENTANAS} bloques; se elige con lo anterior y se mide en el bloque)",
+               "", "| Bloque | Elegida con lo anterior | Ops | Expectativa |", "|---|---|---|---|"]
+    for i, (etq, n, e) in enumerate(movil.bloques, start=2):
+        lineas.append(f"| {i} | {etq} | {n} | {'—' if e is None else f'{e:+.3f} R'} |")
+    lineas += ["", f"Fuera de muestra, encadenado: {movil.operaciones} operaciones, "
+                   + ("sin operaciones" if movil.expectativa_r is None else f"{movil.expectativa_r:+.3f} R")
+                   + f"; {movil.positivos} bloques positivos.", ""]
+    carga = CARGA.get(nombre, {})
+    if getattr(base, "COMPRA_CAIDAS", False) and carga.get("universo", "activo") in CON_SUPERVIVENCIA:
+        lineas += [f"⚠️ **Sesgo de supervivencia**: compra caídas en el universo «{carga.get('universo', 'activo')}», "
+                   "que reúne a los que hoy siguen en el índice. Compárala con los ETF antes de creerla "
+                   "(doc fase-3/11 §7).", ""]
     lineas += ["## Validación de toda la rejilla (solo para ver; no elige)", "",
                "| Parámetros | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto | Duración |",
                "|---|---|---|---|---|---|---|"]
@@ -720,13 +753,20 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         lineas.append(_fila(", ".join(f"{k}={x}" for k, x in p_.items()), vv, unidad))
 
     lineas += ["", "## Veredicto", ""]
-    if ok and supera:
-        lineas.append("✅ **tiene ventaja y supera al azar** en validación.")
+    if ok and supera and supera_d and movil.aprueba:
+        lineas.append("✅ **tiene ventaja y supera al azar** en validación, en el diseño y en las ventanas móviles.")
     else:
         if not ok:
             lineas += [f"- {m}" for m in motivos]
         if not supera:
             lineas.append(f"- no supera al azar: percentil {pct:.0f} (mínimo {minimo})")
+        if not supera_d:
+            lineas.append(f"- en el diseño no supera al azar: percentil {pct_d:.0f} "
+                          f"(mínimo {criterio.PERCENTIL_DISENO_MIN})")
+        if not movil.aprueba:
+            lineas.append(f"- en las ventanas móviles no se sostiene ({movil.positivos} bloques positivos de "
+                          f"{sum(1 for b in movil.bloques if b[1])}, encadenado "
+                          + ("—" if movil.expectativa_r is None else f"{movil.expectativa_r:+.3f} R") + ")")
         lineas += ["", "❌ **no tiene ventaja**."]
         if supera and v is not None and v.expectativa_r <= 0:
             # Superar al azar perdiendo dinero es ser menos malo, no tener ventaja.

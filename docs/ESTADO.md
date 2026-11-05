@@ -124,7 +124,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 |---|---|---|
 | 🗓️ | Otras ideas para acciones | El momento (§3.11), las fechas de resultados y calidad y valor (doc fase-3/09 §7–8) ya se probaron. Pista para el final: Audacia con `valor_bp_3` |
 | ❌ | Comprar cripto a una hora fija (doc fase-3/10 §10), 2026-11-05 | Fijada antes de ejecutarla. 14 criptos, 2024-11 → 2026-11: la elegida (20:00 UTC, 8 horas) da +0,021 R en diseño y −0,068 R en validación, peor que el azar (percentil 0, mínimo 97). Ninguna hora se aparta del azar. Con ella se cierra el modo de 1 hora: ninguna de sus cuatro ideas tiene ventaja |
-| 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
+| ✅ | Criterio común del laboratorio (doc fase-3/12 §1), 2026-11-05 | Fijado antes de las pruebas siguientes: <br>• cuenta global de pruebas (32 ideas; la siguiente pide el percentil 98); <br>• el diseño también contra el azar (al menos la mitad); <br>• ventanas móviles de 5 bloques; <br>• aviso de sesgo de supervivencia al comprar caídas. <br>`laboratorio/criterio.py`, en el modo por velas y en el contra el azar |
 | 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
 | ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |
 

@@ -27,16 +27,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np  # noqa: E402
 
-from laboratorio import metricas  # noqa: E402
+from laboratorio import criterio, metricas  # noqa: E402
 from laboratorio.datos import UNIVERSOS, cargar, financiacion_de, spread_de, universo_nombrado  # noqa: E402
 from laboratorio.ejecutar import crear  # noqa: E402
 from laboratorio.estrategias import anadir_rangos  # noqa: E402
 from laboratorio.motor import simular  # noqa: E402
 
-# Una estrategia aporta selección si supera, en validación, a este
-# porcentaje de las tiradas al azar (el equivalente a un contraste
-# unilateral al 10 %).
-PERCENTIL_MINIMO = 90
+# Una estrategia aporta selección si supera, en validación, al percentil
+# que exige la cuenta global de pruebas (`criterio.percentil_exigido`; 90
+# con ninguna prueba previa, el equivalente a un contraste unilateral al
+# 10 %) y, en el diseño, al menos a la mitad de las tiradas (2026-11-05).
 
 # La referencia al azar de cada estrategia cruzada: mismas reglas, otra puntuación.
 REFERENCIAS = {"momento": "azar_momento", "tendencia_corta": "azar_corto"}
@@ -54,6 +54,7 @@ def mes_por_tramo(datos: dict, estrategia, corte) -> tuple[float | None, float |
 
 def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int = 30) -> str:
     referencia = REFERENCIAS[nombre]
+    minimo = criterio.percentil_exigido(nombre)
     propia = mes_por_tramo(datos, crear(nombre, parametros), corte)
     tiradas = []
     for s in range(semillas):
@@ -66,12 +67,14 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         f"{len(datos)} activos. Validación desde el {corte:%Y-%m-%d}. Parámetros: {parametros or 'por defecto'}. "
         "Medida: rendimiento por mes (21 sesiones) en cartera.",
         "",
-        f"Criterio: aporta selección si en validación supera al {PERCENTIL_MINIMO} % de las tiradas.",
+        f"Criterio: aporta selección si en validación supera al {minimo} % de las tiradas "
+        f"({criterio.previas(nombre)} ideas probadas antes) y en el diseño al menos al "
+        f"{criterio.PERCENTIL_DISENO_MIN} %.",
         "",
         "| Tramo | Estrategia | Azar: mediana | Azar: p5 – p95 | Supera al |",
         "|---|---|---|---|---|",
     ]
-    veredicto, en_validacion = None, None
+    veredicto, en_validacion, en_diseno = None, None, None
     for i, tramo in enumerate(("Diseño", "**Validación**")):
         az = np.array([t[i] for t in tiradas if t[i] is not None])
         if propia[i] is None or not len(az):
@@ -80,8 +83,13 @@ def informe(nombre: str, datos: dict, corte, parametros: str = "", semillas: int
         pct = float((az < propia[i]).mean() * 100)
         lineas.append(f"| {tramo} | {propia[i]:+.2f} % | {np.median(az):+.2f} % | "
                       f"{np.quantile(az, 0.05):+.2f} – {np.quantile(az, 0.95):+.2f} % | {pct:.0f} % |")
-        if i == 1:
-            veredicto, en_validacion = pct >= PERCENTIL_MINIMO, propia[i]
+        if i == 0:
+            en_diseno = pct
+        else:
+            veredicto, en_validacion = pct >= minimo, propia[i]
+    if veredicto and (en_diseno is None or en_diseno < criterio.PERCENTIL_DISENO_MIN):
+        veredicto = False
+        lineas += ["", "En el diseño no supera a la mitad de las tiradas: la selección cambia de signo según la época."]
     lineas += ["", "✅ **aporta selección**" if veredicto else "❌ **no aporta selección frente al azar**", ""]
     if veredicto and en_validacion is not None and en_validacion <= 0:
         # Superar al azar perdiendo dinero es ser menos malo, no tener ventaja
