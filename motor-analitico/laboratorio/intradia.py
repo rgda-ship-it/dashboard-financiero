@@ -507,6 +507,60 @@ class AzarCualquierDia(ReboteFondoBajista):
         return self._niveles(df, t)
 
 
+class HoraCripto:
+    """Comprar cripto a una hora fija (doc fase-3/10 §10): en la apertura de
+    la hora `hora` (UTC), todos los días. Stop a `stop_atr` ATR de 1 hora
+    (ATR de 48 horas) del cierre anterior, sin objetivo; sale a las `horas`
+    horas."""
+
+    nombre = "hora_cripto"
+
+    def __init__(self, hora: int = 13, horas: int = 4, stop_atr: float = 3.0):
+        self.hora, self.horas, self.stop_atr = hora, horas, stop_atr
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        out["ATR_H"] = _atr(df, 48)
+        # La hora (UTC) en que abre la vela siguiente, la de la entrada.
+        out["HORA_SIG"] = (out.index + pd.Timedelta(hours=1)).hour
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "HORA_SIG" in df.columns else self.precalcular(df)
+
+    def _niveles(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        atr = df["ATR_H"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        return Entrada(sl=float(df["Close"].iloc[t]) - self.stop_atr * float(atr))
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if df["HORA_SIG"].iloc[t] != self.hora:
+            return None
+        return self._niveles(df, t)
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.horas - 1
+
+
+class AzarHoraCripto(HoraCripto):
+    """La referencia de `HoraCripto`: largos a una hora cualquiera, con el
+    mismo stop y la misma salida."""
+
+    nombre = "azar_hora_cripto"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
@@ -514,7 +568,8 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "deriva_resultados": (DerivaResultados, AzarDeriva, "accion"),
                   "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion"),
                   "rebote_fondo_bajista": (ReboteFondoBajista, AzarFondoBajista, "accion"),
-                  "caida_etf": (CaidaEtf, AzarCualquierDia, "accion")}
+                  "caida_etf": (CaidaEtf, AzarCualquierDia, "accion"),
+                  "hora_cripto": (HoraCripto, AzarHoraCripto, "cripto")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -536,17 +591,18 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             # Fuera de la muestra: sin rejilla, la combinación que eligió el §8.
             "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)},
             "rebote_fondo_bajista": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
-            "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)}}
+            "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
+            "hora_cripto": {"hora": (0, 8, 13, 20), "horas": (4, 8)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
 PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
                    "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5,
-                   "caida_etf": 6}
+                   "caida_etf": 6, "hora_cripto": 7}
 
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
-SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100}
+SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100}
 
 
 def operar(datos: dict, estrategia) -> list:

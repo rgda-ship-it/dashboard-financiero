@@ -285,3 +285,19 @@ def test_la_caida_etf_compra_cualquier_dia_de_caida_y_su_azar_cualquier_dia():
     azar = simular(df, AzarCualquierDia(probabilidad=0.3, semilla=2, sesiones=10), SIN_SPREAD)
     assert any(pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)
     assert any(not pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)
+
+
+def test_la_hora_cripto_compra_solo_en_su_hora_y_sale_a_las_n_horas():
+    from laboratorio.intradia import AzarHoraCripto, HoraCripto
+    n = 24 * 12
+    rng = np.random.default_rng(7)
+    c = 100 + np.cumsum(rng.normal(0, 0.3, n))
+    o = np.concatenate([[c[0]], c[:-1]])
+    idx = pd.date_range("2026-01-01", periods=n, freq="h")
+    df = pd.DataFrame({"Open": o, "High": np.maximum(o, c) + 0.2, "Low": np.minimum(o, c) - 0.2,
+                       "Close": c, "Volume": 1.0}, index=idx)
+    ops = simular(df, HoraCripto(hora=13, horas=4), SIN_SPREAD)
+    assert ops and all(op.fecha_entrada.hour == 13 for op in ops)
+    assert all(df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 4 for op in ops)
+    azar = simular(df, AzarHoraCripto(probabilidad=0.2, semilla=1, horas=4), SIN_SPREAD)
+    assert len({op.fecha_entrada.hour for op in azar}) > 5
