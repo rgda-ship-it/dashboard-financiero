@@ -270,3 +270,18 @@ def test_el_rebote_con_fondo_bajista_compra_al_girar_el_macd_y_su_azar_solo_en_c
         assert df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 10
     azar = simular(df, AzarFondoBajista(probabilidad=0.2, semilla=3, sesiones=10), SIN_SPREAD)
     assert azar and all(pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)
+
+
+def test_la_caida_etf_compra_cualquier_dia_de_caida_y_su_azar_cualquier_dia():
+    from laboratorio.intradia import AzarCualquierDia, CaidaEtf
+    c = np.concatenate([np.linspace(150, 100, 250), np.linspace(100, 140, 150)])
+    c = c + np.sin(np.arange(len(c)) / 3)
+    o = np.concatenate([[c[0]], c[:-1]])
+    df = _diaria(np.column_stack([o, np.maximum(o, c) + 0.5, np.minimum(o, c) - 0.5, c]))
+    pre = CaidaEtf.precalcular(df)
+    ops = simular(df, CaidaEtf(stop_atr=3.0, sesiones=10), SIN_SPREAD)
+    assert ops and all(pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in ops)
+    assert all(df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 10 for op in ops)
+    azar = simular(df, AzarCualquierDia(probabilidad=0.3, semilla=2, sesiones=10), SIN_SPREAD)
+    assert any(pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)
+    assert any(not pre.loc[op.fecha_senal, "FONDO_BAJISTA"] for op in azar)

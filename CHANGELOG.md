@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — Comprar caídas en los ETF: pasa el criterio, pero solo desde 2017
+
+### Añadido
+- `caida_etf` en `laboratorio/intradia.py`, con su azar (largos un día cualquiera, mismo stop y misma salida), los 19 ETF del laboratorio con todo el histórico diario y 100 tiradas.
+
+### Resultado
+- Prueba fijada en un commit antes de ejecutarla. Del 1996-03-18 al 2026-11-04: +0,158 R en validación (2017–2026, 789 operaciones, IC 90 % +0,09 – +0,23), frente a +0,096 R del azar; percentil 96 (mínimo 96). Pasa el criterio. Pero en el diseño (1996–2017) dio +0,017 R, por debajo del azar (percentil 4): no es una ventaja estable. No cambia nada en los agentes ni en el escáner (doc fase-3/11 §7).
+
 ## [Sin publicar] - 2026-11-04 — Rebote con fondo bajista: gana, pero igual que el azar
 
 ### Añadido

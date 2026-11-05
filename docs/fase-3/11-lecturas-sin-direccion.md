@@ -203,3 +203,53 @@ mientras dure el experimento. Si pasa, la regla «solo comprar en
 tendencia alcista» que implica la confluencia quedaría en duda y se
 guardaría para el final del experimento. Si no pasa, comprar caídas queda
 descartado como ventaja en sí, también en las acciones.
+
+### Resultado: pasa el criterio, pero solo en los últimos nueve años
+
+19 ETF, del **1996-03-18 al 2026-11-04**; diseño hasta el 2017-08-26,
+validación desde ahí. Elegida en el diseño: stop a 3 ATR, 20 sesiones.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño (1996–2017) | 1.885 | +0,017 R | −0,022 – +0,055 |
+| **Validación (2017–2026)** | 789 | **+0,158 R** | +0,094 – +0,228 |
+| Largos un día cualquiera (validación, 100 tiradas) | 855 | +0,096 R (mediana) | p5 – p95: +0,049 – +0,156 |
+
+- **Pasa el criterio fijado**: +0,158 R en validación, IC 90 % por encima de
+  cero (remuestreando meses, +0,007 – +0,312), factor de beneficio 1,41,
+  y supera al **96 %** de las tiradas (mínimo 96). Las cuatro
+  combinaciones ganan en validación.
+- **Pero en el diseño no**: de 1996 a 2017 comprar en una caída dio
+  +0,017 R, por **debajo** de comprar un día cualquiera (+0,050 R de
+  mediana; percentil **4** frente al azar). En esos años, que incluyen
+  2000–2002 y 2008, las caídas siguieron cayendo. La ventaja aparece solo
+  en el tramo de validación.
+
+Comprobaciones aparte, descriptivas (no cambian el veredicto):
+
+- **Otras 100 semillas del azar**: percentil 98 (con las 200 juntas, 97).
+  No es la suerte de las tiradas.
+- **No depende de un año**: sin 2020 ni 2022, +0,185 R frente a +0,128 R
+  del azar. Por años de validación, gana al azar en 7 de 10 (2019 por muy
+  poco) y pierde en 2017 (7 operaciones), 2021 y 2024.
+- **No depende de un ETF**: gana en 16 de los 19; los que más aportan son
+  EWZ, XLV, XLP y XLI, y pierden EWJ, EWH y EWY.
+
+**Conclusión**: en un universo sin sesgo de supervivencia, comprar en una
+caída ha rendido más que comprar un día cualquiera **desde 2017**, y ha
+pasado el criterio fijado. No es una ventaja estable: en los 21 años
+anteriores rindió menos que el azar. Lo que hay es un cambio de régimen
+(desde 2017 las caídas se han recuperado más deprisa) o una casualidad
+del tramo, y con estos datos no se puede distinguir entre los dos.
+
+Lo que se hace, como se fijó antes de ejecutarla:
+
+- **Nada en los agentes ni en el escáner** mientras dure el experimento.
+- **Se guarda para el final**: la regla implícita de la confluencia,
+  «solo comprar con la tendencia de fondo alcista», queda en duda en los
+  ETF desde 2017. En las acciones del S&P 100 no se puede saber, por el
+  sesgo de supervivencia (§6).
+- **Lección para el criterio**: el veredicto del laboratorio pide que la
+  validación sea al menos un tercio del diseño, pero no mira si en el
+  diseño ya superaba al azar. Aquí no lo superaba. Si se cambia, será
+  para las pruebas siguientes y fijado antes: no se aplica a esta.

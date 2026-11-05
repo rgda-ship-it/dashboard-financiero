@@ -476,13 +476,45 @@ class AzarFondoBajista(ReboteFondoBajista):
         return self._niveles(df, t)
 
 
+class CaidaEtf(ReboteFondoBajista):
+    """Comprar en una caída, sin más (doc fase-3/11 §7): al cierre de
+    cualquier día con la media de 50 bajo la de 200, si no hay posición,
+    compra en la apertura siguiente. Mismo stop y misma salida que
+    `ReboteFondoBajista`. Pensada para los ETF, sin sesgo de supervivencia."""
+
+    nombre = "caida_etf"
+
+    def entrada(self, df, t):
+        if not df["FONDO_BAJISTA"].iloc[t]:
+            return None
+        return self._niveles(df, t)
+
+
+class AzarCualquierDia(ReboteFondoBajista):
+    """La referencia de `CaidaEtf`: largos un día cualquiera, haya caída o
+    no, con el mismo stop y la misma salida."""
+
+    nombre = "azar_cualquier_dia"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
                   "hueco_resultados": (HuecoResultados, AzarHueco, "accion"),
                   "deriva_resultados": (DerivaResultados, AzarDeriva, "accion"),
                   "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion"),
-                  "rebote_fondo_bajista": (ReboteFondoBajista, AzarFondoBajista, "accion")}
+                  "rebote_fondo_bajista": (ReboteFondoBajista, AzarFondoBajista, "accion"),
+                  "caida_etf": (CaidaEtf, AzarCualquierDia, "accion")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -491,7 +523,9 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
 CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          "deriva_resultados": {"universo": "sp100", "resultados": True, "intervalo": "1d", "periodo": "10y"},
          "deriva_largos": {"universo": "medianas", "resultados": True, "intervalo": "1d", "periodo": "10y"},
-         "rebote_fondo_bajista": {"universo": "sp100", "intervalo": "1d", "periodo": "10y"}}
+         "rebote_fondo_bajista": {"universo": "sp100", "intervalo": "1d", "periodo": "10y"},
+         # Todo el histórico de los ETF: cubre 2000–2002 y 2008.
+         "caida_etf": {"universo": "etf", "intervalo": "1d", "periodo": "max"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -501,16 +535,18 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "deriva_resultados": {"hueco_atr": (0.5, 1.0, 2.0), "sesiones": (5, 10, 20)},
             # Fuera de la muestra: sin rejilla, la combinación que eligió el §8.
             "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)},
-            "rebote_fondo_bajista": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)}}
+            "rebote_fondo_bajista": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
+            "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)}}
 
 # Pruebas de este modo hechas antes de cada estrategia: el percentil exigido
 # frente al azar sube un punto por cada una.
 PRUEBAS_PREVIAS = {"rebote_caida": 0, "ruptura_primera_hora": 1, "hueco_resultados": 2,
-                   "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5}
+                   "deriva_resultados": 3, "deriva_largos": 4, "rebote_fondo_bajista": 5,
+                   "caida_etf": 6}
 
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
-SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100}
+SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
