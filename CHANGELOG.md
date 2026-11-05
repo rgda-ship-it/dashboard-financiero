@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — La 0058, la 0059 y la 0060, aplicadas
+
+### Comprobado
+- Los índices salen como `referencia`, fuera del universo de los agentes. Vara desde el alta: acciones −1,5 % (33 activos), S&P 500 −3,6 %, Nasdaq 100 −11,4 %, criptos −19,8 %.
+- `v_veredicto_agentes`: los siete en `pocas_operaciones`; los cuatro con cierres, dentro de lo que espera el laboratorio.
+- Las v2 en marcha desde las 20:34 UTC; primeras órdenes a las 20:35 (Prudencia v2: ripple, ethereum y BAC; Audacia v2: ripple y ethereum).
+
 ## [Sin publicar] - 2026-11-05 — Prudencia v2, Cadencia v2 y Audacia v2
 
 ### Añadido
