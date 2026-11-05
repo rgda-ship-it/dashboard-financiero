@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — La 0056 y la 0057, aplicadas
+
+### Comprobado
+- `v_referencia_mercado` en producción, con el precio de las 17:00 UTC del 5-11 (caída fuerte: acciones −4,0 % y criptos −5,9 % en el día): desde el 29-09, acciones −0,4 %, criptos −20,0 %, bitcoin −9,4 %. Los agentes, a la misma hora: Prudencia +2,1 %, Cadencia −5,9 %, Audacia −19,8 %, Tendencia cripto −1,0 %.
+- `desviacion_r` en la comparativa: Prudencia 1,02, Cadencia 8,14 (0,1 ATR de antes de la 0030; 1,18 desde el experimento), Audacia 3,40.
+- `hipotesis-agentes` activo en `cron.job` (lunes 02:00 UTC).
+
 ## [Sin publicar] - 2026-11-05 — Comprar cripto a una hora fija: sin ventaja; se cierra el modo de 1 hora
 
 ### Añadido
