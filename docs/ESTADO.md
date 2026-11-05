@@ -124,7 +124,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
 | 🗓️ | Otras ideas para acciones | El momento (§3.11), las fechas de resultados y calidad y valor (doc fase-3/09 §7–8) ya se probaron. Pista para el final: Audacia con `valor_bp_3` |
-| 🗓️ | Ideas rápidas con el modo de 1 hora (doc fase-3/10 §5) | Queda la de las horas de más movimiento en cripto. El rebote tras una caída, la ruptura de la primera hora y el hueco de resultados ya se probaron (sin ventaja): el spread de entrar y salir en horas cuesta 0,05–0,08 R |
+| ❌ | Comprar cripto a una hora fija (doc fase-3/10 §10), 2026-11-05 | Fijada antes de ejecutarla. 14 criptos, 2024-11 → 2026-11: la elegida (20:00 UTC, 8 horas) da +0,021 R en diseño y −0,068 R en validación, peor que el azar (percentil 0, mínimo 97). Ninguna hora se aparta del azar. Con ella se cierra el modo de 1 hora: ninguna de sus cuatro ideas tiene ventaja |
 | 🗓️ | Validación por ventanas móviles (*walk-forward*) | Más exigente que el corte 70/30. Útil cuando haya más de una candidata |
 | 👤 | ¿Experimento en vivo con el momento concentrado? | Configuración fijada ya (ETF, las 2 primeras, 12-1, stop a 5 ATR), juzgada con datos futuros, como Tendencia cripto. Habría que confirmar antes que QuantFury permite operar esos ETF. Por defecto, no se hace |
 | ⏸️ | Ampliar el universo cripto de producción con las del top de 2021 que funcionaron (XLM, NEAR, HBAR…) | **Esperamos** porque elegirlas por su resultado repite el sesgo de supervivencia. Se decide con el veredicto del agente |

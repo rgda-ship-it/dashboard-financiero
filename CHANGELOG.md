@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — Comprar cripto a una hora fija: sin ventaja; se cierra el modo de 1 hora
+
+### Añadido
+- `hora_cripto` en `laboratorio/intradia.py`, con su azar (largos a una hora cualquiera, mismo stop y misma salida), 100 tiradas.
+
+### Resultado
+- Prueba fijada en un commit antes de ejecutarla. 14 criptos, del 2024-11-06 al 2026-11-05: la elegida (20:00 UTC, 8 horas) da −0,068 R en validación, frente a −0,029 R del azar (percentil 0, mínimo 97). Ninguna hora se aparta del azar en el diseño. Era la última idea del modo de 1 hora (doc fase-3/10 §10).
+
 ## [Sin publicar] - 2026-11-05 — El escáner medido, la vara del mercado y cabos sueltos
 
 ### Añadido

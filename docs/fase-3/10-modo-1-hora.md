@@ -84,7 +84,7 @@ mismo criterio:
 1. ~~Ruptura del rango de la primera hora en acciones~~: probada en el §6,
    sin ventaja.
 2. ~~El hueco del día de resultados~~: probado en el §7, sin ventaja.
-3. **Horas de más movimiento en cripto** frente al resto del día.
+3. **Horas de más movimiento en cripto** frente al resto del día: §10.
 
 Cada prueba nueva sube el percentil exigido: probar mucho no regala
 validaciones. Y aunque alguna validara, en producción las señales llegan
@@ -295,3 +295,61 @@ BLD y dos más), del **2016-11-04 al 2026-11-04**. Diseño hasta el
 propiedad de las acciones grandes que han subido en los últimos diez años,
 no una ventaja que se lleve a otras acciones. Se cierra aquí: no se
 cambian los parámetros para buscar otra versión que pase.
+
+---
+
+## 10. Sexta prueba de horas: comprar cripto a una hora fija (2026-11-05)
+
+> **Fijada antes de mirar los datos** (este apartado se escribió y se
+> guardó en un commit antes de ejecutar la prueba).
+
+**Pregunta**: la última idea del §5. Las criptos se mueven más en ciertas
+horas (la apertura de Asia, de Europa y de EE. UU.). ¿Comprar en una de
+esas horas rinde más que comprar a una hora cualquiera?
+
+**Qué se prueba**: `hora_cripto`. Compra en la apertura de la hora `hora`
+(UTC), todos los días, en cada cripto del universo activo. Stop a 3 ATR de
+1 hora (ATR de 48 horas) del cierre anterior, sin objetivo; sale a las
+`horas` horas. La rejilla: `hora` = 0 (Asia), 8 (Europa), 13 (apertura de
+EE. UU.) o 20 (cierre de EE. UU.) y `horas` = 4 u 8; ocho combinaciones,
+elegidas en el diseño. Solo largos.
+
+**Dónde**: las criptos del universo activo con velas de 1 hora de Yahoo
+(730 días), como el §2; spread de la 0034.
+
+**Referencia**: 100 tiradas de largos a una hora cualquiera, con el mismo
+stop y la misma salida.
+
+**Criterio** (el del laboratorio, sin cambios): en validación, ≥ 30
+operaciones, > +0,10 R, IC 90 % por encima de cero, factor de beneficio
+> 1,2 y al menos un tercio del diseño; y superar al azar en al menos el
+**97 %** de las tiradas (octava prueba del modo, contando las dos de
+fase-3/11).
+
+**Qué se haría con el resultado**: nada en los agentes. Aunque pasara,
+operar por horas necesita un ETL más frecuente (§5).
+
+### Resultado: ninguna hora gana
+
+14 criptos, velas de 1 hora del **2024-11-06 al 2026-11-05**; diseño hasta
+el 2026-03-31, validación desde ahí.
+
+| | Ops | Neto | IC 90 % |
+|---|---|---|---|
+| Diseño, mejor combinación (20:00 UTC, 8 horas) | 7.029 | +0,021 R | +0,006 – +0,036 |
+| **Validación** | 3.034 | **−0,068 R** | −0,088 – −0,048 |
+| Largos a una hora cualquiera (validación, mediana de 100) | 3.058 | −0,029 R | p5 – p95: −0,044 – −0,011 |
+
+- **La elegida pierde, y peor que el azar** (percentil 0; mínimo 97).
+- **En el diseño, siete de las ocho combinaciones están entre −0,04 y
+  +0,02 R**: ninguna hora se aparta de lo que da comprar a cualquier hora.
+  En validación, la mejor es 08:00 a 8 horas (+0,026 R), que en diseño
+  perdía (−0,037 R): es ruido que cambia de hora según el tramo.
+- **El coste se come entre el 10 y el 28 % del bruto**: con salidas de
+  pocas horas, el spread pesa mucho para movimientos de 1–3 ATR de hora.
+
+**Conclusión**: no hay hora del día en que comprar cripto tenga ventaja.
+Es la última idea del §5: **el modo de 1 hora queda cerrado** sin ninguna
+estrategia con ventaja (rebote, ruptura de la primera hora, hueco de
+resultados y hora fija). Lo único que pasó un criterio en esta tanda fue
+comprar caídas en los ETF desde 2017 (fase-3/11 §7), con velas diarias.
