@@ -67,6 +67,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | Fecha | Quién | Qué |
 |---|---|---|
 | 09-30, 10-02, 10-05, 10-07, 10-08, 10-12, 10-15, 10-22, 10-24 | Admin | **Reversión manual a Fase 1** (tope 5×): 12 veces, sobre las cuentas 4 (Prudencia, 1), 5 (Cadencia, 6) y 6 (Audacia, 5). Cada una cambia el apalancamiento máximo de esa cuenta hasta que vuelve sola a Fase 2 |
+| **2026-11-05 08:05** | Admin | **Reversión manual a Fase 1** de Prudencia (cuenta 4), con 513,20 $ de equity: su tope pasa de 3× a 5× sobre la base (4,8× por orden) y el saldo para operar, de 1.500 a 2.500 $. Comprobado en `auditoria_admin` |
 | 2026-10-11 11:23 | Dueño | Pone en marcha a Tendencia cripto |
 | 2026-10-26 | Dueño | `github_pat_altas` anotado como «no caduca» |
 | Al aplicar la 0053 | Dueño | Prudencia vuelve a salir por deterioro (deshace su ajuste automático del 29-10) |

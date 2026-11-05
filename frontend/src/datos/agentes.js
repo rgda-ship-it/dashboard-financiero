@@ -40,6 +40,14 @@ export const leerEstrategias = () =>
 export const leerComparativa = () =>
   llamar(supabase.from("v_comparativa_agentes").select("*").order("agente_id"));
 
+/** Comprar y mantener el universo desde las mismas fechas (0056). Hasta
+ *  que se aplique la migración, la vista no existe: sin referencia, en vez
+ *  de romper la pantalla. */
+export const leerReferencia = async () => {
+  const { data, error } = await supabase.from("v_referencia_mercado").select("*");
+  return error ? [] : data;
+};
+
 export const leerCurvas = () =>
   llamar(
     supabase

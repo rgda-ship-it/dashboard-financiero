@@ -12,7 +12,8 @@ name: hipotesis
 
 on:
   schedule:
-    - cron: '0 2 * * 1'
+    # 0057: lo dispara pg_cron los lunes a las 02:00 UTC; esto es el respaldo.
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       id:
