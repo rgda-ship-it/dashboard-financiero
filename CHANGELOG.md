@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-05 — Los índices se leen, no se operan
+
+### Añadido
+- 0058: `activos.referencia` (generada: símbolos con «^»). Los índices salen como `referencia` en `senales_vigentes`, fuera del universo de los agentes; un disparador rechaza órdenes sobre ellos; la vara (0056) los da aparte (`sp500`, `nasdaq100`) y no los cuenta en las acciones. Invariante I108.
+- Escáner: los índices, con el veredicto «Índice» (no se opera). Comparativa: las varas del S&P 500 y del Nasdaq 100.
+
+### Por qué
+- El dueño dio de alta ^GSPC y ^NDX el 5-11 como acciones activas: los agentes podían comprarlos y la vara los contaba como dos acciones más.
+
 ## [Sin publicar] - 2026-11-05 — Criterio común del laboratorio
 
 ### Añadido

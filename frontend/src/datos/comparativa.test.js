@@ -29,3 +29,13 @@ test("operaciones que faltan para concluir: n ≥ (1,645 × σ / E)²", async ()
   assert.equal(textoConcluir(paraConcluir(400, 0.5, 1)), "ya se puede concluir");
   assert.equal(paraConcluir(1, -1, null), null);
 });
+
+test("los índices (0058) van entre las acciones y las criptos", () => {
+  const vista = [
+    { referencia: "nasdaq100", ventana: "alta", activos: 1, hasta: "2026-11-05", rentabilidad_pct: 1.2 },
+    { referencia: "cripto", ventana: "alta", activos: 15, hasta: "2026-11-05", rentabilidad_pct: -20 },
+    { referencia: "sp500", ventana: "alta", activos: 1, hasta: "2026-11-05", rentabilidad_pct: 0.5 },
+    { referencia: "acciones", ventana: "alta", activos: 33, hasta: "2026-11-05", rentabilidad_pct: -0.4 },
+  ];
+  assert.deepEqual(filasReferencia(vista).map((f) => f.referencia), ["acciones", "sp500", "nasdaq100", "cripto"]);
+});

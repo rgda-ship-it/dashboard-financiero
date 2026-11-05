@@ -103,3 +103,9 @@ test("sin dirección: explica qué indicadores empatan", () => {
   assert.match(motivoSinDireccion({ senales: voto("alcista", "bajista") }), /impulso se ha girado a la baja/);
   assert.equal(motivoSinDireccion({ senales: [] }), "Sin dirección clara: ni comprar ni vender.");
 });
+
+test("un índice de referencia (0058) nunca es comprar, aunque la lectura sea alcista", () => {
+  const v = veredicto({ ...base, estado_activo: "referencia" }, { spread: 0, bolsaAbierta: true });
+  assert.equal(v.accion, "no_comprar");
+  assert.equal(v.titulo, "Índice");
+});

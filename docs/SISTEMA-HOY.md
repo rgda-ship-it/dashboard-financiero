@@ -19,7 +19,8 @@ Un dashboard personal en la nube (coste 0 €) con:
 
 - **Escáner**: señales de confluencia técnica sobre 32 acciones (NYSE y
   Nasdaq) y 15 criptos, con el veredicto «Comprar / Esperar / No comprar»
-  y sus niveles (doc fase-3/04).
+  y sus niveles (doc fase-3/04). Además, dos índices **solo de referencia**
+  (S&P 500 y Nasdaq 100, 0058): se leen para la vara y no se operan.
 - **Simulador**: cuentas de 500 $ con dinero ficticio, apalancamiento con
   tope, spread y huecos reales.
 - **Agentes**: cuatro cuentas que operan solas en el simulador.
@@ -124,7 +125,7 @@ Común a los tres:
   (doc fase-3/07 §6). La sección `9b_escaner` mide qué hizo el precio 5 y
   10 sesiones después de cada veredicto del escáner, desde la 0030.
 - **Comparativa de agentes** (Agentes): con la vara de comprar y mantener
-  el universo (0056) y, bajo la expectativa, cuántas operaciones faltan
+  el universo (0056), del S&P 500 y del Nasdaq 100 (0058) y, bajo la expectativa, cuántas operaciones faltan
   para poder concluir con la dispersión observada.
 - **Salud**: Administración → Sistema.
 - **Peticiones e hipótesis de los agentes**: Administración →
