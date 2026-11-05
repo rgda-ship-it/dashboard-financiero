@@ -13,6 +13,7 @@ Claude Code) para no perder contexto entre sesiones.
 
 ### Cambiado
 - La comparativa calcula el «faltan X para concluir» con los cierres y la σ desde el experimento, no desde el alta.
+- Respaldo: `activos.referencia` (0058) es una columna generada y la restauración la quita antes del upsert; `agente_veredicto_criterio` no se respalda (la siembran las migraciones y no admite cambios).
 
 ### Hallazgo
 - Recalculados con el universo de hoy, Cadencia con ADX ≥ 25 y Audacia sin acciones de menos de 10 $ solo mejoran en la validación; en el diseño empeoran. Con el criterio nuevo no pasarían.
