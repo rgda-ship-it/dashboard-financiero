@@ -131,6 +131,9 @@ Común a los tres:
   Investigación. Durante el experimento se responden con datos; lo
   validado se guarda para el final.
 - **Laboratorio**: `laboratorio.yml` (a mano) y `hipotesis.yml` (lunes).
+  Criterio frente al azar desde el 2026-11-05 (`laboratorio/criterio.py`,
+  doc fase-3/12 §1): cuenta global de pruebas, el diseño también contra el
+  azar y ventanas móviles.
   Su concordancia con los agentes se mide solo con las reglas de hoy.
 
 ## 5. Cómo se trabaja
