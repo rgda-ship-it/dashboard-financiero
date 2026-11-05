@@ -117,6 +117,10 @@ export const leerSemanas = () =>
 export const cambiarEstadoAgente = (agenteId, estado) =>
   llamar(supabase.rpc("rpc_cambiar_estado_agente", { p_agente_id: agenteId, p_estado: estado }));
 
+/** Añadir saldo a un agente que no es del grupo de control (0060): auditado. */
+export const aportarSaldoAgente = (agenteId, importe) =>
+  llamar(supabase.rpc("rpc_aportar_saldo_agente", { p_agente_id: agenteId, p_importe: importe }));
+
 export const reiniciarAgente = (agenteId) =>
   llamar(supabase.rpc("rpc_reiniciar_agente", { p_agente_id: agenteId, p_confirmacion: true }));
 
@@ -152,7 +156,14 @@ export const COLOR_AGENTE = {
   Cadencia: "var(--agente-2)",
   Audacia: "var(--agente-3)",
   "Tendencia cripto": "var(--agente-4)",
+  // 0060: las v2, el tono de su original mezclado con el gris del texto.
+  "Prudencia v2": "color-mix(in srgb, var(--agente-1) 55%, var(--tx-3))",
+  "Cadencia v2": "color-mix(in srgb, var(--agente-2) 55%, var(--tx-3))",
+  "Audacia v2": "color-mix(in srgb, var(--agente-3) 55%, var(--tx-3))",
 };
+
+/** El grupo de control del experimento (0060): no se cambia a mano ni admite saldo añadido. */
+export const GRUPO_CONTROL = ["Prudencia", "Cadencia", "Audacia"];
 export const colorDe = (nombre) => COLOR_AGENTE[nombre] ?? "var(--tx-3)";
 
 export const ESTADOS_AGENTE = {

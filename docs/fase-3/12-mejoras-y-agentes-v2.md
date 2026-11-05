@@ -149,3 +149,60 @@ que se probó. Eso se revisa antes de concluir nada.
   +0,069). Solo mejoran en la validación. El dueño decidió
   (2026-11-05) que las v2 los lleven igualmente, como prueba en vivo
   juzgada con este criterio (§4).
+
+## 4. Prudencia v2, Cadencia v2 y Audacia v2 (0060)
+
+**Decidido por el dueño** (2026-11-05):
+
+- Prudencia v2 con las reglas de Prudencia, en una cuenta limpia.
+- Cadencia v2 y Audacia v2 con sus cambios «validados», como prueba en
+  vivo, aunque ya no pasen el criterio nuevo (§3.3).
+- Las tres con los ajustes automáticos y las consecuencias congeladas.
+- 500 $ cada una, con la posibilidad de añadirles saldo.
+
+| | Prudencia v2 | Cadencia v2 | Audacia v2 |
+|---|---|---|---|
+| Deriva de | Prudencia (versión 11) | Cadencia (versión 10) | Audacia (versión 9) |
+| Cambio | Ninguno | Solo con ADX(14) ≥ 25 (`adx_min`) | Sin acciones de menos de 10 $ (`precio_min_accion`); las criptos baratas siguen |
+| Lo que espera el laboratorio (10 años) | −0,041 R (σ 1,71) | −0,175 R (σ 3,08, 105 ops) | +0,054 R (σ 1,44) |
+| Ajustes y consecuencias | Congelados | Congelados | Congelados |
+| Saldo inicial | 500 $ | 500 $ | 500 $ |
+| Vara | Universo, desde su alta | Universo, desde su alta | Universo, desde su alta |
+
+**Cómo funcionan**:
+
+- **Son agentes con metas** (`tipo = 'metas'`): las mueve el mismo ciclo
+  de cada 5 minutos, con las mismas reglas comunes (SISTEMA-HOY §2.1).
+  Arrancan en marcha al aplicar la 0060.
+- **Los filtros nuevos** están en `fn_universo_agente`, después de la
+  banda de ATR: `precio_bajo` y `adx`. El ADX es el del último día de
+  `indicadores_diarios`. El grupo de control no lleva esas claves, así que
+  para él la función da lo mismo que antes.
+- **`agentes.grupo_control`** marca a Prudencia, Cadencia y Audacia, y
+  **`agentes.deriva_de`**, el original de cada v2.
+- **El laboratorio las reproduce** (`agentes.parametros_de_agente`
+  traduce `precio_min_accion` y `adx_min`): sus hipótesis de los lunes se
+  prueban con sus reglas reales.
+- **El escáner** dice si Audacia v2 tomaría la señal teniendo en cuenta el
+  precio. El ADX de Cadencia v2 no viene en la señal: ese filtro lo
+  aplica la base de datos, y en el escáner Cadencia v2 puede salir como
+  «la tomaría».
+
+**Añadir saldo** (`rpc_aportar_saldo_agente`, Administración → Agentes):
+
+- Solo un administrador, solo fuera del grupo de control, de 10 a
+  100.000 $.
+- Apunte `aportacion` en el libro mayor. Sube también el saldo inicial de
+  la cuenta, que pasa a ser la suma de lo aportado: la rentabilidad se
+  mide sobre todo el capital y la base para operar (0055) crece con él.
+- Queda en `auditoria_admin` y como evento del agente.
+- El cuadre del libro mayor cuenta la aportación como un depósito más.
+- **Efecto que conviene saber**: si se aporta en mitad de un día, la meta
+  diaria de ese día cuenta la aportación como ganancia. La meta ya es
+  informativa (§3); la expectativa en R y el veredicto no se ven
+  afectados. Pasar de 1.000 $ puede llevar la cuenta a Fase 2 (tope 3×)
+  con la regla de siempre.
+
+**Cuándo se sabrá algo**: con 30 cierres, el veredicto dice si se retiran
+o siguen en observación (§3.2). Para validar hace falta una expectativa
+claramente mayor que la del laboratorio (§3.3).

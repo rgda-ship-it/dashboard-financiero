@@ -257,3 +257,13 @@ def test_el_catalogo_sql_es_el_mismo_que_el_del_laboratorio():
     bloque = bloque[: bloque.index("cand as")]
     en_generador = set(re.findall(r"\('([a-z_0-9]+)'\)", bloque))
     assert en_vista == set(CONDICIONES) == en_generador
+
+
+def test_las_v2_se_traducen_con_sus_filtros():
+    from laboratorio.agentes import parametros_de_agente
+    audacia_v2 = {"rr_minimo": 1.2, "atr_pct_min": 2.3, "precio_min_accion": 10}
+    assert parametros_de_agente(audacia_v2, "accion")["precio_min"] == 10
+    assert "precio_min" not in parametros_de_agente(audacia_v2, "cripto")
+    cadencia_v2 = {"rr_minimo": 1.3, "atr_pct_max": 2.3, "adx_min": 25}
+    assert parametros_de_agente(cadencia_v2, "accion")["filtro"] == "adx_fuerte"
+    assert "filtro" not in parametros_de_agente({"rr_minimo": 1.3}, "accion")

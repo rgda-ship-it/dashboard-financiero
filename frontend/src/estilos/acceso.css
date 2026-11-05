@@ -182,6 +182,15 @@
   gap: var(--sp-2);
 }
 
+.admin__importe {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--tx-2);
+}
+.admin__importe input { width: 7rem; height: 30px; font-size: var(--fs-sm); }
+
 .admin__motivo { flex: 1 1 320px; }
 .admin__motivo .acceso__input { flex: 1 1 200px; height: 30px; font-size: var(--fs-sm); }
 

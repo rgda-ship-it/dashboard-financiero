@@ -23,7 +23,8 @@ Un dashboard personal en la nube (coste 0 €) con:
   (S&P 500 y Nasdaq 100, 0058): se leen para la vara y no se operan.
 - **Simulador**: cuentas de 500 $ con dinero ficticio, apalancamiento con
   tope, spread y huecos reales.
-- **Agentes**: cuatro cuentas que operan solas en el simulador.
+- **Agentes**: siete cuentas que operan solas en el simulador: el grupo de
+  control, Tendencia cripto y, desde la 0060, las tres v2.
 - **Laboratorio**: reproduce años de velas diarias para decidir qué
   estrategia tiene ventaja antes de ponerla en un agente (doc fase-2/06).
 
@@ -84,6 +85,23 @@ Común a los tres:
   Las decisiones se siguen registrando y resolviendo; al acabar el
   experimento se ajustan con toda esa evidencia (0016, 0024). Los dos
   ajustes del 15-10 se quedan; el del 29-10 de Prudencia lo deshizo la 0053. Ver `CRONOLOGIA.md` §4.
+
+### 2.1 bis Agentes v2 (0060, doc fase-3/12 §4)
+
+Tres agentes con metas nuevos, cada uno con su cuenta de 500 $. Siguen las
+reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
+
+| | Prudencia v2 | Cadencia v2 | Audacia v2 |
+|---|---|---|---|
+| Reglas | Las de Prudencia | Las de Cadencia + solo con ADX(14) ≥ 25 | Las de Audacia + sin acciones de menos de 10 $ |
+| Lo que espera el laboratorio | −0,041 R | −0,175 R | +0,054 R |
+
+- `agentes.grupo_control` marca a Prudencia, Cadencia y Audacia, y
+  `agentes.deriva_de`, el original de cada v2.
+- **Añadir saldo** (Administración → Agentes, `rpc_aportar_saldo_agente`):
+  solo fuera del grupo de control. Sube el saldo inicial y queda en el
+  libro mayor (`aportacion`) y en la auditoría.
+- Su veredicto está fijado en la 0060, con los umbrales de la 0059.
 
 ### 2.2 Experimento: Tendencia cripto (doc fase-2/07)
 

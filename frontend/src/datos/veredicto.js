@@ -71,6 +71,11 @@ export function motivoAgente(estrategia, senal, rr) {
   const max = paramClase(p, senal.clase, "atr_pct_max");
   if (min != null && !(senal.atr_pct >= min)) return `pide ATR ≥ ${min} %`;
   if (max != null && !(senal.atr_pct <= max)) return `pide ATR ≤ ${max} %`;
+  // 0060 (Audacia v2): sin acciones baratas.
+  if (senal.clase === "accion" && p.precio_min_accion != null && !(senal.precio_actual >= p.precio_min_accion))
+    return `no opera acciones de menos de ${p.precio_min_accion} $`;
+  // 0060 (Cadencia v2): el ADX diario no viene en la señal; ese filtro lo
+  // aplica la base de datos, y aquí puede salir como «la tomaría».
   return null;
 }
 
