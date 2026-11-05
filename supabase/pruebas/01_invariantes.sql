@@ -5614,6 +5614,87 @@ end
 $i105$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I106 · Referencia de mercado: comprar y mantener (0056).
+--
+-- A partes iguales, del primer cierre desde el alta de los agentes con
+-- metas al último. Un activo sin cierre en los 4 días siguientes al alta
+-- (dado de alta después) no cuenta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i106$
+declare
+    v_a  bigint;
+    v_b  bigint;
+    v_c  bigint;
+    v_r  record;
+begin
+    begin
+        update public.activos set estado = 'suspendido' where estado = 'activo';
+        update public.agentes set creado_en = timestamptz '2026-09-29 10:00+00' where tipo = 'metas';
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZR1', 'accion', 'yahoo', 'ZZR1', 'activo') returning id into v_a;
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZR2', 'accion', 'yahoo', 'ZZR2', 'activo') returning id into v_b;
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('ZZR3', 'accion', 'yahoo', 'ZZR3', 'activo') returning id into v_c;
+        insert into public.precios_diarios (activo_id, fecha, cierre, origen) values
+            (v_a, date '2026-09-28', 95, 'yahoo'), (v_a, date '2026-09-29', 100, 'yahoo'),
+            (v_a, date '2026-11-04', 110, 'yahoo'),
+            (v_b, date '2026-09-30', 50, 'yahoo'), (v_b, date '2026-11-04', 60, 'yahoo'),
+            (v_c, date '2026-10-20', 10, 'yahoo'), (v_c, date '2026-11-04', 30, 'yahoo');
+
+        select * into v_r from public.v_referencia_mercado where referencia = 'acciones' and ventana = 'alta';
+        if v_r.activos <> 2 or v_r.rentabilidad_pct <> 15.00 or v_r.desde <> date '2026-09-29'
+           or v_r.hasta <> date '2026-11-04' then
+            raise exception 'I106 FALLO: comprar y mantener las acciones debía dar +15 %% con 2 activos: %', to_jsonb(v_r);
+        end if;
+        select * into v_r from public.v_referencia_mercado where referencia = 'universo' and ventana = 'alta';
+        if v_r.activos <> 2 or v_r.rentabilidad_pct <> 15.00 then
+            raise exception 'I106 FALLO: el universo debía coincidir con las acciones: %', to_jsonb(v_r);
+        end if;
+        if exists (select 1 from public.v_referencia_mercado where referencia in ('cripto', 'bitcoin')) then
+            raise exception 'I106 FALLO: sin criptos activas no hay referencia de cripto';
+        end if;
+        raise exception 'I106 OK';
+    exception when others then
+        if sqlerrm <> 'I106 OK' then
+            raise;
+        end if;
+    end;
+    -- La comparativa suma al final la desviación de la R (0056).
+    perform desviacion_r, desviacion_r_exp from public.v_comparativa_agentes limit 0;
+    raise notice 'PASS  I106 referencia de mercado: comprar y mantener a partes iguales desde el alta';
+end
+$i106$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I107 · `hipotesis.yml` se dispara desde la base de datos (0057).
+--
+-- `fn_disparar_workflow` lo admite (en la CI, sin pg_net, devuelve
+-- `sin_infraestructura`), sigue rechazando cualquier otro, y nadie más
+-- que el dueño de la base de datos la ejecuta.
+-- ═════════════════════════════════════════════════════════════════════
+do $i107$
+declare
+    v_r text;
+begin
+    v_r := public.fn_disparar_workflow('hipotesis.yml', interval '6 days');
+    if v_r not in ('sin_infraestructura', 'sin_token', 'reciente', 'disparado') then
+        raise exception 'I107 FALLO: hipotesis.yml no se admite: %', v_r;
+    end if;
+    begin
+        perform public.fn_disparar_workflow('altas.yml', interval '1 minute');
+        raise exception 'I107 FALLO: admitió un workflow que no está en la lista';
+    exception when sqlstate '22023' then
+        null;
+    end;
+    if has_function_privilege('authenticated', 'public.fn_disparar_workflow(text, interval)', 'execute') then
+        raise exception 'I107 FALLO: el rol del navegador puede disparar workflows';
+    end if;
+    raise notice 'PASS  I107 hipotesis.yml se dispara desde la base de datos, y solo los workflows admitidos';
+end
+$i107$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

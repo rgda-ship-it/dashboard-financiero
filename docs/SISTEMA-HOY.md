@@ -109,7 +109,7 @@ Común a los tres:
 | Credenciales | 07:00 a diario | `revisar-credenciales` |
 | Corte semanal | lunes 00:07 | `corte-semanal` |
 | Autodiagnóstico e hipótesis | lunes 00:17 | `autodiagnostico-agentes` |
-| Prueba de las hipótesis | lunes 02:00 (GitHub puede retrasarlo horas) | `hipotesis.yml` |
+| Prueba de las hipótesis | lunes 02:00, disparada desde `pg_cron` (0057; respaldo en GitHub a las 06:00) | `hipotesis-agentes` → `hipotesis.yml` |
 | Respaldo y latido | lunes 06:00 | `keep-alive.yml` |
 
 - **Proveedores**: Yahoo Finance (acciones, sin clave) y CoinGecko
@@ -121,7 +121,11 @@ Común a los tres:
 ## 4. Cómo se revisa
 
 - **Cada lunes**: `python scripts/consultar.py -f scripts/revision_agentes.sql`
-  (doc fase-3/07 §6).
+  (doc fase-3/07 §6). La sección `9b_escaner` mide qué hizo el precio 5 y
+  10 sesiones después de cada veredicto del escáner, desde la 0030.
+- **Comparativa de agentes** (Agentes): con la vara de comprar y mantener
+  el universo (0056) y, bajo la expectativa, cuántas operaciones faltan
+  para poder concluir con la dispersión observada.
 - **Salud**: Administración → Sistema.
 - **Peticiones e hipótesis de los agentes**: Administración →
   Investigación. Durante el experimento se responden con datos; lo

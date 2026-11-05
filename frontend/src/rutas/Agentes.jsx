@@ -27,6 +27,7 @@ import {
   cambioLegible,
   resultadoLegible,
   leerComparativa,
+  leerReferencia,
   leerCurvas,
   leerDecisiones,
   leerEstrategias,
@@ -35,6 +36,7 @@ import {
   leerRanking,
 } from "../datos/agentes.js";
 import { construirSeries, diasHastaObjetivo } from "../datos/curvas.js";
+import { filasReferencia, paraConcluir, textoConcluir } from "../datos/comparativa.js";
 import { FASES, MOTIVOS_CIERRE } from "../datos/simulador.js";
 import { paginar } from "../datos/paginacion.js";
 import {
@@ -272,7 +274,14 @@ function TarjetaEstrategia({ a, e }) {
 // La pregunta del experimento: ¿gana más por cada dólar arriesgado el
 // agente de estrategia que los que persiguen una meta? Por eso la columna
 // que manda es la expectativa en R, no el porcentaje ganado.
-function TablaComparativa({ filas }) {
+const NOMBRE_REFERENCIA = {
+  universo: "Todo el universo",
+  acciones: "Acciones",
+  cripto: "Criptos",
+  bitcoin: "Bitcoin",
+};
+
+function TablaComparativa({ filas, referencia = [] }) {
   const r = (v, d = 2) => (v != null ? `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(d)}` : "—");
   const desde = filas.find((f) => f.experimento_desde)?.experimento_desde;
   return (
@@ -310,7 +319,12 @@ function TablaComparativa({ filas }) {
                 {f.drawdown_pct != null ? formatearPorcentaje(Number(f.drawdown_pct)) : "—"}
               </td>
               <td className="num">{f.cerradas}</td>
-              <td className={`num ${claseSigno(Number(f.expectativa_r ?? 0))}`}>{r(f.expectativa_r, 3)}</td>
+              <td className={`num ${claseSigno(Number(f.expectativa_r ?? 0))}`}>
+                {r(f.expectativa_r, 3)}
+                {textoConcluir(paraConcluir(f.cerradas, f.expectativa_r, f.desviacion_r)) && (
+                  <span className="sim__sub">{textoConcluir(paraConcluir(f.cerradas, f.expectativa_r, f.desviacion_r))}</span>
+                )}
+              </td>
               <td className={`num ${claseSigno(Number(f.r_total ?? 0))}`}>{r(f.r_total, 1)}</td>
               <td className="num">{f.aciertos_pct != null ? `${Number(f.aciertos_pct)} %` : "—"}</td>
               <td className="num">{f.factor_beneficio != null ? Number(f.factor_beneficio).toFixed(2) : "—"}</td>
@@ -320,13 +334,33 @@ function TablaComparativa({ filas }) {
               </td>
             </tr>
           ))}
+          {referencia.map((f) => (
+            <tr key={`ref-${f.referencia}`} className="sim__referencia">
+              <td>
+                {NOMBRE_REFERENCIA[f.referencia] ?? f.referencia}
+                <span className="sim__sub">comprar y mantener · {f.activos} {f.activos === 1 ? "activo" : "activos"}</span>
+              </td>
+              <td className="num">—</td>
+              <td className={`num ${claseSigno(Number(f.rentabilidad_pct ?? 0))}`}>
+                {f.rentabilidad_pct != null ? formatearPorcentaje(Number(f.rentabilidad_pct)) : "—"}
+              </td>
+              <td className="num" colSpan={6} />
+              <td className={`num ${claseSigno(Number(f.rentabilidad_exp_pct ?? 0))}`}>
+                {f.rentabilidad_exp_pct != null ? formatearPorcentaje(Number(f.rentabilidad_exp_pct)) : "—"}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
       <p className="sim__nota">
+        {referencia.length > 0 &&
+          "Las filas sin punto de color son la vara: comprar el universo a partes iguales el día del alta y no tocarlo, sin apalancamiento ni costes. Un agente que no la supera no aporta nada sobre seguir al mercado. "}
         R = resultado de la operación ÷ lo que arriesgaba hasta el stop al abrirla (con los cierres parciales). Es la
         única medida comparable entre agentes con apalancamientos y riesgos distintos.
         {desde && ` «Desde el experimento» cuenta las operaciones abiertas desde el ${new Date(desde).toLocaleDateString("es-ES")}.`}{" "}
-        Con pocas operaciones, la diferencia es ruido: el veredicto de Tendencia cripto llega a las 30.
+        Con pocas operaciones, la diferencia es ruido: bajo la expectativa se dice cuántas faltan para que el
+        intervalo del 90 % deje de incluir el cero con la dispersión observada. El veredicto de Tendencia cripto llega a
+        las 30.
       </p>
     </>
   );
@@ -809,6 +843,7 @@ export default function Agentes() {
   const [ranking, setRanking] = useState([]);
   const [estrategias, setEstrategias] = useState([]);
   const [comparativa, setComparativa] = useState([]);
+  const [referencia, setReferencia] = useState([]);
   const [curvas, setCurvas] = useState([]);
   const [operaciones, setOperaciones] = useState([]);
   const [backlog, setBacklog] = useState([]);
@@ -830,7 +865,7 @@ export default function Agentes() {
 
   const cargar = useCallback(async () => {
     try {
-      const [r, c, o, b, p, d, j, e, k, h] = await Promise.all([
+      const [r, c, o, b, p, d, j, e, k, h, m] = await Promise.all([
         leerRanking(),
         leerCurvas(),
         leerOperaciones(),
@@ -841,10 +876,12 @@ export default function Agentes() {
         leerEstrategias(),
         leerComparativa(),
         leerHipotesis(),
+        leerReferencia(),
       ]);
       setRanking(r ?? []);
       setEstrategias(e ?? []);
       setComparativa(k ?? []);
+      setReferencia(filasReferencia(m));
       setCurvas(c ?? []);
       setOperaciones(o ?? []);
       setBacklog(b ?? []);
@@ -980,7 +1017,7 @@ export default function Agentes() {
             meta="las mismas medidas para los cuatro · el experimento"
             alPedirAyuda={() => setSeccionGuia("agentes")}
           >
-            <TablaComparativa filas={comparativa} />
+            <TablaComparativa filas={comparativa} referencia={referencia} />
           </Panel>
 
           <Panel
