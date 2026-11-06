@@ -57,7 +57,7 @@ import pandas as pd  # noqa: E402
 from laboratorio import criterio, metricas  # noqa: E402
 from laboratorio.datos import (cargar, cargar_resultados, financiacion_de, spread_de,  # noqa: E402
                                universo_nombrado)
-from laboratorio.estrategias import _atr  # noqa: E402
+from laboratorio.estrategias import Tendencia, _atr  # noqa: E402
 from laboratorio.motor import Entrada, Posicion, simular  # noqa: E402
 
 BARRAS_MES = {"cripto": 24 * 30, "accion": 7 * 21}   # velas de 1 hora en un mes
@@ -789,6 +789,85 @@ AzarFlujo = _azar_por_horas(FlujoOrdenes, lambda e: f"FLUJO_{e.ventana}")
 AzarLibro = _azar_por_horas(LibroCripto, lambda e: f"OBI_{e.banda}")
 
 
+class TendenciaFlujo:
+    """Tendencia cripto con el flujo de órdenes como filtro (doc fase-3/16):
+    la estrategia `tendencia` del laboratorio, con los parámetros del agente
+    (ruptura del máximo de 20 días sobre la media de 200, stop a 2 ATR que
+    sigue a 3 ATR, salida bajo el mínimo de 10 días), y la ruptura solo vale
+    si la parte del volumen de los últimos `ventana` días que compraron los
+    agresores supera su cuantil `umbral` de los 30 días anteriores. Velas
+    diarias (días UTC) hechas con las de 1 hora de Binance."""
+
+    nombre = "tendencia_flujo_cripto"
+    VENTANAS = (1, 3)
+    UMBRALES = (0.5, 0.9)
+    DIAS_RANGO = 30
+
+    def __init__(self, ventana: int = 1, umbral: float = 0.5):
+        self.ventana, self.umbral = ventana, umbral
+        self.base = Tendencia()
+
+    @staticmethod
+    def _col(ventana, umbral) -> str:
+        return f"FLUJO_ALTO_{ventana}_{round(umbral * 100)}"
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = Tendencia().preparar(df)
+        for w in cls.VENTANAS:
+            flujo = df["Taker"].rolling(w).sum() / df["Volume"].rolling(w).sum().replace(0, np.nan)
+            out[f"FLUJO_D_{w}"] = flujo
+            for q in cls.UMBRALES:
+                umbral = flujo.shift(1).rolling(cls.DIAS_RANGO, min_periods=cls.DIAS_RANGO // 2).quantile(q)
+                out[cls._col(w, q)] = (flujo > umbral) & umbral.notna()
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if self._col(self.ventana, self.umbral) in df.columns else self.precalcular(df)
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        e = self.base.entrada(df, t)
+        if e is None or not df[self._col(self.ventana, self.umbral)].iloc[t]:
+            return None
+        return e
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return self.base.actualizar(df, t, pos)
+
+    @staticmethod
+    def sin_filtro():
+        """La misma estrategia sin el filtro, para ver lo que quita."""
+        return TendenciaSinFiltro()
+
+
+class TendenciaSinFiltro(TendenciaFlujo):
+    nombre = "tendencia_sin_filtro"
+
+    def entrada(self, df, t):
+        return self.base.entrada(df, t)
+
+
+class AzarTendenciaFlujo(TendenciaFlujo):
+    """La referencia de `TendenciaFlujo`: las MISMAS rupturas de Tendencia,
+    quedándose con una al azar en la proporción que deja pasar el filtro.
+    Mide si el filtro elige mejor que quitar operaciones a ciegas."""
+
+    nombre = "azar_tendencia_flujo"
+
+    def __init__(self, probabilidad: float = 0.5, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        e = self.base.entrada(df, t)
+        if e is None:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return e
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
@@ -801,7 +880,8 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "perfil_volumen": (PerfilVolumen, AzarPerfil, "accion"),
                   "perfil_volumen_cripto": (PerfilVolumen, AzarPerfil, "cripto"),
                   "flujo_ordenes_cripto": (FlujoOrdenes, AzarFlujo, "cripto"),
-                  "libro_cripto": (LibroCripto, AzarLibro, "cripto")}
+                  "libro_cripto": (LibroCripto, AzarLibro, "cripto"),
+                  "tendencia_flujo_cripto": (TendenciaFlujo, AzarTendenciaFlujo, "cripto")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -819,7 +899,8 @@ CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          "perfil_volumen_cripto": {"intervalo": "1d", "periodo": "max"},
          # Microestructura en cripto (doc fase-3/15): ficheros de Binance.
          "flujo_ordenes_cripto": {"fuente": "binance"},
-         "libro_cripto": {"fuente": "binance", "libro": True}}
+         "libro_cripto": {"fuente": "binance", "libro": True},
+         "tendencia_flujo_cripto": {"fuente": "binance", "intervalo": "1d"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -835,7 +916,8 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "perfil_volumen": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
             "perfil_volumen_cripto": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
             "flujo_ordenes_cripto": {"ventana": FlujoOrdenes.VENTANAS, "horas": (8, 24)},
-            "libro_cripto": {"banda": LibroCripto.BANDAS, "horas": (8, 24)}}
+            "libro_cripto": {"banda": LibroCripto.BANDAS, "horas": (8, 24)},
+            "tendencia_flujo_cripto": {"ventana": TendenciaFlujo.VENTANAS, "umbral": TendenciaFlujo.UMBRALES}}
 
 # Hasta el 2026-11-05 el percentil exigido subía un punto por cada prueba
 # de ESTE modo (las 8 de abajo se juzgaron así). Desde entonces sale de la
@@ -852,7 +934,7 @@ CON_SUPERVIVENCIA = {"activo", "sp100", "medianas"}
 # fuera de la muestra se fijó con 100.
 SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100,
             "perfil_volumen": 100, "perfil_volumen_cripto": 100,
-            "flujo_ordenes_cripto": 100, "libro_cripto": 100}
+            "flujo_ordenes_cripto": 100, "libro_cripto": 100, "tendencia_flujo_cripto": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -925,8 +1007,13 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     barras = sum(len(df) for df in datos.values())
     horas_abiertas = sum(o.dias + 1 for o in ops)
     probabilidad = len(ops) / max(barras - horas_abiertas, 1)
-    prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
-    if prueba:
+    # Se repite hasta quedar a un 5 % de las operaciones: cuando el azar solo
+    # puede entrar en ciertos días (las rupturas, doc fase-3/16), una sola
+    # corrección se queda corta, porque una posición abierta tapa entradas.
+    for _ in range(6):
+        prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
+        if not prueba or abs(prueba - len(ops)) <= 0.05 * len(ops):
+            break
         probabilidad = min(probabilidad * len(ops) / prueba, 1.0)
     tiradas, tiradas_d = [], []
     for s in range(semillas):
@@ -954,6 +1041,13 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
         _fila("Diseño", d, unidad),
         _fila("**Validación**", v, unidad),
     ]
+    if hasattr(base, "sin_filtro"):
+        sd, sv = metricas.partir(operar(datos, base.sin_filtro()), corte)
+        lineas += ["", "Sin el filtro, la misma estrategia y los mismos datos:", "",
+                   "| Tramo | Ops | Expectativa | IC 90 % | Aciertos | Coste / bruto | Duración |",
+                   "|---|---|---|---|---|---|---|",
+                   _fila("Diseño, sin filtro", medir(sd, clase, intervalo), unidad),
+                   _fila("Validación, sin filtro", medir(sv, clase, intervalo), unidad)]
     if ic_meses is not None:
         lineas += ["", f"IC 90 % remuestreando meses (las operaciones de un mismo mes no son independientes): "
                        f"{ic_meses[0]:+.3f} – {ic_meses[1]:+.3f} R."]
@@ -1037,6 +1131,8 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
             from laboratorio import binance
             sub = None if cache is None else cache.parent / "binance"
             df = binance.velas(simbolo, sub)
+            if df is not None and intervalo == "1d":
+                df = binance.a_diarias(df)
             if df is not None and libro:
                 obi = binance.libro(simbolo, sub)
                 df = None if obi is None else df.join(obi, how="left").loc[obi.index[0]:]
