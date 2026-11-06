@@ -933,7 +933,10 @@ def main() -> int:
     salida = Path(a.salida)
     salida.mkdir(parents=True, exist_ok=True)
     (salida / "intradia.md").write_text(texto, encoding="utf-8")
-    print(texto)
+    try:
+        print(texto)
+    except UnicodeEncodeError:   # consola de Windows (cp1252): el informe ya está en disco
+        print(texto.encode("ascii", "replace").decode("ascii"))
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
             f.write(texto + "\n")
