@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-06 — El flujo de órdenes como filtro de Tendencia cripto, sin aporte
+
+### Añadido
+- Laboratorio: `TendenciaFlujo` (Tendencia con los parámetros del agente, y la ruptura solo si el flujo agresivo supera su mediana o su decil 90 de 30 días), `AzarTendenciaFlujo` (las mismas rupturas, quitadas al azar) y `binance.a_diarias`. Prueba `tendencia_flujo_cripto`, registrada antes de ejecutarla (37 ideas). El informe por velas enseña la estrategia sin filtro cuando la hay.
+- Doc fase-3/16: el filtro no aporta. En validación, +0,978 R con él, +0,934 R sin él y +0,956 R quitando las mismas rupturas al azar (percentil 66).
+
+### Corregido
+- La frecuencia del azar del modo por velas se calibra repitiendo la corrección hasta quedar a un 5 % de las operaciones. Con una sola, el azar de una estrategia que solo entra en ciertos días operaba de menos (98 frente a 158).
+
 ## [Sin publicar] - 2026-11-06 — Flujo de órdenes y libro en cripto
 
 ### Añadido

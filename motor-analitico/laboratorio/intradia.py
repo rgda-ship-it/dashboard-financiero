@@ -1007,8 +1007,13 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
     barras = sum(len(df) for df in datos.values())
     horas_abiertas = sum(o.dias + 1 for o in ops)
     probabilidad = len(ops) / max(barras - horas_abiertas, 1)
-    prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
-    if prueba:
+    # Se repite hasta quedar a un 5 % de las operaciones: cuando el azar solo
+    # puede entrar en ciertos días (las rupturas, doc fase-3/16), una sola
+    # corrección se queda corta, porque una posición abierta tapa entradas.
+    for _ in range(6):
+        prueba = len(operar(datos, azar(probabilidad=probabilidad, semilla=10_000, **params)))
+        if not prueba or abs(prueba - len(ops)) <= 0.05 * len(ops):
+            break
         probabilidad = min(probabilidad * len(ops) / prueba, 1.0)
     tiradas, tiradas_d = [], []
     for s in range(semillas):
