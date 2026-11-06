@@ -868,6 +868,67 @@ class AzarTendenciaFlujo(TendenciaFlujo):
         return e
 
 
+class CompraDirectivos:
+    """Compras de los directivos (doc fase-3/17): al cierre del día en que el
+    número de directivos distintos que presentaron una compra en bolsa
+    (Form 4, código P, de 10.000 $ o más) en los 30 días anteriores llega a
+    `minimo`, compra en la apertura siguiente. Solo cuenta lo presentado
+    hasta el día anterior. Stop a `stop_atr` ATR del cierre, sin objetivo;
+    sale a las `sesiones` sesiones. Velas diarias."""
+
+    nombre = "compras_directivos"
+
+    def __init__(self, minimo: int = 1, sesiones: int = 20, stop_atr: float = 3.0):
+        self.minimo, self.sesiones, self.stop_atr = minimo, sesiones, stop_atr
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        if "COMPRADORES" not in out.columns:
+            out["COMPRADORES"] = 0
+        out["ATR_D"] = _atr(df, 14)
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "ATR_D" in df.columns else self.precalcular(df)
+
+    def _niveles(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        atr = df["ATR_D"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        return Entrada(sl=float(df["Close"].iloc[t]) - self.stop_atr * float(atr))
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if t < 1:
+            return None
+        n, antes = df["COMPRADORES"].iloc[t], df["COMPRADORES"].iloc[t - 1]
+        if not (n >= self.minimo and antes < self.minimo):
+            return None
+        return self._niveles(df, t)
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.sesiones - 1
+
+
+class AzarDirectivos(CompraDirectivos):
+    """La referencia de `CompraDirectivos`: largos un día cualquiera en las
+    mismas acciones, con el mismo stop y la misma salida. Las acciones son
+    las mismas, así que el sesgo de supervivencia del S&P 100 pesa igual en
+    las dos."""
+
+    nombre = "azar_directivos"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
@@ -881,7 +942,8 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "perfil_volumen_cripto": (PerfilVolumen, AzarPerfil, "cripto"),
                   "flujo_ordenes_cripto": (FlujoOrdenes, AzarFlujo, "cripto"),
                   "libro_cripto": (LibroCripto, AzarLibro, "cripto"),
-                  "tendencia_flujo_cripto": (TendenciaFlujo, AzarTendenciaFlujo, "cripto")}
+                  "tendencia_flujo_cripto": (TendenciaFlujo, AzarTendenciaFlujo, "cripto"),
+                  "compras_directivos": (CompraDirectivos, AzarDirectivos, "accion")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -900,7 +962,9 @@ CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          # Microestructura en cripto (doc fase-3/15): ficheros de Binance.
          "flujo_ordenes_cripto": {"fuente": "binance"},
          "libro_cripto": {"fuente": "binance", "libro": True},
-         "tendencia_flujo_cripto": {"fuente": "binance", "intervalo": "1d"}}
+         "tendencia_flujo_cripto": {"fuente": "binance", "intervalo": "1d"},
+         # Form 4 de la SEC (doc fase-3/17): el S&P 100, 10 años.
+         "compras_directivos": {"universo": "sp100", "intervalo": "1d", "periodo": "10y", "form4": True}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -917,7 +981,8 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "perfil_volumen_cripto": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
             "flujo_ordenes_cripto": {"ventana": FlujoOrdenes.VENTANAS, "horas": (8, 24)},
             "libro_cripto": {"banda": LibroCripto.BANDAS, "horas": (8, 24)},
-            "tendencia_flujo_cripto": {"ventana": TendenciaFlujo.VENTANAS, "umbral": TendenciaFlujo.UMBRALES}}
+            "tendencia_flujo_cripto": {"ventana": TendenciaFlujo.VENTANAS, "umbral": TendenciaFlujo.UMBRALES},
+            "compras_directivos": {"minimo": (1, 2), "sesiones": (20, 60)}}
 
 # Hasta el 2026-11-05 el percentil exigido subía un punto por cada prueba
 # de ESTE modo (las 8 de abajo se juzgaron así). Desde entonces sale de la
@@ -934,7 +999,8 @@ CON_SUPERVIVENCIA = {"activo", "sp100", "medianas"}
 # fuera de la muestra se fijó con 100.
 SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100,
             "perfil_volumen": 100, "perfil_volumen_cripto": 100,
-            "flujo_ordenes_cripto": 100, "libro_cripto": 100, "tendencia_flujo_cripto": 100}
+            "flujo_ordenes_cripto": 100, "libro_cripto": 100, "tendencia_flujo_cripto": 100,
+            "compras_directivos": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -1111,7 +1177,7 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
 
 def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
               resultados: bool = False, intervalo: str = "1h", periodo: str = PERIODO,
-              fuente: str = "yahoo", libro: bool = False) -> dict:
+              fuente: str = "yahoo", libro: bool = False, form4: bool = False) -> dict:
     """Velas (de 1 hora por defecto) de una clase en un universo (`datos.universo_nombrado`;
     el activo, en local y sin acceso a la base de datos, es la semilla de la
     0003 y las criptos de la 0032). Con `resultados`, marca los días de
@@ -1124,6 +1190,9 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
         return pickle.loads(cache.read_bytes())
     datos = {}
     activos, _ = universo_nombrado(universo)
+    if form4:
+        from laboratorio import form4 as f4
+        todas = f4.compras(cache=None if cache is None else cache.parent / "form4")
     for simbolo, c in activos:
         if c != clase:
             continue
@@ -1145,6 +1214,9 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
             if reaccion is None or not len(reaccion):
                 continue
             df = con_dia_resultados(df, reaccion)
+        if form4:
+            df = df.copy()
+            df["COMPRADORES"] = f4.compradores_por_dia(df, todas[todas["simbolo"] == simbolo])
         datos[(simbolo, clase)] = df
     if cache is not None:
         cache.write_bytes(pickle.dumps(datos))

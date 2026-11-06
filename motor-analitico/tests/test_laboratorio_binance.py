@@ -121,3 +121,36 @@ def test_el_filtro_de_flujo_solo_deja_rupturas_con_flujo_alto_y_el_azar_solo_rup
     for op in azar:
         f = pre.loc[op.fecha_senal]
         assert f["Close"] > f["MAX_RUPTURA"] and f["Close"] > f["SMA_200"]
+
+
+def test_el_form4_cuenta_solo_compras_en_bolsa_de_10000_o_mas():
+    from laboratorio import form4
+    sub = pd.DataFrame({"ACCESSION_NUMBER": ["a", "b", "c", "d"], "FILING_DATE": ["02-JAN-2024"] * 4,
+                        "DOCUMENT_TYPE": ["4", "4", "4", "3"], "ISSUERTRADINGSYMBOL": ["brk.b", "AAPL", "AAPL", "AAPL"]})
+    dueno = pd.DataFrame({"ACCESSION_NUMBER": ["a", "b", "c", "d"], "RPTOWNERCIK": ["1", "2", "3", "4"]})
+    tr = pd.DataFrame({"ACCESSION_NUMBER": ["a", "a", "b", "c", "d"], "TRANS_CODE": ["P", "P", "S", "P", "P"],
+                       "TRANS_ACQUIRED_DISP_CD": ["A", "A", "D", "A", "A"],
+                       "TRANS_SHARES": ["100", "100", "1000", "10", "1000"],
+                       "TRANS_PRICEPERSHARE": ["60", "50", "100", "100", "100"]})
+    out = form4.compras_de_tablas(sub, dueno, tr)
+    # a: 6.000 + 5.000 = 11.000 $ → cuenta; b es una venta; c, 1.000 $; d no es un Form 4.
+    assert list(out["simbolo"]) == ["BRK-B"] and out["valor"].iloc[0] == 11_000
+    assert out["presentada"].iloc[0] == pd.Timestamp("2024-01-02")
+
+
+def test_los_compradores_se_cuentan_desde_el_dia_siguiente_a_presentarse():
+    from laboratorio import form4
+    from laboratorio.intradia import AzarDirectivos, CompraDirectivos
+    idx = pd.bdate_range("2024-01-01", periods=80)
+    c = np.linspace(100, 110, 80)
+    df = pd.DataFrame({"Open": c, "High": c + 1, "Low": c - 1, "Close": c, "Volume": 1e6}, index=idx)
+    suyas = pd.DataFrame({"presentada": [idx[30], idx[30], idx[32]], "propietario": ["1", "1", "2"]})
+    n = form4.compradores_por_dia(df, suyas)
+    assert n.iloc[30] == 0 and n.iloc[31] == 1 and n.iloc[33] == 2
+    assert n.iloc[30 + 25] == 0          # 30 días naturales después ya no cuenta
+    df["COMPRADORES"] = n
+    ops = simular(df, CompraDirectivos(minimo=2, sesiones=5), SIN_SPREAD)
+    assert len(ops) == 1 and ops[0].fecha_senal == idx[33] and ops[0].fecha_entrada == idx[34]
+    uno = simular(df, CompraDirectivos(minimo=1, sesiones=5), SIN_SPREAD)
+    assert uno[0].fecha_senal == idx[31]
+    assert simular(df, AzarDirectivos(probabilidad=0.3, semilla=1, sesiones=5), SIN_SPREAD)

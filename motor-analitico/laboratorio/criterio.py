@@ -74,6 +74,7 @@ REGISTRO: list[tuple[str, str, str]] = [
     ("flujo_ordenes_cripto", "2026-11-06", "fase-3/15"),
     ("libro_cripto", "2026-11-06", "fase-3/15"),
     ("tendencia_flujo_cripto", "2026-11-06", "fase-3/16"),
+    ("compras_directivos", "2026-11-06", "fase-3/17"),
 ]
 
 PERCENTIL_TECHO = 99
