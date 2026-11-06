@@ -67,6 +67,10 @@ REGISTRO: list[tuple[str, str, str]] = [
     ("rebote_fondo_bajista", "2026-11-04", "fase-3/11 §6"),
     ("caida_etf", "2026-11-05", "fase-3/11 §7"),
     ("hora_cripto", "2026-11-05", "fase-3/10 §10"),
+    # Fijadas el 2026-11-06, antes de ejecutarlas: la misma regla en dos
+    # clases cuenta como dos pruebas, porque bastaría con que pasara una.
+    ("perfil_volumen", "2026-11-06", "fase-3/14"),
+    ("perfil_volumen_cripto", "2026-11-06", "fase-3/14"),
 ]
 
 PERCENTIL_TECHO = 99

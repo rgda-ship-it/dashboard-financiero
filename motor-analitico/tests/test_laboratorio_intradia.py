@@ -301,3 +301,43 @@ def test_la_hora_cripto_compra_solo_en_su_hora_y_sale_a_las_n_horas():
     assert all(df.index.get_loc(op.fecha_salida) - df.index.get_loc(op.fecha_entrada) <= 4 for op in ops)
     azar = simular(df, AzarHoraCripto(probabilidad=0.2, semilla=1, horas=4), SIN_SPREAD)
     assert len({op.fecha_entrada.hour for op in azar}) > 5
+
+
+def test_el_poc_es_el_precio_con_mas_volumen_y_no_mira_la_vela_actual():
+    from laboratorio.intradia import nivel_de_mas_volumen
+    # 10 sesiones en 99–101 con mucho volumen y 10 en 109–111 con poco.
+    velas = [(100, 101, 99, 100)] * 10 + [(110, 111, 109, 110)] * 10 + [(150, 200, 50, 150)]
+    df = _diaria(velas)
+    df["Volume"] = [5e6] * 10 + [1e6] * 10 + [1e9]
+    poc = nivel_de_mas_volumen(df, 20, casillas=24)
+    assert 99 <= poc.iloc[20] <= 101
+    assert poc.iloc[:20].isna().all()
+    # La vela 20, con un volumen enorme, no cuenta para su propio POC.
+    corta = nivel_de_mas_volumen(df.iloc[:20].assign(Volume=df["Volume"].iloc[:20]), 20, casillas=24)
+    assert corta.isna().all()
+
+
+def test_el_perfil_compra_el_primer_toque_desde_arriba_y_su_azar_solo_por_encima():
+    from laboratorio.intradia import AzarPerfil, PerfilVolumen
+    base = [(100, 101, 99, 100)] * 20
+    sube = [(100 + 2 * i, 101 + 2 * i, 99.5 + 2 * i, 101 + 2 * i) for i in range(1, 6)]   # se aleja hacia arriba
+    toque = [(108, 108.5, 98.9, 104)]                                                     # baja bajo el nivel y cierra encima
+    despues = [(104, 105, 103.5, 104.5)] * 12
+    df = _diaria(base + sube + toque + despues)
+    df["Volume"] = [5e6] * 20 + [1e6] * (len(df) - 20)
+    pre = PerfilVolumen.precalcular(df)
+    ops = simular(df, PerfilVolumen(dias=20, sesiones=5), SIN_SPREAD)
+    assert len(ops) == 1 and ops[0].fecha_senal == df.index[25] and ops[0].lado == "largo"
+    assert abs(ops[0].sl_inicial - (pre["Close"].iloc[25] - 2.0 * pre["ATR_D"].iloc[25])) < 1e-9
+    assert df.index.get_loc(ops[0].fecha_salida) - df.index.get_loc(ops[0].fecha_entrada) <= 5
+    azar = simular(df, AzarPerfil(probabilidad=0.5, semilla=1, dias=20, sesiones=5), SIN_SPREAD)
+    assert azar and all(pre.loc[op.fecha_senal, "Close"] > pre.loc[op.fecha_senal, "POC_20"] for op in azar)
+
+
+def test_el_perfil_no_compra_si_el_dia_anterior_ya_tocaba_el_nivel():
+    from laboratorio.intradia import PerfilVolumen
+    base = [(100, 101, 99, 100)] * 20
+    pegado = [(100.5, 102, 99.5, 101.5)] * 6        # cada día toca el nivel: nunca es el primer toque
+    df = _diaria(base + pegado)
+    df["Volume"] = [5e6] * 20 + [1e6] * 6
+    assert simular(df, PerfilVolumen(dias=20, sesiones=5), SIN_SPREAD) == []

@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-06 — Perfil de volumen, sin ventaja
+
+### Añadido
+- Laboratorio: `nivel_de_mas_volumen` (POC de las N sesiones anteriores), `PerfilVolumen` y su azar `AzarPerfil`, con las pruebas `perfil_volumen` (ETF) y `perfil_volumen_cripto`, registradas en `criterio.REGISTRO` antes de ejecutarlas (34 ideas).
+- Doc fase-3/14: comprar el primer toque del nivel con más volumen no tiene ventaja. Validación: −0,051 R en los ETF y +0,099 R en cripto, en el percentil 0 y 3 frente al azar (mínimo 98).
+
+### Corregido
+- `laboratorio.intradia` ya no falla al imprimir el informe en una consola de Windows (cp1252).
+
 ## [Sin publicar] - 2026-11-06 — Servicios externos: qué es factible y qué se puede probar
 
 ### Añadido
