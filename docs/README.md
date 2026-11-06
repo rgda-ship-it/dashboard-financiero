@@ -44,6 +44,7 @@ entender el pasado. Cada documento lleva su vigencia en la cabecera.
 | [`fase-3/08`](fase-3/08-que-falta.md) | Qué falta para cumplir los objetivos (2026-10-27) | Vigente |
 | [`fase-3/09`](fase-3/09-hackeo-binance-y-fundamentales.md) | El hackeo a Binance (29-10); fundamentales gratuitos | Vigente |
 | [`fase-3/10`](fase-3/10-modo-1-hora.md) | Modo de 1 hora del laboratorio; rebote en cripto, ruptura de la primera hora y hueco de resultados, sin ventaja; la deriva tras resultados con velas diarias, casi en el S&P 100 y nada fuera | Vigente |
+| [`fase-3/15`](fase-3/15-microestructura-cripto.md) | Flujo de órdenes y libro en cripto con los ficheros de Binance: el libro no anticipa nada a escala de horas; el flujo agresivo es lo primero que supera al azar en todo, pero deja +0,037 R, por debajo del mínimo | Vigente |
 | [`fase-3/14`](fase-3/14-perfil-de-volumen.md) | Perfil de volumen en el laboratorio: comprar el primer toque del nivel con más volumen, sin ventaja en los ETF ni en cripto; el toque sale peor que el azar | Vigente |
 | [`fase-3/13`](fase-3/13-servicios-externos.md) | Servicios de la guía del dueño (sentimiento, microestructura, IBKR, Alpaca, IA): qué es factible gratis y qué se puede probar en el laboratorio | Vigente |
 | [`fase-3/12`](fase-3/12-mejoras-y-agentes-v2.md) | Mejoras de las recomendaciones (criterio del laboratorio, veredicto fijado de antemano) y agentes v2 | Vigente |

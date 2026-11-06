@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-06 — Flujo de órdenes y libro en cripto
+
+### Añadido
+- `laboratorio/binance.py`: velas de 1 hora del contado de Binance con el volumen de los compradores agresivos, y la profundidad del libro del perpetuo (`bookDepth`) resumida por horas, de los ficheros públicos de `data.binance.vision`, sin clave.
+- Laboratorio: `FlujoOrdenes` y `LibroCripto`, con sus azares, y las pruebas `flujo_ordenes_cripto` y `libro_cripto`, registradas antes de ejecutarlas (36 ideas).
+- Doc fase-3/15. El libro no anticipa nada a escala de horas (−0,020 R en validación). El flujo agresivo supera al azar en validación, en el diseño y en las ventanas móviles, lo primero que lo consigue, pero deja +0,037 R, por debajo del mínimo de +0,10 R.
+
 ## [Sin publicar] - 2026-11-06 — Perfil de volumen, sin ventaja
 
 ### Añadido
