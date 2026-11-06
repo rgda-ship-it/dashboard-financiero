@@ -4,6 +4,11 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-06 — Servicios externos: qué es factible y qué se puede probar
+
+### Añadido
+- Doc fase-3/13: la guía del dueño contrastada con las páginas oficiales. El sentimiento ya calculado es de pago (Alpha Vantage, Finnhub); NewsAPI no admite producción; IBKR pide una cuenta real con fondos. Binance publica gratis la profundidad del libro de futuros desde 2023. Propuesta de cuatro pruebas de laboratorio, ninguna en agentes.
+
 ## [Sin publicar] - 2026-11-05 — La 0058, la 0059 y la 0060, aplicadas
 
 ### Comprobado
