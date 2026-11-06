@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-06 — Compras de directivos (Form 4), sin ventaja
+
+### Añadido
+- `laboratorio/form4.py`: las compras en bolsa de los directivos (Form 4, código P, de 10.000 $ o más) de los data sets trimestrales de la SEC, por fecha de presentación, y cuántos directivos distintos compraron en los 30 días anteriores sin mirar el futuro.
+- Laboratorio: `CompraDirectivos` y `AzarDirectivos`, prueba `compras_directivos` en el S&P 100, registrada antes de ejecutarla (38 ideas).
+- Doc fase-3/17: sin ventaja. +0,682 R en el diseño (percentil 99), pero en validación +0,302 R con 32 operaciones, igual que el azar en las mismas acciones (percentil 46).
+
 ## [Sin publicar] - 2026-11-06 — El flujo de órdenes como filtro de Tendencia cripto, sin aporte
 
 ### Añadido

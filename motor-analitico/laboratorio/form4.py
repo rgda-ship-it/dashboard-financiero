@@ -47,7 +47,10 @@ def _bajar(url: str) -> bytes | None:
 def _fecha(serie: pd.Series) -> pd.Series:
     """Las fechas de los data sets vienen como «02-JAN-2024»."""
     f = pd.to_datetime(serie, format="%d-%b-%Y", errors="coerce")
-    return f.fillna(pd.to_datetime(serie, errors="coerce"))
+    faltan = f.isna() & serie.notna()
+    if faltan.any():
+        f.loc[faltan] = pd.to_datetime(serie[faltan], format="mixed", errors="coerce")
+    return f
 
 
 def leer_trimestre(contenido: bytes) -> pd.DataFrame:
