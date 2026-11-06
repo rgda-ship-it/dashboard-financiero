@@ -671,6 +671,124 @@ class AzarPerfil(PerfilVolumen):
         return self._niveles(df, t)
 
 
+class _PorHoras:
+    """Lo común de las dos ideas de microestructura en cripto (doc
+    fase-3/15): entrada en la apertura de la hora siguiente, stop a
+    `stop_atr` ATR de 1 hora (48 horas) del cierre, sin objetivo, salida a
+    las `horas` horas. La señal es que una medida de la hora quede en su
+    decil alto frente a las 720 horas (30 días) ANTERIORES, por activo."""
+
+    VENTANA_RANGO = 720
+    DECIL = 0.9
+
+    def __init__(self, horas: int = 8, stop_atr: float = 3.0):
+        self.horas, self.stop_atr = horas, stop_atr
+
+    @classmethod
+    def _alto(cls, x: pd.Series) -> pd.Series:
+        umbral = x.shift(1).rolling(cls.VENTANA_RANGO, min_periods=cls.VENTANA_RANGO // 2).quantile(cls.DECIL)
+        return (x > umbral) & umbral.notna()
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.copy() if "ATR_H" in df.columns else self.precalcular(df)
+
+    def _niveles(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        atr = df["ATR_H"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        return Entrada(sl=float(df["Close"].iloc[t]) - self.stop_atr * float(atr))
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.horas - 1
+
+
+class FlujoOrdenes(_PorHoras):
+    """Flujo de órdenes (doc fase-3/15 §1): la parte del volumen de las
+    últimas `ventana` horas que compraron los agresores (`Taker` / `Volume`).
+    Compra cuando queda en su decil alto de los 30 días anteriores: compras
+    agresivas inusuales."""
+
+    nombre = "flujo_ordenes_cripto"
+    VENTANAS = (4, 24)
+
+    def __init__(self, ventana: int = 4, **kw):
+        super().__init__(**kw)
+        self.ventana = ventana
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        for w in cls.VENTANAS:
+            flujo = df["Taker"].rolling(w).sum() / df["Volume"].rolling(w).sum().replace(0, np.nan)
+            out[f"FLUJO_{w}"] = flujo
+            out[f"FLUJO_ALTO_{w}"] = cls._alto(flujo)
+        out["ATR_H"] = _atr(df, 48)
+        return out
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if not df[f"FLUJO_ALTO_{self.ventana}"].iloc[t]:
+            return None
+        return self._niveles(df, t)
+
+
+class LibroCripto(_PorHoras):
+    """Desequilibrio del libro (doc fase-3/15 §1): la media en la hora de
+    `(compra - venta) / (compra + venta)` con lo acumulado hasta ±`banda` %
+    en el libro del perpetuo de Binance. Compra cuando queda en su decil
+    alto de los 30 días anteriores: más órdenes de compra esperando que de
+    venta."""
+
+    nombre = "libro_cripto"
+    BANDAS = (1, 5)
+
+    def __init__(self, banda: int = 1, **kw):
+        super().__init__(**kw)
+        self.banda = banda
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        for b in cls.BANDAS:
+            col = f"OBI_{b}"
+            if col not in out.columns:
+                out[col] = np.nan
+            out[f"OBI_ALTO_{b}"] = cls._alto(out[col])
+        out["ATR_H"] = _atr(df, 48)
+        return out
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if not df[f"OBI_ALTO_{self.banda}"].iloc[t]:
+            return None
+        return self._niveles(df, t)
+
+
+def _azar_por_horas(base, columna):
+    """La referencia al azar de una idea por horas: largos a una hora
+    cualquiera en la que la medida exista, con las mismas salidas."""
+
+    class Azar(base):
+        nombre = "azar_" + base.nombre
+
+        def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+            super().__init__(**kw)
+            self.probabilidad, self.semilla = probabilidad, semilla
+
+        def entrada(self, df, t):
+            if pd.isna(df[columna(self)].iloc[t]):
+                return None
+            clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+            if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+                return None
+            return self._niveles(df, t)
+
+    Azar.__name__ = Azar.__qualname__ = "Azar" + base.__name__
+    return Azar
+
+
+AzarFlujo = _azar_por_horas(FlujoOrdenes, lambda e: f"FLUJO_{e.ventana}")
+AzarLibro = _azar_por_horas(LibroCripto, lambda e: f"OBI_{e.banda}")
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
@@ -681,7 +799,9 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "caida_etf": (CaidaEtf, AzarCualquierDia, "accion"),
                   "hora_cripto": (HoraCripto, AzarHoraCripto, "cripto"),
                   "perfil_volumen": (PerfilVolumen, AzarPerfil, "accion"),
-                  "perfil_volumen_cripto": (PerfilVolumen, AzarPerfil, "cripto")}
+                  "perfil_volumen_cripto": (PerfilVolumen, AzarPerfil, "cripto"),
+                  "flujo_ordenes_cripto": (FlujoOrdenes, AzarFlujo, "cripto"),
+                  "libro_cripto": (LibroCripto, AzarLibro, "cripto")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -696,7 +816,10 @@ CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          # El perfil de volumen (doc fase-3/14): en los ETF, sin sesgo de
          # supervivencia y con todo su histórico, y en las 14 criptos.
          "perfil_volumen": {"universo": "etf", "intervalo": "1d", "periodo": "max"},
-         "perfil_volumen_cripto": {"intervalo": "1d", "periodo": "max"}}
+         "perfil_volumen_cripto": {"intervalo": "1d", "periodo": "max"},
+         # Microestructura en cripto (doc fase-3/15): ficheros de Binance.
+         "flujo_ordenes_cripto": {"fuente": "binance"},
+         "libro_cripto": {"fuente": "binance", "libro": True}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -710,7 +833,9 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
             "hora_cripto": {"hora": (0, 8, 13, 20), "horas": (4, 8)},
             "perfil_volumen": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
-            "perfil_volumen_cripto": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)}}
+            "perfil_volumen_cripto": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
+            "flujo_ordenes_cripto": {"ventana": FlujoOrdenes.VENTANAS, "horas": (8, 24)},
+            "libro_cripto": {"banda": LibroCripto.BANDAS, "horas": (8, 24)}}
 
 # Hasta el 2026-11-05 el percentil exigido subía un punto por cada prueba
 # de ESTE modo (las 8 de abajo se juzgaron así). Desde entonces sale de la
@@ -726,7 +851,8 @@ CON_SUPERVIVENCIA = {"activo", "sp100", "medianas"}
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
 SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100,
-            "perfil_volumen": 100, "perfil_volumen_cripto": 100}
+            "perfil_volumen": 100, "perfil_volumen_cripto": 100,
+            "flujo_ordenes_cripto": 100, "libro_cripto": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
@@ -890,11 +1016,16 @@ def informe(nombre: str, datos: dict, semillas: int = 20) -> str:
 
 
 def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
-              resultados: bool = False, intervalo: str = "1h", periodo: str = PERIODO) -> dict:
+              resultados: bool = False, intervalo: str = "1h", periodo: str = PERIODO,
+              fuente: str = "yahoo", libro: bool = False) -> dict:
     """Velas (de 1 hora por defecto) de una clase en un universo (`datos.universo_nombrado`;
     el activo, en local y sin acceso a la base de datos, es la semilla de la
     0003 y las criptos de la 0032). Con `resultados`, marca los días de
-    resultados y deja fuera las acciones de las que Yahoo no da fechas."""
+    resultados y deja fuera las acciones de las que Yahoo no da fechas.
+    Con `fuente="binance"`, las velas de 1 hora del contado de Binance, con
+    el volumen de los compradores agresivos (`laboratorio.binance`); con
+    `libro`, además el desequilibrio del libro por hora, y solo las horas
+    desde que lo hay (2023)."""
     if cache is not None and cache.exists():
         return pickle.loads(cache.read_bytes())
     datos = {}
@@ -902,7 +1033,15 @@ def cargar_1h(clase: str, cache: Path | None = None, universo: str = "activo",
     for simbolo, c in activos:
         if c != clase:
             continue
-        df = cargar(simbolo, clase, periodo, intervalo=intervalo)
+        if fuente == "binance":
+            from laboratorio import binance
+            sub = None if cache is None else cache.parent / "binance"
+            df = binance.velas(simbolo, sub)
+            if df is not None and libro:
+                obi = binance.libro(simbolo, sub)
+                df = None if obi is None else df.join(obi, how="left").loc[obi.index[0]:]
+        else:
+            df = cargar(simbolo, clase, periodo, intervalo=intervalo)
         if df is None or len(df) < barras_mes(clase, intervalo) * 2:
             continue
         if resultados:

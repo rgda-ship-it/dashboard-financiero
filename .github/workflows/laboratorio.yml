@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       modo:
-        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente; contra_azar = una estrategia cruzada frente a 30 tiradas al azar; intradia = velas de 1 hora, con la estrategia rebote_caida, ruptura_primera_hora, hueco_resultados, deriva_resultados, deriva_largos, rebote_fondo_bajista, caida_etf, hora_cripto, perfil_volumen o perfil_volumen_cripto (de deriva_resultados a caida_etf y los dos perfiles, con velas diarias) en «estrategias» (doc fase-3/10)'
+        description: 'laboratorio = comparar estrategias; robustez = poner a prueba una que pasó; cartera = con las restricciones del agente; contra_azar = una estrategia cruzada frente a 30 tiradas al azar; intradia = velas de 1 hora, con la estrategia rebote_caida, ruptura_primera_hora, hueco_resultados, deriva_resultados, deriva_largos, rebote_fondo_bajista, caida_etf, hora_cripto, perfil_volumen, perfil_volumen_cripto, flujo_ordenes_cripto o libro_cripto (de deriva_resultados a caida_etf y los dos perfiles, con velas diarias; las dos últimas, con ficheros de Binance) en «estrategias» (doc fase-3/10)'
         type: choice
         options: [laboratorio, robustez, cartera, contra_azar, intradia]
         default: laboratorio
