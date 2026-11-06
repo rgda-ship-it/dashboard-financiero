@@ -68,6 +68,15 @@ def leer_velas(crudo: pd.DataFrame) -> pd.DataFrame:
     return df[~df.index.duplicated()].sort_index()
 
 
+def a_diarias(df: pd.DataFrame) -> pd.DataFrame:
+    """Velas de 1 hora → diarias por día UTC (como las de Yahoo en cripto).
+    Los días incompletos (menos de 20 horas) se quitan."""
+    g = df.groupby(df.index.floor("D"))
+    out = pd.DataFrame({"Open": g["Open"].first(), "High": g["High"].max(), "Low": g["Low"].min(),
+                        "Close": g["Close"].last(), "Volume": g["Volume"].sum(), "Taker": g["Taker"].sum()})
+    return out[g.size() >= 20]
+
+
 def resumir_libro(crudo: pd.DataFrame, bandas=BANDAS) -> pd.DataFrame:
     """Un csv de `bookDepth` (timestamp, percentage, depth, notional) → por
     hora, la media del desequilibrio `(compra − venta) / (compra + venta)`

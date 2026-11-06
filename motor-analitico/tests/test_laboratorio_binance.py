@@ -86,3 +86,38 @@ def test_el_libro_compra_en_su_decil_alto_y_el_azar_solo_con_libro():
     assert azar and all(op.fecha_senal >= df.index[200] for op in azar)
     azar_f = simular(df, AzarFlujo(probabilidad=0.2, semilla=2, ventana=24, horas=8), SIN_SPREAD)
     assert azar_f and all(op.fecha_senal >= df.index[23] for op in azar_f)
+
+
+def test_las_diarias_salen_de_las_horas_por_dia_utc_y_sin_dias_incompletos():
+    df = _horas(n=24 * 3 + 5)
+    d = binance.a_diarias(df)
+    assert list(d.index) == [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-02"), pd.Timestamp("2024-01-03")]
+    dia = df.loc["2024-01-02"]
+    assert d.loc["2024-01-02", "Open"] == dia["Open"].iloc[0] and d.loc["2024-01-02", "Close"] == dia["Close"].iloc[-1]
+    assert d.loc["2024-01-02", "High"] == dia["High"].max() and d.loc["2024-01-02", "Taker"] == dia["Taker"].sum()
+
+
+def _diarias_con_tendencia(n=600, semilla=4):
+    rng = np.random.default_rng(semilla)
+    c = 100 * np.exp(np.cumsum(rng.normal(0.002, 0.03, n)))
+    o = np.concatenate([[c[0]], c[:-1]])
+    idx = pd.date_range("2022-01-01", periods=n, freq="D")
+    return pd.DataFrame({"Open": o, "High": np.maximum(o, c) * 1.01, "Low": np.minimum(o, c) * 0.99, "Close": c,
+                         "Volume": 100.0, "Taker": rng.uniform(40, 60, n)}, index=idx)
+
+
+def test_el_filtro_de_flujo_solo_deja_rupturas_con_flujo_alto_y_el_azar_solo_rupturas():
+    from laboratorio.intradia import AzarTendenciaFlujo, TendenciaFlujo, TendenciaSinFiltro
+    df = _diarias_con_tendencia()
+    pre = TendenciaFlujo.precalcular(df)
+    base = simular(df, TendenciaSinFiltro(), SIN_SPREAD)
+    filtrada = simular(df, TendenciaFlujo(ventana=1, umbral=0.5), SIN_SPREAD)
+    assert base and filtrada and len(filtrada) < len(base)
+    for op in filtrada:
+        f = pre.loc[op.fecha_senal]
+        assert f["FLUJO_ALTO_1_50"] and f["Close"] > f["MAX_RUPTURA"] and f["Close"] > f["SMA_200"]
+    azar = simular(df, AzarTendenciaFlujo(probabilidad=0.5, semilla=1), SIN_SPREAD)
+    assert azar
+    for op in azar:
+        f = pre.loc[op.fecha_senal]
+        assert f["Close"] > f["MAX_RUPTURA"] and f["Close"] > f["SMA_200"]
