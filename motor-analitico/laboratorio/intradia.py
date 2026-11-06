@@ -566,6 +566,111 @@ class AzarHoraCripto(HoraCripto):
         return self._niveles(df, t)
 
 
+def nivel_de_mas_volumen(df: pd.DataFrame, dias: int, casillas: int = 40) -> pd.Series:
+    """El punto de control del perfil de volumen (POC) de las `dias` sesiones
+    ANTERIORES a cada vela: el precio con más volumen negociado. El rango
+    de esas sesiones se parte en `casillas` tramos de precio, y el volumen de
+    cada sesión se reparte entre los tramos que cubre su rango, en
+    proporción a lo que cubre. Causal: en t no usa la vela t."""
+    alto, bajo = df["High"].to_numpy(float), df["Low"].to_numpy(float)
+    vol = df["Volume"].to_numpy(float)
+    poc = np.full(len(df), np.nan)
+    for t in range(dias, len(df)):
+        a, b, v = alto[t - dias:t], bajo[t - dias:t], vol[t - dias:t]
+        lo, hi = b.min(), a.max()
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo or not np.nansum(v) > 0:
+            continue
+        bordes = np.linspace(lo, hi, casillas + 1)
+        # Lo que cubre cada sesión de cada tramo, en proporción a su rango.
+        cubre = np.clip(np.minimum(a[:, None], bordes[None, 1:]) - np.maximum(b[:, None], bordes[None, :-1]), 0, None)
+        rango = (a - b)[:, None]
+        peso = np.where(rango > 0, cubre / np.where(rango > 0, rango, 1.0), 0.0)
+        reparto = (np.nan_to_num(v)[:, None] * peso).sum(axis=0)
+        k = int(np.argmax(reparto))
+        poc[t] = (bordes[k] + bordes[k + 1]) / 2
+    return pd.Series(poc, index=df.index)
+
+
+class PerfilVolumen:
+    """El primer toque del nivel de más volumen (doc fase-3/13 §5.1; doc
+    fase-3/14). Al cierre del día en que el mínimo toca el POC de las `dias`
+    sesiones anteriores y el cierre queda por encima, viniendo de arriba (el
+    día anterior cerró y tuvo su mínimo por encima del nivel), compra en la
+    apertura siguiente: el nivel donde más se negoció hace de soporte. Stop
+    a `stop_atr` ATR del cierre, sin objetivo; sale en la apertura siguiente
+    a `sesiones` sesiones dentro. Velas diarias."""
+
+    nombre = "perfil_volumen"
+
+    COMPRA_CAIDAS = True    # compra un retroceso hasta el nivel
+    DIAS = (20, 60)          # las ventanas de la rejilla, calculadas una vez
+
+    def __init__(self, dias: int = 20, sesiones: int = 10, stop_atr: float = 2.0):
+        self.dias, self.sesiones, self.stop_atr = dias, sesiones, stop_atr
+
+    @classmethod
+    def precalcular(cls, df: pd.DataFrame) -> pd.DataFrame:
+        out = df.copy()
+        for n in cls.DIAS:
+            out[f"POC_{n}"] = nivel_de_mas_volumen(df, n)
+        out["ATR_D"] = _atr(df, 14)
+        return out
+
+    def preparar(self, df: pd.DataFrame) -> pd.DataFrame:
+        if f"POC_{self.dias}" in df.columns:
+            return df.copy()
+        out = df.copy()
+        out[f"POC_{self.dias}"] = nivel_de_mas_volumen(df, self.dias)
+        out["ATR_D"] = _atr(df, 14)
+        return out
+
+    def _niveles(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        atr = df["ATR_D"].iloc[t]
+        if pd.isna(atr) or atr <= 0:
+            return None
+        return Entrada(sl=float(df["Close"].iloc[t]) - self.stop_atr * float(atr))
+
+    def _encima(self, df: pd.DataFrame, t: int) -> float | None:
+        """El POC si el cierre de t queda por encima; si no, None."""
+        poc = df[f"POC_{self.dias}"].iloc[t]
+        if pd.isna(poc) or not df["Close"].iloc[t] > poc:
+            return None
+        return float(poc)
+
+    def entrada(self, df: pd.DataFrame, t: int) -> Entrada | None:
+        if t < 1:
+            return None
+        poc = self._encima(df, t)
+        if poc is None or not df["Low"].iloc[t] <= poc:
+            return None
+        if not (df["Low"].iloc[t - 1] > poc and df["Close"].iloc[t - 1] > poc):
+            return None
+        return self._niveles(df, t)
+
+    def actualizar(self, df: pd.DataFrame, t: int, pos: Posicion):
+        return pos.sl, t - pos.indice_entrada >= self.sesiones - 1
+
+
+class AzarPerfil(PerfilVolumen):
+    """La referencia de `PerfilVolumen`: largos un día cualquiera que cierre
+    por encima del POC, sin esperar al toque, con el mismo stop y la misma
+    salida. Mide si el toque aporta algo sobre estar por encima del nivel."""
+
+    nombre = "azar_perfil"
+
+    def __init__(self, probabilidad: float = 0.01, semilla: int = 0, **kw):
+        super().__init__(**kw)
+        self.probabilidad, self.semilla = probabilidad, semilla
+
+    def entrada(self, df, t):
+        if self._encima(df, t) is None:
+            return None
+        clave = f"{self.semilla}-{df.index[t].value}-{float(df['Close'].iloc[t]):.6f}".encode()
+        if int(hashlib.md5(clave).hexdigest()[:8], 16) / 0xFFFFFFFF >= self.probabilidad:
+            return None
+        return self._niveles(df, t)
+
+
 # (estrategia, su referencia al azar, clase de activo)
 ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "ruptura_primera_hora": (RupturaPrimeraHora, AzarPrimeraHora, "accion"),
@@ -574,7 +679,9 @@ ESTRATEGIAS_1H = {"rebote_caida": (ReboteCaida, AzarRebote, "cripto"),
                   "deriva_largos": (DerivaLargos, AzarDerivaLargos, "accion"),
                   "rebote_fondo_bajista": (ReboteFondoBajista, AzarFondoBajista, "accion"),
                   "caida_etf": (CaidaEtf, AzarCualquierDia, "accion"),
-                  "hora_cripto": (HoraCripto, AzarHoraCripto, "cripto")}
+                  "hora_cripto": (HoraCripto, AzarHoraCripto, "cripto"),
+                  "perfil_volumen": (PerfilVolumen, AzarPerfil, "accion"),
+                  "perfil_volumen_cripto": (PerfilVolumen, AzarPerfil, "cripto")}
 
 # De dónde salen los activos y si hacen falta los días de resultados. Con
 # las 21 acciones del universo activo hay unos 250 días de resultados en
@@ -585,7 +692,11 @@ CARGA = {"hueco_resultados": {"universo": "sp100", "resultados": True},
          "deriva_largos": {"universo": "medianas", "resultados": True, "intervalo": "1d", "periodo": "10y"},
          "rebote_fondo_bajista": {"universo": "sp100", "intervalo": "1d", "periodo": "10y"},
          # Todo el histórico de los ETF: cubre 2000–2002 y 2008.
-         "caida_etf": {"universo": "etf", "intervalo": "1d", "periodo": "max"}}
+         "caida_etf": {"universo": "etf", "intervalo": "1d", "periodo": "max"},
+         # El perfil de volumen (doc fase-3/14): en los ETF, sin sesgo de
+         # supervivencia y con todo su histórico, y en las 14 criptos.
+         "perfil_volumen": {"universo": "etf", "intervalo": "1d", "periodo": "max"},
+         "perfil_volumen_cripto": {"intervalo": "1d", "periodo": "max"}}
 
 # La rejilla de cada estrategia, fijada ANTES de mirar los datos (doc
 # fase-3/10 §2 y §6), toda sobre el tramo de diseño.
@@ -597,7 +708,9 @@ REJILLAS = {"rebote_caida": {"caida_atr": (4.0, 6.0, 8.0), "horas": (6, 12, 24)}
             "deriva_largos": {"hueco_atr": (2.0,), "sesiones": (20,)},
             "rebote_fondo_bajista": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
             "caida_etf": {"stop_atr": (1.5, 3.0), "sesiones": (10, 20)},
-            "hora_cripto": {"hora": (0, 8, 13, 20), "horas": (4, 8)}}
+            "hora_cripto": {"hora": (0, 8, 13, 20), "horas": (4, 8)},
+            "perfil_volumen": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)},
+            "perfil_volumen_cripto": {"dias": PerfilVolumen.DIAS, "sesiones": (5, 20)}}
 
 # Hasta el 2026-11-05 el percentil exigido subía un punto por cada prueba
 # de ESTE modo (las 8 de abajo se juzgaron así). Desde entonces sale de la
@@ -612,7 +725,8 @@ CON_SUPERVIVENCIA = {"activo", "sp100", "medianas"}
 
 # Tiradas al azar por defecto. Con 20, el percentil va de 5 en 5; la prueba
 # fuera de la muestra se fijó con 100.
-SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100}
+SEMILLAS = {"deriva_largos": 100, "rebote_fondo_bajista": 100, "caida_etf": 100, "hora_cripto": 100,
+            "perfil_volumen": 100, "perfil_volumen_cripto": 100}
 
 
 def operar(datos: dict, estrategia) -> list:
