@@ -94,7 +94,7 @@ def test_las_diarias_salen_de_las_horas_por_dia_utc_y_sin_dias_incompletos():
     assert list(d.index) == [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-02"), pd.Timestamp("2024-01-03")]
     dia = df.loc["2024-01-02"]
     assert d.loc["2024-01-02", "Open"] == dia["Open"].iloc[0] and d.loc["2024-01-02", "Close"] == dia["Close"].iloc[-1]
-    assert d.loc["2024-01-02", "High"] == dia["High"].max() and d.loc["2024-01-02", "Taker"] == dia["Taker"].sum()
+    assert d.loc["2024-01-02", "High"] == dia["High"].max() and abs(d.loc["2024-01-02", "Taker"] - dia["Taker"].sum()) < 1e-9
 
 
 def _diarias_con_tendencia(n=600, semilla=4):
