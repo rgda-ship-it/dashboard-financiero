@@ -82,9 +82,10 @@ Común a los tres:
 - **Cuarentena y riesgo reducido suspendidos** durante el experimento
   (`consecuencias_semanales = false`, 0042): el corte semanal calcula la
   nota pero no la aplica.
-- **Prácticas** (0013, 0042): el corte semanal les adopta una cada lunes
-  y **no está congelado** (`CRONOLOGIA.md` §4). Las de hoy no les han
-  quitado ninguna entrada (comprobado el 2026-11-10).
+- **Prácticas congeladas** (0061): con las consecuencias suspendidas, el
+  corte semanal ya no les adopta ni les evalúa prácticas. Se quedan con
+  las que tenían (la 89, la 97 y la 110, de 2-11 y 9-11), que no les han
+  quitado ninguna entrada. Ver `CRONOLOGIA.md` §4.
 - **Ajustes automáticos congelados** (0052): con las consecuencias
   suspendidas no cambian solos su rotación, toma parcial ni deterioro.
   Las decisiones se siguen registrando y resolviendo; al acabar el
@@ -107,10 +108,8 @@ reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
   solo fuera del grupo de control. Sube el saldo inicial y queda en el
   libro mayor (`aportacion`) y en la auditoría.
 - Su veredicto está fijado en la 0060, con los umbrales de la 0059.
-- **Desde el 9-11 llevan la práctica 60** (adoptada sola en el corte):
-  exige acción de fuerza media, estructura, ATR < 3 % y R:R de 1,5 a 2,5,
-  así que no abren cripto. Ya no son solo su original más su filtro
-  (ESTADO §3.0).
+- **Llevan las prácticas de su original** (0061). Del 9-11 a la 0061
+  tuvieron la 60, que exige acción y les cerró las cripto.
 
 ### 2.2 Experimento: Tendencia cripto (doc fase-2/07)
 
