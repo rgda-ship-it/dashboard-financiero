@@ -7,7 +7,8 @@
 > para lo que pasó entre medias, [`CRONOLOGIA.md`](CRONOLOGIA.md).
 > **Comprobado contra producción**: 2026-10-27 (estrategias de
 > `agentes.estrategia`, tareas de `pg_cron` y workflows); la salida por
-> deterioro y la versión, según la 0053 (2026-10-31).
+> deterioro, según la 0053 (2026-10-31); la versión y las prácticas, el
+> 2026-11-10.
 > **Cómo mantenerlo**: quien cambie una regla de las de abajo actualiza su
 > fila en el mismo PR.
 
@@ -52,7 +53,8 @@ laboratorio se guarda para el final (ESTADO §3.0).
 | Salida por deterioro | **sí** (dos lecturas, 0043; apagada sola el 29-10 y encendida de nuevo por la 0053) | **no** (la apagó sola el 15-10) | **no** (la apagó sola el 15-10) |
 | Umbral de rotación | 2,0 | 1,5 | 1,2 |
 | Apalancamiento propio máximo | 3× | 5× | 5× |
-| Versión de la estrategia | 10 | 9 | 8 |
+| Versión de la estrategia | 12 | 11 | 9 |
+| Prácticas adoptadas (`mp_adopciones`) | 89 y 110 | 89 y 110 | 97 |
 
 Común a los tres:
 
@@ -80,6 +82,9 @@ Común a los tres:
 - **Cuarentena y riesgo reducido suspendidos** durante el experimento
   (`consecuencias_semanales = false`, 0042): el corte semanal calcula la
   nota pero no la aplica.
+- **Prácticas** (0013, 0042): el corte semanal les adopta una cada lunes
+  y **no está congelado** (`CRONOLOGIA.md` §4). Las de hoy no les han
+  quitado ninguna entrada (comprobado el 2026-11-10).
 - **Ajustes automáticos congelados** (0052): con las consecuencias
   suspendidas no cambian solos su rotación, toma parcial ni deterioro.
   Las decisiones se siguen registrando y resolviendo; al acabar el
@@ -102,6 +107,10 @@ reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
   solo fuera del grupo de control. Sube el saldo inicial y queda en el
   libro mayor (`aportacion`) y en la auditoría.
 - Su veredicto está fijado en la 0060, con los umbrales de la 0059.
+- **Desde el 9-11 llevan la práctica 60** (adoptada sola en el corte):
+  exige acción de fuerza media, estructura, ATR < 3 % y R:R de 1,5 a 2,5,
+  así que no abren cripto. Ya no son solo su original más su filtro
+  (ESTADO §3.0).
 
 ### 2.2 Experimento: Tendencia cripto (doc fase-2/07)
 
