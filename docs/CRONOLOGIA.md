@@ -55,6 +55,8 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-11-05 | Veredicto fijado (0059): lo que espera el laboratorio y los umbrales de cada agente, sin poder cambiarse | — (no cambia cómo operan; es el criterio con que se juzgan) |
 | 2026-11-05 18:54 | Alta del S&P 500 y el Nasdaq 100 como acciones activas; la 0058 los deja solo de referencia | Vara de las acciones (33 activos antes, 35 hasta la 0058) |
 | 2026-11-05 | Criterio del laboratorio (doc fase-3/12 §1): percentil por la cuenta global de pruebas, el diseño contra el azar y ventanas móviles | Veredictos del laboratorio de antes (se juzgaron con el criterio de entonces) |
+| 2026-11-02 00:07 | **Adopción automática** en el corte semanal: Prudencia y Cadencia, la práctica 89; Audacia, la 97 (versiones 11, 10 y 9) | Nada todavía: hasta el 10-11 no les quitó ninguna entrada |
+| **2026-11-09 00:07** | **Adopción automática**: Prudencia y Cadencia, la 110 (versiones 12 y 11), sin efecto todavía; las tres v2, la 60, que exige acción y les cierra las cripto | Entradas de las v2: desde aquí dejan de ser su original más su filtro |
 | 2026-11-02 21:48 | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
 | **2026-11-02 21:48** | **0055 (D25)**: saldo para operar = base × tope de la fase, con base fija y escalones; el tope se mide sobre la base (decisión del dueño, a mitad del experimento) | Apalancamiento y margen de cada orden, y cuántas posiciones caben a la vez en los tres agentes con metas y en el simulador. El riesgo por operación y el R no cambian |
 
@@ -79,7 +81,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 ## 4. Mecanismos que cambian las reglas solos
 
 Aunque el grupo de control no se toca a mano durante el experimento, hay
-tres cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
+cuatro cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
 
 1. **Ajustes automáticos (0016, 0024)**: con 10 decisiones resueltas de
    un tipo, el agente cambia por su cuenta la rotación, la toma parcial,
@@ -90,6 +92,13 @@ tres cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
 2. **Fase 1 / Fase 2**: una cuenta pasa sola a Fase 2 (tope 3×) al cumplir
    su criterio, y vuelve a Fase 1 solo a mano (regla protegida nº5).
 3. **Pausa por caída** de Tendencia cripto (35 %, 0039).
+4. **Adopción de prácticas** en el corte semanal (0013, 0042): cada semana
+   «aviso» o «deficiente», el agente adopta la práctica ajena mejor
+   valorada que pueda aplicar, y a las dos semanas, con 5 operaciones, la
+   evalúa y puede abandonarla. **No está congelada**: la 0052 solo paró
+   los ajustes. Quedan en `mp_adopciones` (de ahí lee el ciclo) y suben la
+   versión. Hasta hoy: las del 5-10 (abandonadas por la 0030), el 2-11 y
+   el 9-11 (ver §1).
 
 Para saber con qué reglas operaba un agente en una fecha:
 `select * from agente_estrategia_versiones where agente_id = … order by version`

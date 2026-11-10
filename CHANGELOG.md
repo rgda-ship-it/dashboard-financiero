@@ -4,6 +4,23 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-10 — Revisión del lunes 9-11: las prácticas cambian a los agentes solas
+
+Datos del 3-11 al 10-11 (con la 0043, la 0052, la 0053 y la 0055; las v2, desde su alta el 5-11 a las 20:34; el 10-11, a media mañana).
+
+### Hallazgo
+- **El corte semanal adopta prácticas y nada lo congela**. Cada semana «aviso» o «deficiente» llama a `fn_adoptar_practica` (0042), y con las metas inalcanzables todas lo son. La 0052 congeló `fn_ajustar_parametros`, pero no esto. El 2-11 Prudencia y Cadencia adoptaron la práctica 89 y Audacia la 97; el 9-11, Prudencia y Cadencia la 110. Cada adopción sube la versión: Prudencia 12, Cadencia 11, Audacia 9. Por ahora no les ha quitado ninguna entrada (ningún descarte `practica` del 3 al 10-11). Con sus bandas de ATR y R:R, solo la 89 puede llegar a tocar a Cadencia (acciones de fuerza media, niveles de estructura, ATR < 3 % y R:R de 1,3 a 1,5).
+- **Las v2 se apartan de su diseño desde el 9-11 a las 00:07**. Nacieron con `practicas_adoptadas` copiado del original, pero sin fila en `mp_adopciones`, que es de donde lee el ciclo: hasta el 9-11 no aplicaban la 89 ni la 97. Ese día las tres adoptaron la 60, que es de **exigir** (acción de fuerza media, estructura, ATR < 3 % y R:R de 1,5 a 2,5). Como exige clase acción, descarta **todas las cripto**, y en acciones, las de fuerza alta, R:R ≥ 2,5 o niveles por ATR. Desde entonces los originales abrieron cuatro posiciones (zcash, BAC y avalanche dos veces) y las v2, ninguna (descartes `practica`: 81 y 67 en Audacia v2, 60 y 29 en Prudencia v2). Lo que espera el laboratorio (0060) ya no describe lo que operan.
+- **La H3 ya se puede medir, y el filtro protege**. Hay 82–84 descartes por `rr` con 5 sesiones vistas por agente (21 activos), que hicieron −0,33 ATR (Audacia), −0,39 (Cadencia) y −0,51 (Prudencia), frente a −0,23 del universo. Para proponer relajarlo tendrían que superar al universo en 0,25 ATR. Tampoco salta `niveles_origen` en Prudencia (30 descartes, −1,13 ATR). Ninguna hipótesis el 9-11, y es lo correcto.
+
+### Comprobado
+- Salud en verde: los dos ETL sin fallos, 35/35 acciones y 15/15 cripto con señal, ninguna credencial por caducar y ningún evento de fallo. Solo un corte de conexión aislado con bitcoin el 3-11.
+- La semana, en R: Prudencia −1,92 en 6 cierres; Cadencia −1,17 en 2; Audacia −0,14 en 5; Prudencia v2 −1,79 en 3; Audacia v2 −2,00 en 2; Cadencia v2, sin operaciones. ethereum tocó el stop a la vez en las cinco cuentas que lo tenían (8-11, 21:59). Un solo hueco: EWY de Audacia, con −1,66 R.
+- Audacia pasó sola a Fase 2 (tope 3×) el 8-11, tras 8 operaciones en Fase 1.
+- Tendencia cripto, sin operaciones: ninguna cripto rompe su máximo de 20 días estando sobre la media de 200. Las más cerca, zcash a 2,0 ATR y avalanche a 2,6.
+- Stops con la regla de la 0030: 13 (se revisan al llegar a unos 30).
+- Backlog: Audacia pide ahora «Ampliar mi riesgo abierto por mercado» (320 descartes por `clase_lleno`). Es la misma que se le rechazó a Prudencia (0054) y es del grupo de control: se queda hasta el final. Las v2 piden lo habitual (`rr`, la meta y la semana deficiente).
+
 ## [Sin publicar] - 2026-11-06 — Compras de directivos (Form 4), sin ventaja
 
 ### Añadido
