@@ -4,6 +4,16 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-10 — 0061: prácticas congeladas durante el experimento
+
+### Cambiado
+- `fn_adoptar_practica` y `fn_evaluar_adopciones` no hacen nada en un agente con `consecuencias_semanales = false`, el mismo interruptor de la 0042 y la 0052. El corte semanal ya no cambia las reglas del grupo de control ni de las v2 cada lunes; al acabar el experimento vuelve a adoptar y evaluar con todo lo acumulado.
+- Las v2 dejan las prácticas que adoptaron por su cuenta (la 60, el 9-11) y llevan las activas de su original: Prudencia v2 y Cadencia v2, la 89 y la 110; Audacia v2, la 97. Vuelven a ser su original más su filtro.
+- Las prácticas del grupo de control se quedan como están (decisión del dueño): hasta hoy no les han quitado ninguna entrada.
+
+### Pruebas
+- Invariante I111. La I48 enciende las consecuencias de Cadencia un momento para seguir probando la adopción.
+
 ## [Sin publicar] - 2026-11-10 — Revisión del lunes 9-11: las prácticas cambian a los agentes solas
 
 Datos del 3-11 al 10-11 (con la 0043, la 0052, la 0053 y la 0055; las v2, desde su alta el 5-11 a las 20:34; el 10-11, a media mañana).

@@ -1877,9 +1877,13 @@ begin
     -- la 0027: su ATR del 4 % es de Audacia.)
     select version_estrategia into v_num from public.agentes where id = v_cad;
     v_json := public.fn_decidir_agente(v_cad);
+    -- 0061: con las consecuencias suspendidas no adopta nada; aquí se
+    -- prueba la adopción en sí, así que se encienden un momento.
+    update public.agentes set consecuencias_semanales = true where id = v_cad;
     if public.fn_adoptar_practica(v_cad) is distinct from v_practica then
         raise exception 'I48 FALLO: Cadencia no adoptó la única práctica compatible';
     end if;
+    update public.agentes set consecuencias_semanales = false where id = v_cad;
     v_json2 := public.fn_decidir_agente(v_cad);
     if (v_json ->> 'candidatos_evaluados')::int <> 1
        or (v_json2 ->> 'candidatos_evaluados')::int <> 0
@@ -5929,6 +5933,98 @@ begin
     raise notice 'PASS  I110 las v2: agentes nuevos con sus filtros y su veredicto; saldo añadido solo por el administrador y fuera del grupo de control';
 end
 $i110$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I111 · Prácticas congeladas durante el experimento (0061).
+--
+-- Con las consecuencias suspendidas, el agente no adopta ni evalúa
+-- prácticas aunque haya una adoptable y una adopción vencida con
+-- operaciones; al volver las consecuencias, sí. Y cada v2 lleva
+-- exactamente las prácticas activas de su original.
+-- ═════════════════════════════════════════════════════════════════════
+do $i111$
+declare
+    v_ag    bigint;
+    v_autor bigint;
+    v_pr    bigint;
+    v_pr2   bigint;
+    v_cta   bigint;
+    v_act   bigint;
+    v_json  jsonb;
+begin
+    begin
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia, consecuencias_semanales)
+        values ('prueba-practicas', 2, 'pausado',
+                '{"clases_admitidas": ["accion", "cripto"], "fuerzas_admitidas": ["media", "alta"]}', false)
+        returning id into v_ag;
+        insert into public.agentes (nombre, objetivo_diario_pct, estado, estrategia)
+        values ('prueba-autor', 2, 'pausado', '{}') returning id into v_autor;
+        insert into public.mejores_practicas
+            (agente_autor_id, firma, titulo, contexto, regla, condiciones, resultado_observado,
+             confianza, sentido)
+        values (v_autor, 'i111-a', 't', 'c', 'r', '{"clase": "cripto"}', '{"ops": 50}', 1, 'evitar'),
+               (v_autor, 'i111-b', 't', 'c', 'r', '{"clase": "accion"}', '{"ops": 3}', 1, 'evitar');
+        select id into v_pr  from public.mejores_practicas where firma = 'i111-a';
+        select id into v_pr2 from public.mejores_practicas where firma = 'i111-b';
+
+        -- Una adopción de hace 15 días con 5 operaciones que empeoraron.
+        perform public.fn_crear_cuenta_agente(v_ag);
+        v_cta := public.fn_cuenta_agente(v_ag);
+        select id into v_act from public.activos limit 1;
+        insert into public.mp_adopciones (practica_id, agente_id, adoptada_en)
+        values (v_pr2, v_ag, now() - interval '15 days');
+        insert into public.ordenes
+            (cuenta_id, activo_id, origen, estado, precio_entrada, fecha_entrada, cantidad,
+             apalancamiento, margen_comprometido, tp, sl, precio_liquidacion,
+             precio_salida, fecha_salida, motivo_cierre, pnl_bruto, pnl_pct)
+        select v_cta, v_act, 'agente', 'cerrada', 100, now() - interval '20 days', 1, 1, 100,
+               130, 90, 0, 105, now() - interval '20 days', 'manual', 5, 5
+        union all
+        select v_cta, v_act, 'agente', 'cerrada', 100, now() - interval '10 days', 1, 1, 100,
+               130, 90, 0, 97, now() - interval '10 days', 'manual', -3, -3
+          from generate_series(1, 5);
+
+        if public.fn_adoptar_practica(v_ag) is not null
+           or exists (select 1 from public.mp_adopciones where agente_id = v_ag and practica_id = v_pr) then
+            raise exception 'I111 FALLO: con las consecuencias suspendidas el agente adoptó una práctica';
+        end if;
+        v_json := public.fn_evaluar_adopciones(v_ag);
+        if v_json <> '[]'::jsonb
+           or (select veredicto from public.mp_adopciones where agente_id = v_ag and practica_id = v_pr2) is not null then
+            raise exception 'I111 FALLO: con las consecuencias suspendidas se evaluó una adopción: %', v_json;
+        end if;
+
+        update public.agentes set consecuencias_semanales = true where id = v_ag;
+        -- Puede elegir otra práctica de las invariantes anteriores: basta
+        -- con que adopte alguna.
+        if public.fn_adoptar_practica(v_ag) is null then
+            raise exception 'I111 FALLO: al volver las consecuencias debía adoptar la práctica';
+        end if;
+        if (select veredicto from public.mp_adopciones where agente_id = v_ag and practica_id = v_pr2)
+               is distinct from 'empeoro'
+           and public.fn_evaluar_adopciones(v_ag) = '[]'::jsonb then
+            raise exception 'I111 FALLO: al volver las consecuencias debía evaluar la adopción vencida';
+        end if;
+        raise exception 'I111 OK';
+    exception when others then
+        if sqlerrm <> 'I111 OK' then
+            raise;
+        end if;
+    end;
+
+    -- Cada v2, con las mismas prácticas activas que su original.
+    if exists (select 1 from public.agentes v
+                where v.deriva_de is not null
+                  and (select coalesce(array_agg(practica_id order by practica_id), '{}')
+                         from public.mp_adopciones where agente_id = v.id and abandonada_en is null)
+                      is distinct from
+                      (select coalesce(array_agg(practica_id order by practica_id), '{}')
+                         from public.mp_adopciones where agente_id = v.deriva_de and abandonada_en is null)) then
+        raise exception 'I111 FALLO: una v2 no lleva las prácticas de su original';
+    end if;
+    raise notice 'PASS  I111 las prácticas no se adoptan ni se evalúan con las consecuencias suspendidas; las v2 llevan las de su original';
+end
+$i111$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

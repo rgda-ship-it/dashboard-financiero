@@ -57,6 +57,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-11-05 | Criterio del laboratorio (doc fase-3/12 §1): percentil por la cuenta global de pruebas, el diseño contra el azar y ventanas móviles | Veredictos del laboratorio de antes (se juzgaron con el criterio de entonces) |
 | 2026-11-02 00:07 | **Adopción automática** en el corte semanal: Prudencia y Cadencia, la práctica 89; Audacia, la 97 (versiones 11, 10 y 9) | Nada todavía: hasta el 10-11 no les quitó ninguna entrada |
 | **2026-11-09 00:07** | **Adopción automática**: Prudencia y Cadencia, la 110 (versiones 12 y 11), sin efecto todavía; las tres v2, la 60, que exige acción y les cierra las cripto | Entradas de las v2: desde aquí dejan de ser su original más su filtro |
+| Al aplicar la 0061 | Prácticas congeladas mientras `consecuencias_semanales = false` (ni se adoptan ni se evalúan); las v2 dejan la 60 y llevan las de su original (decisión del dueño, 2026-11-10) | Entradas de las v2 entre el 9-11 y la 0061 |
 | 2026-11-02 21:48 | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
 | **2026-11-02 21:48** | **0055 (D25)**: saldo para operar = base × tope de la fase, con base fija y escalones; el tope se mide sobre la base (decisión del dueño, a mitad del experimento) | Apalancamiento y margen de cada orden, y cuántas posiciones caben a la vez en los tres agentes con metas y en el simulador. El riesgo por operación y el R no cambian |
 
@@ -95,8 +96,9 @@ cuatro cosas que **pueden cambiar** su comportamiento sin que nadie lo decida:
 4. **Adopción de prácticas** en el corte semanal (0013, 0042): cada semana
    «aviso» o «deficiente», el agente adopta la práctica ajena mejor
    valorada que pueda aplicar, y a las dos semanas, con 5 operaciones, la
-   evalúa y puede abandonarla. **No está congelada**: la 0052 solo paró
-   los ajustes. Quedan en `mp_adopciones` (de ahí lee el ciclo) y suben la
+   evalúa y puede abandonarla. **Congelada desde la 0061** mientras
+   `consecuencias_semanales = false` (la 0052 solo había parado los
+   ajustes). Quedan en `mp_adopciones` (de ahí lee el ciclo) y suben la
    versión. Hasta hoy: las del 5-10 (abandonadas por la 0030), el 2-11 y
    el 9-11 (ver §1).
 
