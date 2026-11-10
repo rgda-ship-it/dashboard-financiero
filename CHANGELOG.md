@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-10 — La 0061, aplicada
+
+### Comprobado
+- Aplicada a las 15:11 UTC. `fn_adoptar_practica` y `fn_evaluar_adopciones` llevan la guarda de `consecuencias_semanales`.
+- Las v2 dejaron la 60 (motivo `0061_v2_como_su_original`) y llevan las de su original (`0061_copia_del_original`): Prudencia v2 y Cadencia v2, la 89 y la 110; Audacia v2, la 97. `practicas_adoptadas` coincide y las tres pasan a la versión 3.
+- El grupo de control, igual: Prudencia y Cadencia con la 89 y la 110 (versiones 12 y 11), Audacia con la 97 (versión 9).
+
 ## [Sin publicar] - 2026-11-10 — 0061: prácticas congeladas durante el experimento
 
 ### Cambiado
