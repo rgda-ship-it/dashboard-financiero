@@ -4,6 +4,14 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-11 — La ventana de agentes, separada por grupos
+
+Pedido por el dueño: ver de un vistazo a qué corresponde cada agente.
+
+### Cambiado
+- El marcador, la comparativa y el veredicto separan a los agentes en grupos, cada uno con su título y una línea que dice qué es: **Grupo de control**, **Versiones 2**, **Estrategias del laboratorio** y, cuando existan, **Carteras**. En la comparativa, las varas de mercado quedan bajo «Mercado».
+- El grupo se deduce del tipo y del nombre (`datos/grupos.js`); si una vista trae `grupo`, manda ese. Sin migración.
+
 ## [Sin publicar] - 2026-11-11 — Fase 4: replanteamiento
 
 Pedido por el dueño: tras 38 ideas sin ventaja, revisar si falla el planteamiento base. Doc `fase-4/00`.

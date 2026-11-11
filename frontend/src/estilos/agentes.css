@@ -57,6 +57,12 @@
 
 .ag__vivo.is-vivo { color: var(--acc-400); }
 
+/* ── Grupos de agentes (doc fase-4/00 §6) ── */
+.ag__grupo + .ag__grupo { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--line-2); }
+.ag__grupo-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1) var(--sp-3); margin-bottom: var(--sp-3); }
+.ag__grupo-cab h3 { margin: 0; color: var(--tx-1); font-size: var(--fs-sm); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.ag__grupo-cab p { margin: 0; color: var(--tx-4); font-size: var(--fs-xs); }
+
 /* ── Marcador ── */
 .ag__marcador {
   display: grid;
