@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-11 — Fase 4: replanteamiento
+
+Pedido por el dueño: tras 38 ideas sin ventaja, revisar si falla el planteamiento base. Doc `fase-4/00`.
+
+### Diagnóstico
+- Las reglas de los agentes tienen expectativa cero a 10 años (−0,04, −0,15 y +0,06 R) y producción lo reproduce. Las 38 ideas del registro son de la misma familia: cuándo entrar en un activo, medido en R por operación.
+- Lo único que rindió nunca fue una señal: entrar al azar con un stop que sigue al precio ya daba +0,28 R en el S&P 100 (fase-2/06 §3.10). Gana estar comprado y salir bien.
+
+### Añadido
+- `laboratorio/asignacion.py`: mide la cartera entera, mes a mes, contra comprar y mantener, con la exposición desplazada al azar como referencia. Pruebas en `tests/test_laboratorio_asignacion.py`.
+- Tres ideas en `criterio.REGISTRO`, fijadas en un commit anterior al de los resultados: `tendencia_clases`, `volatilidad_objetivo_clases` y `tendencia_bitcoin`. Van 41.
+
+### Resultado
+- Ninguna pasa: cumplen cinco condiciones de seis y fallan la del azar (percentiles 91, 87 y 85 en validación; se exige el 98).
+- Mantener cinco clases de activo (SPY, EFA, IEF, VNQ y DBC) rinde +4,4 % al año de 2007 a 2020, con una caída del 44 %, y +9,7 % desde 2020. Es lo más rentable medido en el proyecto fuera de cripto.
+- La media de 10 meses deja la caída en el 13 % y el 7 % a cambio de 1 a 2,5 puntos de rentabilidad al año. En bitcoin, de −49 % a −23 % en validación.
+- Queda para el dueño qué hacer (doc §6): una vara viva, un agente experimental, cerrar la búsqueda de señales o cambiar el objetivo.
+
 ## [Sin publicar] - 2026-11-10 — La 0061, aplicada
 
 ### Comprobado
