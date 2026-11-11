@@ -197,3 +197,53 @@ solo si el dueño acepta que su veredicto tardará años.
 
 Esto describe un simulador con cuentas de 500 $ ficticios. No es una
 recomendación sobre dinero real.
+
+## 7. Lo decidido (2026-11-11)
+
+**El dueño elige A, B y C a la vez**, conviviendo con el experimento, y
+pide que la ventana de agentes separe a cada uno por lo que es.
+
+| Qué | Cómo queda |
+|---|---|
+| A. La vara viva | Agente **«Cartera sin tocar»** (0062): compra SPY, EFA, IEF, VNQ y DBC al 20 % y no hace nada más. Sin tope de caída: es la vara |
+| B. Tendencia sobre clases | Agente **«Cartera con tendencia»** (0062): cada clase, comprada solo si cerró el mes anterior sobre su media de 10 cierres mensuales |
+| C. Señales de entrada | **Cerrada la búsqueda** hasta que acabe el experimento: no se registran ideas nuevas de entrada en `criterio.REGISTRO` |
+| La ventana | Marcador, comparativa y veredicto, separados en Grupo de control, Versiones 2, Estrategias del laboratorio y Carteras |
+
+**Cómo operan** (`tipo = 'cartera'`):
+
+- Deciden **una vez al mes**, en la primera sesión con precio fresco de
+  los cinco (tarea `decision-carteras`, días 1 a 7, de 14:50 a 20:50
+  UTC), con los cierres del mes anterior. Los dos a la vez.
+- **No hacen nada hasta que existan los cinco ETF**, activos y con 10
+  meses de historia. Darlos de alta es del dueño, y antes hay que
+  comprobar que el broker los ofrece.
+- Compran por peso (20 % del equity), a 1×, sin stop ni objetivo. G6 no
+  les aplica: no hay stop con el que medir el riesgo abierto.
+- **Los cinco ETF son solo suyos** (`activos.solo_cartera`): el grupo de
+  control, las v2 y la vara del universo no los ven. Sin esto, el alta
+  cambiaría el universo del experimento. Tienen su propia vara, «Cinco
+  clases de activo», sin costes.
+
+**Lo que el simulador no hace y el laboratorio sí**:
+
+- **Dividendos**: el laboratorio usa precios ajustados; el simulador solo
+  ve el precio. La cartera pierde por eso del orden de 2 puntos al año
+  frente a lo medido, sobre todo en bonos e inmobiliario. Afecta igual a
+  los dos agentes, así que la comparación entre ellos se mantiene.
+- **Reequilibrio**: en el laboratorio la cartera sin tocar vuelve al 20 %
+  cada mes; aquí los pesos corren. La de tendencia sí se reajusta sola al
+  volver a comprar.
+
+**Criterio de la cartera con tendencia**, fijado antes de su primera
+operación:
+
+- Se juzga contra la cartera sin tocar, no en R.
+- **Cuándo**: cuando la cartera sin tocar haya caído un 15 % o más desde
+  su máximo y lo haya recuperado, o el **2031-11-30**, lo que llegue
+  antes. Sin una caída así no hay nada que juzgar: la regla es un seguro.
+- **Aprueba** si en ese periodo su caída máxima fue menor que la de la
+  vara y su rentabilidad anual no quedó más de 2,5 puntos por debajo (lo
+  que cuesta el seguro en el laboratorio).
+- **Pausa** sola si cae más de un 25 % desde su máximo: el doble de su
+  peor caída en 20 años de laboratorio (12,9 %).

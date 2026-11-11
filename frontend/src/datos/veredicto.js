@@ -115,6 +115,10 @@ export function veredicto(senal, { spread = null, agentes = [], bolsaAbierta = t
     // 0058: un índice (S&P 500, Nasdaq 100) es la vara del mercado: se lee, no se compra.
     return { ...base, accion: "no_comprar", titulo: "Índice", motivo: "Índice de referencia: sirve para comparar con el mercado; no se opera." };
   }
+  if (senal.estado_activo === "cartera") {
+    // 0062: un ETF de una clase de activo entera lo llevan las carteras, por pesos y una vez al mes.
+    return { ...base, accion: "no_comprar", titulo: "Cartera", motivo: "Clase de activo de las carteras: se lleva por pesos y se decide una vez al mes; no se opera por señal." };
+  }
   if (senal.suspendido) {
     return { ...base, accion: "sin_datos", titulo: "Sin datos", motivo: "Suspendido por fallos del proveedor: la lectura no es fiable." };
   }

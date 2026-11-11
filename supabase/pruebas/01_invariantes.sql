@@ -6027,6 +6027,141 @@ end
 $i111$;
 
 -- ═════════════════════════════════════════════════════════════════════
+-- I112 · Agentes de cartera (0062).
+--
+-- Sin los cinco ETF no hacen nada. Con ellos, los dos compran las cinco
+-- clases a partes iguales, sin objetivo y una sola vez por mes. Otra
+-- cuenta no puede operar una clase de activo. Cuando una clase cierra el
+-- mes bajo su media, la cartera con tendencia la vende y la cartera sin
+-- tocar la mantiene.
+-- ═════════════════════════════════════════════════════════════════════
+do $i112$
+declare
+    v_vara  bigint;
+    v_tend  bigint;
+    v_cv    bigint;
+    v_ct    bigint;
+    v_otra  bigint;
+    v_id    bigint;
+    v_spy   bigint;
+    v_s     text;
+    v_json  jsonb;
+    v_n     int;
+    v_min   numeric;
+    v_sum   numeric;
+    v_mes   date := date_trunc('month', now() at time zone 'UTC')::date;
+    v_rechazada boolean := false;
+begin
+    select id into v_vara from public.agentes where nombre = 'Cartera sin tocar' and tipo = 'cartera';
+    select id into v_tend from public.agentes where nombre = 'Cartera con tendencia' and tipo = 'cartera';
+    if v_vara is null or v_tend is null then
+        raise exception 'I112 FALLO: faltan los agentes de cartera';
+    end if;
+    v_cv := public.fn_cuenta_agente(v_vara);
+    v_ct := public.fn_cuenta_agente(v_tend);
+
+    begin
+        -- Sin los ETF: esperan y no dejan rastro.
+        v_json := public.fn_decidir_cartera(v_vara);
+        if v_json ->> 'accion' is distinct from 'esperando'
+           or exists (select 1 from public.agente_decisiones_diarias where agente_id = v_vara) then
+            raise exception 'I112 FALLO: sin los ETF debía esperar: %', v_json;
+        end if;
+
+        -- Alta de los cinco: 12 meses subiendo y precio fresco.
+        foreach v_s in array array['SPY', 'EFA', 'IEF', 'VNQ', 'DBC'] loop
+            insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado, ultimo_precio, ultimo_precio_en)
+            values (v_s, 'accion', 'yahoo', v_s, 'activo', 112, now()) returning id into v_id;
+            insert into public.precios_diarios (activo_id, fecha, cierre, origen, rango_real)
+            select v_id, ((v_mes - make_interval(months => g)) - interval '1 day')::date, 111 - g, 'yahoo', true
+              from generate_series(0, 11) g;
+            if v_s = 'SPY' then v_spy := v_id; end if;
+        end loop;
+        if exists (select 1 from public.activos where simbolo in ('SPY', 'EFA', 'IEF', 'VNQ', 'DBC') and not solo_cartera) then
+            raise exception 'I112 FALLO: los cinco ETF debían quedar como solo de cartera';
+        end if;
+
+        -- Los dos compran las cinco, a partes iguales y sin objetivo.
+        perform public.fn_decidir_cartera(v_vara);
+        perform public.fn_decidir_cartera(v_tend);
+        foreach v_id in array array[v_cv, v_ct] loop
+            select count(*), min(margen_comprometido), sum(margen_comprometido)
+              into v_n, v_min, v_sum
+              from public.ordenes where cuenta_id = v_id and estado = 'abierta' and tp is null and apalancamiento = 1;
+            if v_n <> 5 or v_min < 90 or v_sum > 500 then
+                raise exception 'I112 FALLO: la cartera debía tener 5 posiciones de unos 100 $: % posiciones, mínima %, total %',
+                      v_n, v_min, v_sum;
+            end if;
+        end loop;
+        if (select count(*) from public.agente_decisiones_diarias
+             where agente_id in (v_vara, v_tend) and accion = 'entrar') <> 10 then
+            raise exception 'I112 FALLO: debían quedar 10 decisiones de entrada';
+        end if;
+
+        -- Una sola decisión por mes.
+        v_json := public.fn_decidir_cartera(v_tend);
+        if v_json ->> 'accion' is distinct from 'ya_decidido' then
+            raise exception 'I112 FALLO: la segunda pasada del mes debía no hacer nada: %', v_json;
+        end if;
+
+        -- Otra cuenta no opera una clase de activo.
+        select c.id into v_otra from public.cuentas_simulacion c
+          join public.agentes g on g.id = c.agente_id where g.tipo = 'metas' order by c.id limit 1;
+        begin
+            insert into public.ordenes
+                (cuenta_id, activo_id, senal_id, origen, precio_entrada, fecha_entrada,
+                 cantidad, apalancamiento, margen_comprometido, tp, sl, sl_original, precio_liquidacion, racional)
+            values (v_otra, v_spy, null, 'agente', 112, now(), 0.1, 1, 11.2, null, 100, 100, 0, '{}');
+        exception when others then
+            v_rechazada := sqlerrm like '%0062%';
+            if not v_rechazada then
+                raise exception 'I112 FALLO: la orden de otra cuenta falló por otro motivo: %', sqlerrm;
+            end if;
+        end;
+        if not v_rechazada then
+            raise exception 'I112 FALLO: una cuenta que no es de cartera abrió una clase de activo';
+        end if;
+
+        -- El mes siguiente: SPY cierra bajo su media.
+        delete from public.agente_decisiones_diarias where agente_id in (v_vara, v_tend);
+        update public.precios_diarios set cierre = 50
+         where activo_id = v_spy and fecha = (v_mes - interval '1 day')::date;
+        perform public.fn_decidir_cartera(v_vara);
+        perform public.fn_decidir_cartera(v_tend);
+
+        if (select count(*) from public.ordenes where cuenta_id = v_cv and estado = 'abierta') <> 5
+           or (select count(*) from public.agente_decisiones_diarias
+                where agente_id = v_vara and accion = 'mantener') <> 5 then
+            raise exception 'I112 FALLO: la cartera sin tocar debía mantener las cinco';
+        end if;
+        if not exists (select 1 from public.ordenes
+                        where cuenta_id = v_ct and activo_id = v_spy and estado = 'cerrada' and motivo_cierre = 'regla')
+           or (select count(*) from public.ordenes where cuenta_id = v_ct and estado = 'abierta') <> 4
+           or (select count(*) from public.agente_decisiones_diarias
+                where agente_id = v_tend and accion = 'salir_regla') <> 1 then
+            raise exception 'I112 FALLO: la cartera con tendencia debía vender SPY y mantener las otras cuatro';
+        end if;
+
+        -- Y cuando vuelve sobre la media, la recompra.
+        delete from public.agente_decisiones_diarias where agente_id = v_tend;
+        update public.precios_diarios set cierre = 111
+         where activo_id = v_spy and fecha = (v_mes - interval '1 day')::date;
+        perform public.fn_decidir_cartera(v_tend);
+        if (select count(*) from public.ordenes where cuenta_id = v_ct and estado = 'abierta') <> 5 then
+            raise exception 'I112 FALLO: la cartera con tendencia debía recomprar SPY';
+        end if;
+
+        raise exception 'I112 OK';
+    exception when others then
+        if sqlerrm <> 'I112 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I112 las carteras esperan a sus ETF, compran por pesos una vez al mes y solo la de tendencia vende bajo la media';
+end
+$i112$;
+
+-- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.
 --
 -- La invariante que faltaba, y que habría evitado el incidente del

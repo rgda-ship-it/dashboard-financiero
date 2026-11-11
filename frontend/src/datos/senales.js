@@ -76,7 +76,7 @@ export async function leerSenalesVigentes() {
     supabase
       .from("v_escaner_usuario")
       .select("*")
-      .in("estado_activo", ["activo", "suspendido", "referencia"])
+      .in("estado_activo", ["activo", "suspendido", "referencia", "cartera"])
       .order("simbolo", { ascending: true }),
     supabase.from("v_spreads").select("activo_id, spread_cobrado"),
     supabase.from("agentes").select("id, nombre, tipo, estado, estrategia").order("id"),

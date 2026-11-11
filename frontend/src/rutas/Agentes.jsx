@@ -279,6 +279,73 @@ function TarjetaEstrategia({ a, e }) {
   );
 }
 
+// ── Agente de cartera (0062, doc fase-4/00) ──────────────────────────
+// Lleva clases de activo enteras y decide una vez al mes. No se mide en R:
+// se mide por lo que rinde y lo que cae frente a la cartera sin tocar.
+function TarjetaCartera({ a }) {
+  const estado = ESTADOS_AGENTE[a.estado] ?? { texto: a.estado, tono: "neutro" };
+  const p = a.estrategia ?? {};
+  const activos = Array.isArray(p.activos) ? p.activos : [];
+  const esVara = p.regla === "mantener";
+  const rentabilidad =
+    a.equity != null && Number(a.saldo_inicial) > 0 ? (Number(a.equity) / Number(a.saldo_inicial) - 1) * 100 : null;
+  return (
+    <article className="ag__tarjeta" style={{ "--color-agente": colorDe(a.nombre) }}>
+      <header className="ag__tarjeta-cabecera">
+        <span className="ag__nombre">{a.nombre}</span>
+        <span className="ag__meta">{esVara ? "la vara · no opera" : "sin meta · experimento"}</span>
+        <Tono tono={estado.tono}>{estado.texto}</Tono>
+      </header>
+
+      <p className="ag__equity num">{a.equity != null ? formatearPrecio(Number(a.equity)) : "—"}</p>
+      <p className="ag__sub">
+        {Number(a.posiciones_abiertas ?? 0) === 0 && Number(a.cerradas ?? 0) === 0
+          ? `Espera a que estén dados de alta ${activos.join(", ")}`
+          : esVara
+            ? "Comprar y no hacer nada: contra esto se mide lo demás"
+            : "Se juzga contra la cartera sin tocar: rentabilidad parecida con menos caída"}
+      </p>
+
+      <dl className="ag__cifras">
+        <div>
+          <dt>Rentabilidad</dt>
+          <dd className={`num ${claseSigno(Number(rentabilidad ?? 0))}`}>
+            {rentabilidad != null ? formatearPorcentaje(rentabilidad) : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Desde el máximo</dt>
+          <dd className={`num ${claseSigno(Number(a.drawdown_pct ?? 0))}`}>
+            {formatearPorcentaje(Number(a.drawdown_pct ?? 0))}
+          </dd>
+        </div>
+        <div>
+          <dt>Clases compradas</dt>
+          <dd className="num">
+            {a.posiciones_abiertas ?? 0} de {activos.length}
+          </dd>
+        </div>
+        <div>
+          <dt>Ventas</dt>
+          <dd className="num">{a.cerradas ?? 0}</dd>
+        </div>
+      </dl>
+
+      <footer className="ag__pie">
+        <span>
+          {activos.join(" · ")} · {Number(p.peso_pct)} % cada una · a 1x
+        </span>
+        <span>
+          {esVara
+            ? "compra una vez y mantiene · sin stop ni objetivo"
+            : `cada mes: dentro si cerró sobre su media de ${p.media_meses} meses; si no, en caja`}
+        </span>
+        {p.caida_max_pct != null && <span>pausa si cae más de un {Number(p.caida_max_pct)} % desde el máximo</span>}
+      </footer>
+    </article>
+  );
+}
+
 // ── Comparativa (0040) ───────────────────────────────────────────────
 // La pregunta del experimento: ¿gana más por cada dólar arriesgado el
 // agente de estrategia que los que persiguen una meta? Por eso la columna
@@ -288,6 +355,7 @@ const NOMBRE_REFERENCIA = {
   acciones: "Acciones",
   sp500: "S&P 500",
   nasdaq100: "Nasdaq 100",
+  clases: "Cinco clases de activo",
   cripto: "Criptos",
   bitcoin: "Bitcoin",
 };
@@ -333,7 +401,11 @@ function TablaComparativa({ filas, referencia = [] }) {
                 <span className="ag__punto" style={{ background: colorDe(f.nombre) }} aria-hidden="true" />
                 {f.nombre}
                 <span className="sim__sub">
-                  {f.tipo === "estrategia" ? "estrategia, sin meta" : `meta ${Number(f.objetivo_diario_pct)} % diario`}
+                  {f.tipo === "estrategia"
+                    ? "estrategia, sin meta"
+                    : f.tipo === "cartera"
+                      ? "cartera, una decisión al mes"
+                      : `meta ${Number(f.objetivo_diario_pct)} % diario`}
                 </span>
               </td>
               <td className="num">{f.equity != null ? formatearPrecio(Number(f.equity)) : "—"}</td>
@@ -1034,9 +1106,9 @@ export default function Agentes() {
   }, [cargar]);
 
   // La curva teórica es la de una meta diaria: los agentes de estrategia
-  // no tienen y no se dibujan aquí.
+  // y los de cartera no tienen y no se dibujan aquí.
   const series = useMemo(
-    () => construirSeries(curvas, ranking.filter((a) => a.tipo !== "estrategia")),
+    () => construirSeries(curvas, ranking.filter((a) => a.tipo === "metas")),
     [curvas, ranking]
   );
 
@@ -1114,7 +1186,9 @@ export default function Agentes() {
                 </header>
                 <div className="ag__marcador">
                   {g.filas.map((a) =>
-                    a.tipo === "estrategia" ? (
+                    a.tipo === "cartera" ? (
+                      <TarjetaCartera key={a.agente_id} a={a} />
+                    ) : a.tipo === "estrategia" ? (
                       <TarjetaEstrategia
                         key={a.agente_id}
                         a={a}
