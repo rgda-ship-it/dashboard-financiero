@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { agrupar, conCabeceras } from "../datos/grupos.js";
 import Marca from "../components/ui/Marca.jsx";
 import Panel from "../components/ui/Panel.jsx";
 import Navegacion from "../components/Navegacion.jsx";
@@ -291,6 +292,18 @@ const NOMBRE_REFERENCIA = {
   bitcoin: "Bitcoin",
 };
 
+// Una fila que separa los grupos de agentes dentro de una tabla.
+function FilaGrupo({ cabecera, columnas }) {
+  return (
+    <tr className="sim__grupo">
+      <th colSpan={columnas} scope="colgroup">
+        {cabecera.titulo}
+        {cabecera.nota && <span className="sim__sub">{cabecera.nota}</span>}
+      </th>
+    </tr>
+  );
+}
+
 function TablaComparativa({ filas, referencia = [] }) {
   const r = (v, d = 2) => (v != null ? `${Number(v) >= 0 ? "+" : ""}${Number(v).toFixed(d)}` : "—");
   const desde = filas.find((f) => f.experimento_desde)?.experimento_desde;
@@ -312,8 +325,10 @@ function TablaComparativa({ filas, referencia = [] }) {
           </tr>
         </thead>
         <tbody>
-          {filas.map((f) => (
-            <tr key={f.agente_id}>
+          {conCabeceras(filas).map(({ fila: f, cabecera }) => (
+            <Fragment key={f.agente_id}>
+            {cabecera && <FilaGrupo cabecera={cabecera} columnas={10} />}
+            <tr>
               <td>
                 <span className="ag__punto" style={{ background: colorDe(f.nombre) }} aria-hidden="true" />
                 {f.nombre}
@@ -345,7 +360,14 @@ function TablaComparativa({ filas, referencia = [] }) {
                 )}
               </td>
             </tr>
+            </Fragment>
           ))}
+          {referencia.length > 0 && (
+            <FilaGrupo
+              cabecera={{ titulo: "Mercado", nota: "Comprar y mantener, sin costes: la vara de todos." }}
+              columnas={10}
+            />
+          )}
           {referencia.map((f) => (
             <tr key={`ref-${f.referencia}`} className="sim__referencia">
               <td>
@@ -400,11 +422,13 @@ function TablaVeredicto({ filas }) {
           </tr>
         </thead>
         <tbody>
-          {filas.map((f) => {
+          {conCabeceras(filas).map(({ fila: f, cabecera }) => {
             const est = ESTADO_VEREDICTO[f.estado] ?? { texto: f.estado, tono: "" };
             const conc = textoConcordancia(f);
             return (
-              <tr key={f.agente_id}>
+              <Fragment key={f.agente_id}>
+              {cabecera && <FilaGrupo cabecera={cabecera} columnas={7} />}
+              <tr>
                 <td>
                   <span className="ag__punto" style={{ background: colorDe(f.nombre) }} aria-hidden="true" />
                   {f.nombre}
@@ -432,6 +456,7 @@ function TablaVeredicto({ filas }) {
                   </span>
                 </td>
               </tr>
+              </Fragment>
             );
           })}
         </tbody>
@@ -1066,7 +1091,7 @@ export default function Agentes() {
                 ? "cargando…"
                 : pausados === ranking.length && ranking.length > 0
                   ? "todos en pausa: los pone en marcha un administrador"
-                  : "500 $ ficticios cada uno · tres con meta diaria y uno de estrategia"
+                  : "500 $ ficticios cada uno · separados por grupo"
             }
             alPedirAyuda={() => setSeccionGuia("agentes")}
             acciones={
@@ -1081,24 +1106,32 @@ export default function Agentes() {
               </>
             }
           >
-            <div className="ag__marcador">
-              {ranking.map((a) =>
-                a.tipo === "estrategia" ? (
-                  <TarjetaEstrategia
-                    key={a.agente_id}
-                    a={a}
-                    e={estrategias.find((x) => x.agente_id === a.agente_id)}
-                  />
-                ) : (
-                  <TarjetaAgente key={a.agente_id} a={a} />
-                )
-              )}
-            </div>
+            {agrupar(ranking).map((g) => (
+              <section key={g.id} className="ag__grupo" aria-labelledby={`ag-grupo-${g.id}`}>
+                <header className="ag__grupo-cab">
+                  <h3 id={`ag-grupo-${g.id}`}>{g.titulo}</h3>
+                  {g.nota && <p>{g.nota}</p>}
+                </header>
+                <div className="ag__marcador">
+                  {g.filas.map((a) =>
+                    a.tipo === "estrategia" ? (
+                      <TarjetaEstrategia
+                        key={a.agente_id}
+                        a={a}
+                        e={estrategias.find((x) => x.agente_id === a.agente_id)}
+                      />
+                    ) : (
+                      <TarjetaAgente key={a.agente_id} a={a} />
+                    )
+                  )}
+                </div>
+              </section>
+            ))}
           </Panel>
 
           <Panel
             titulo="Comparativa"
-            meta="las mismas medidas para los cuatro · el experimento"
+            meta="las mismas medidas para todos · por grupo"
             alPedirAyuda={() => setSeccionGuia("agentes")}
           >
             <TablaComparativa filas={comparativa} referencia={referencia} />
