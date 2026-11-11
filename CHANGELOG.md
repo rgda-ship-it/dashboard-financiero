@@ -4,6 +4,30 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-11 — 0062: agentes de cartera
+
+Decisión del dueño (doc `fase-4/00` §7): la vara viva y la tendencia sobre clases, conviviendo con el experimento; y la búsqueda de señales de entrada, cerrada.
+
+### Añadido
+- `tipo = 'cartera'` y dos agentes de 500 $: **Cartera sin tocar** (compra SPY, EFA, IEF, VNQ y DBC al 20 % y mantiene: es la vara) y **Cartera con tendencia** (cada clase, comprada solo si cerró el mes anterior sobre su media de 10 cierres mensuales).
+- `fn_decidir_cartera` y `fn_ciclo_carteras`, con la tarea `decision-carteras` (días 1 a 7, de 14:50 a 20:50 UTC): una decisión al mes, los dos a la vez, y nada hasta que existan los cinco ETF con 10 meses de historia.
+- `fn_abrir_orden_cartera`: compra por peso, a 1×, sin stop ni objetivo. G6 no aplica a las carteras.
+- `activos.solo_cartera`: los cinco ETF no entran en el universo de los demás agentes (`estado_activo = 'cartera'`), ni en la vara del universo, y ninguna otra cuenta puede abrirlos. Vara nueva `clases` en `v_referencia_mercado`.
+- Ventana de agentes: tarjeta de cartera en el grupo «Carteras». El escáner enseña los cinco ETF con el veredicto «Cartera».
+- La cartera con tendencia se pausa sola con una caída del 25 %. Su criterio queda fijado en el doc §7.
+
+### Sin cambios
+- El grupo de control, las v2 y Tendencia cripto. Su universo no cambia.
+
+### Pendiente del dueño
+- Aplicar la 0062 y, después, dar de alta los cinco ETF, comprobando antes que el broker los ofrece.
+
+### Límites
+- El simulador no paga dividendos (unos 2 puntos al año en esta cartera) ni reequilibra la cartera sin tocar: lo medido en vivo quedará por debajo del laboratorio, igual para los dos agentes.
+
+### Pruebas
+- Invariante I112. CI de migraciones reproducida en local: 112 PASS, concurrencia y cuadre.
+
 ## [Sin publicar] - 2026-11-11 — La ventana de agentes, separada por grupos
 
 Pedido por el dueño: ver de un vistazo a qué corresponde cada agente.

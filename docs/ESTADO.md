@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I111), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I112), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -97,7 +97,10 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| ⏭️ 👤 | Decidir qué se hace con el replanteamiento (doc fase-4/00 §6) | Opciones: A, una vara viva (un agente que compra cinco clases de activo y no hace nada); B, un agente experimental de tendencia sobre clases; C, cerrar la búsqueda de señales de entrada; D, cambiar el objetivo del proyecto. Recomendado: A y C. Para A hay que dar de alta SPY, EFA, IEF, VNQ y DBC y comprobar que el broker los ofrece |
+| ⏭️ 👤 | Aplicar la 0062 y dar de alta SPY, EFA, IEF, VNQ y DBC | Antes, comprobar que el broker los ofrece. La 0062 va primero: con ella, los cinco nacen ya como solo de cartera y el grupo de control no los ve. Las carteras empiezan solas en la primera sesión del mes siguiente a tener los cinco con 10 meses de historia |
+| 🗓️ | Primera decisión de las carteras | Que las dos compren las cinco clases el mismo día (unos 100 $ cada una), que ningún otro agente vea los ETF y que la vara «Cinco clases de activo» aparezca en la comparativa |
+| ⏸️ | Ideas nuevas de entrada en el laboratorio | Cerrada la búsqueda hasta que acabe el experimento (decisión del dueño, 2026-11-11; doc fase-4/00 §7). Van 41 ideas |
+| ✅ 👤 | Qué se hace con el replanteamiento (doc fase-4/00 §6 y §7), 2026-11-11 | A, B y C a la vez, conviviendo con el experimento: vara viva, cartera con tendencia y búsqueda de señales cerrada. La ventana de agentes separa cada grupo |
 | ❌ | Exposición mensual contra comprar y mantener (doc fase-4/00), 2026-11-11 | Sin demostrar: `tendencia_clases`, `volatilidad_objetivo_clases` y `tendencia_bitcoin` cumplen cinco condiciones de seis (mejor Sharpe que mantener en los dos tramos, menos caída, rejilla) y fallan la del azar: percentiles 91, 87 y 85 en validación, con el 98 exigido. Mantener las cinco clases: +4,4 % anual y −44 % de caída (2007–2020), +9,7 % y −16 % (2020–2026). Con tendencia: +3,2 % y −13 %; +7,3 % y −7 % |
 
 ### 3.0 Fase 3 (doc fase-3/00)

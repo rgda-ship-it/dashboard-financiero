@@ -24,8 +24,8 @@ Un dashboard personal en la nube (coste 0 €) con:
   (S&P 500 y Nasdaq 100, 0058): se leen para la vara y no se operan.
 - **Simulador**: cuentas de 500 $ con dinero ficticio, apalancamiento con
   tope, spread y huecos reales.
-- **Agentes**: siete cuentas que operan solas en el simulador: el grupo de
-  control, Tendencia cripto y, desde la 0060, las tres v2.
+- **Agentes**: nueve cuentas que operan solas en el simulador: el grupo de
+  control, Tendencia cripto, las tres v2 (0060) y dos carteras (0062).
 - **Laboratorio**: reproduce años de velas diarias para decidir qué
   estrategia tiene ventaja antes de ponerla en un agente (doc fase-2/06).
 
@@ -123,6 +123,28 @@ reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
 | Pausa | Si la caída desde el máximo supera el 35 % |
 | Veredicto | A las 30 operaciones (doc 07 §6) o el **2027-04-30**, lo que llegue antes; si no hay 30, con las que haya |
 
+### 2.3 Carteras (0062, doc fase-4/00 §7)
+
+Dos agentes de `tipo = 'cartera'`, con 500 $ cada uno. Llevan cinco clases
+de activo (SPY, EFA, IEF, VNQ y DBC) al 20 %, a 1×, sin stop ni objetivo.
+
+| | Cartera sin tocar | Cartera con tendencia |
+|---|---|---|
+| Qué es | **La vara**: comprar y no hacer nada | Experimento, juzgado contra la vara |
+| Regla | Compra una vez y mantiene | Cada clase, dentro si cerró el mes anterior sobre su media de 10 cierres mensuales; si no, en caja |
+| Pausa por caída | No tiene | 25 % desde el máximo |
+| Veredicto | No se juzga | Tras una caída del 15 % de la vara ya recuperada, o el 2031-11-30 |
+
+- **Deciden una vez al mes**, los dos a la vez, en la primera sesión con
+  precio fresco de los cinco. Hasta que los cinco ETF estén dados de alta
+  y con 10 meses de historia, no hacen nada.
+- **Los cinco ETF son solo suyos** (`activos.solo_cartera`): los demás
+  agentes no los ven (`estado_activo = 'cartera'`), no cuentan en la vara
+  del universo y ninguna otra cuenta puede abrirlos. Tienen vara propia
+  («Cinco clases de activo»).
+- G6 no les aplica. El simulador no paga dividendos ni reequilibra la
+  cartera sin tocar.
+
 ## 3. Datos y tareas programadas
 
 | Tarea | Cuándo (UTC) | Dónde |
@@ -132,6 +154,7 @@ reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
 | Monitor de órdenes (stop, objetivo, huecos) | cada minuto | `monitor-ordenes` |
 | Ciclo de los agentes con metas | cada 5 min | `ciclo-agentes` |
 | Decisión de Tendencia cripto | :20 de 01 a 07 | `decision-estrategias` |
+| Decisión de las carteras | :50 de 14 a 20, los días 1 a 7 de cada mes | `decision-carteras` |
 | Seguimiento tras el stop | :45 cada hora | `seguir-stops` |
 | Credenciales | 07:00 a diario | `revisar-credenciales` |
 | Corte semanal | lunes 00:07 | `corte-semanal` |
