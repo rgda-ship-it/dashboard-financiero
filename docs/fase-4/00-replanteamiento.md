@@ -114,6 +114,86 @@ regla.
 El Sharpe es la rentabilidad media entre la volatilidad, sin tipo libre de
 riesgo.
 
-## 4. Resultados
+## 4. Resultados (2026-11-11)
 
-Pendientes: se ejecutan después del commit que fija lo anterior.
+Ejecutadas en local con el código del commit que las fija (`bc017ac`),
+con datos de Yahoo hasta el 2026-11-10. Clases: de 2007-02 a 2026-10,
+validación desde 2020-11. Bitcoin: de 2015-09 a 2026-10, validación desde
+2023-06.
+
+**Veredicto, con el criterio fijado: ninguna de las tres pasa.** Las tres
+cumplen cinco condiciones de seis y fallan la misma, la del azar.
+
+| Prueba | Tramo | Mantener: anual / caída máx. / Sharpe | Regla: anual / caída máx. / Sharpe | Supera al azar en | Exposición |
+|---|---|---|---|---|---|
+| `tendencia_clases` | Diseño | +4,4 % / −44,2 % / 0,39 | +3,2 % / −12,9 % / 0,49 | 80 % | 67 % |
+| | **Validación** | +9,7 % / −15,9 % / 0,98 | +7,3 % / −7,0 % / 1,14 | **91 %** ❌ | 69 % |
+| `volatilidad_objetivo_clases` | Diseño | +4,4 % / −44,2 % / 0,39 | +3,9 % / −21,2 % / 0,47 | 91 % | 86 % |
+| | **Validación** | +9,7 % / −15,9 % / 0,98 | +8,9 % / −11,0 % / 1,08 | **87 %** ❌ | 90 % |
+| `tendencia_bitcoin` | Diseño | +86,3 % / −75,5 % / 1,17 | +91,7 % / −59,8 % / 1,27 | 86 % | 67 % |
+| | **Validación** | +32,3 % / −49,4 % / 0,80 | +38,0 % / −23,0 % / 0,94 | **85 %** ❌ | 78 % |
+
+| Condición | Clases, tendencia | Clases, volatilidad | Bitcoin, tendencia |
+|---|---|---|---|
+| Sharpe en validación sobre el 98 % del azar | ❌ 91 % | ❌ 87 % | ❌ 85 % |
+| Sharpe en el diseño sobre el 50 % del azar | ✅ | ✅ | ✅ |
+| Mejor Sharpe que mantener en los dos tramos | ✅ | ✅ | ✅ |
+| Menos caída que mantener en validación | ✅ | ✅ | ✅ |
+| Rentabilidad positiva en validación | ✅ | ✅ | ✅ |
+| Mayoría de la rejilla | ✅ 4 de 4 | ✅ 3 de 3 | ✅ 3 de 4 |
+
+`tendencia_clases` por bloques (rentabilidad anual y caída máxima):
+
+| Bloque | Mantener | Regla |
+|---|---|---|
+| 2007-02 → 2011-01 | +2,5 %, −44,2 % | +5,0 %, −11,8 % |
+| 2011-01 → 2014-12 | +5,5 %, −13,9 % | +3,1 %, −12,9 % |
+| 2014-12 → 2018-12 | +1,6 %, −10,6 % | +1,4 %, −6,8 % |
+| 2018-12 → 2022-11 | +10,1 %, −20,0 % | +6,7 %, −5,6 % |
+| 2022-11 → 2026-11 | +10,6 %, −6,9 % | +6,2 %, −4,0 % |
+
+## 5. Lectura
+
+1. **Comprar y mantener es lo más rentable que ha medido el proyecto**
+   fuera de cripto. La cartera de cinco clases, sin tocarla: +4,4 % al año
+   de 2007 a 2020 (con 2008 dentro) y +9,7 % desde 2020. Ningún agente ni
+   ninguna de las 38 ideas se acerca. La contrapartida es la caída: un
+   −44 % en 2008–2009.
+2. **Las reglas de exposición hacen lo que prometían, y no más.** No
+   ganan más que mantener: ganan algo menos (entre 1 y 2,5 puntos al año
+   en clases) con mucha menos caída. La de tendencia deja el −44 % en
+   −13 % y el −16 % en −7 %. En bitcoin, de −49 % a −23 % en validación,
+   y aquí además con más rentabilidad.
+3. **Frente al azar no está demostrado.** Estar fuera un tercio del tiempo
+   en momentos al azar ya baja la caída. La regla lo hace mejor que el
+   85–91 % de esos azares, no que el 98 %. Con el criterio fijado, eso es
+   un no.
+4. **Pero es un no distinto de los 38 anteriores.** Es la primera familia
+   que cumple todo lo demás, en los dos tramos, en toda la rejilla menos
+   una variante, en dos mercados sin relación y coincidiendo con lo
+   publicado fuera. Y la condición que falla es la que menos puede ver
+   aquí: una regla mensual deja unos 70 datos en validación, y separar el
+   98 % con 70 datos pide una diferencia enorme. No se baja el listón por
+   eso: se dice que la prueba no tiene fuerza para decidir, que no es lo
+   mismo que haber visto que no funciona.
+5. **En bloques, la regla de tendencia rinde menos que mantener en cuatro
+   de cinco.** Su ventaja de rentabilidad está entera en 2008. Quien la
+   lleve paga un seguro todos los años y cobra en las crisis.
+
+## 6. Qué se puede hacer con esto
+
+Lo decide el dueño. Ninguna opción toca al grupo de control.
+
+| Opción | Qué es | A favor | En contra |
+|---|---|---|---|
+| **A. Una vara viva** | Un agente que compra la cartera de cinco clases y no hace nada más. No es una estrategia que haya que demostrar: es la medida contra la que se juzga todo lo demás | Pone en la pantalla lo que rinde «no hacer nada», con el mismo spread y la misma cuenta de 500 $. Hoy esa comparación solo existe como índice | Hay que dar de alta SPY, EFA, IEF, VNQ y DBC: ninguno está en el universo. Y comprobar que el broker los ofrece |
+| **B. Un agente experimental de tendencia sobre clases** | Como se hizo con Tendencia cripto (opción A de entonces, doc fase-2/07): operar la regla con el criterio de retirada fijado de antemano | Es lo único que ha cumplido cinco de seis | No pasó el criterio. A un cambio al mes, un veredicto en vivo tarda años |
+| **C. Cerrar la búsqueda de señales** | Dejar de probar ideas de entrada hasta que acabe el experimento | Corta el círculo. Las 38 ideas ya responden la pregunta | Ninguna |
+| **D. Cambiar el objetivo del proyecto** | De «agentes que ganan operando» a «un panel que ayuda a llevar una cartera y a no hacer tonterías con ella»: exposición, caída, comparación con la vara | Es lo que los datos sostienen | Es otro producto. Las metas diarias desaparecen |
+
+**Recomendación**: A y C ahora, y D como conversación. A cuesta poco y
+arregla lo que más ha faltado: saber qué habría pasado sin hacer nada. B,
+solo si el dueño acepta que su veredicto tardará años.
+
+Esto describe un simulador con cuentas de 500 $ ficticios. No es una
+recomendación sobre dinero real.

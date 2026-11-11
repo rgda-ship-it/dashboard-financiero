@@ -93,6 +93,13 @@ continúa por el primer punto ⏭️»*.
 
 Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
+### 3.00 Fase 4: replanteamiento (doc fase-4/00)
+
+| Estado | Tarea | Qué hace falta / notas |
+|---|---|---|
+| ⏭️ 👤 | Decidir qué se hace con el replanteamiento (doc fase-4/00 §6) | Opciones: A, una vara viva (un agente que compra cinco clases de activo y no hace nada); B, un agente experimental de tendencia sobre clases; C, cerrar la búsqueda de señales de entrada; D, cambiar el objetivo del proyecto. Recomendado: A y C. Para A hay que dar de alta SPY, EFA, IEF, VNQ y DBC y comprobar que el broker los ofrece |
+| ❌ | Exposición mensual contra comprar y mantener (doc fase-4/00), 2026-11-11 | Sin demostrar: `tendencia_clases`, `volatilidad_objetivo_clases` y `tendencia_bitcoin` cumplen cinco condiciones de seis (mejor Sharpe que mantener en los dos tramos, menos caída, rejilla) y fallan la del azar: percentiles 91, 87 y 85 en validación, con el 98 exigido. Mantener las cinco clases: +4,4 % anual y −44 % de caída (2007–2020), +9,7 % y −16 % (2020–2026). Con tendencia: +3,2 % y −13 %; +7,3 % y −7 % |
+
 ### 3.0 Fase 3 (doc fase-3/00)
 
 | Estado | Tarea | Qué hace falta / notas |
