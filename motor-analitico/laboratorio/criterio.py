@@ -75,6 +75,11 @@ REGISTRO: list[tuple[str, str, str]] = [
     ("libro_cripto", "2026-11-06", "fase-3/15"),
     ("tendencia_flujo_cripto", "2026-11-06", "fase-3/16"),
     ("compras_directivos", "2026-11-06", "fase-3/17"),
+    # Fase 4 (2026-11-11): la exposición de la cartera, mes a mes, contra
+    # comprar y mantener (`asignacion.py`). Fijadas antes de ejecutarlas.
+    ("tendencia_clases", "2026-11-11", "fase-4/00"),
+    ("volatilidad_objetivo_clases", "2026-11-11", "fase-4/00"),
+    ("tendencia_bitcoin", "2026-11-11", "fase-4/00"),
 ]
 
 PERCENTIL_TECHO = 99
