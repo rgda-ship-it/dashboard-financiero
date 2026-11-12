@@ -4,6 +4,16 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-12 — La 0062, aplicada
+
+### Comprobado
+- Aplicada a las 06:58 UTC. «Cartera sin tocar» (agente 8) y «Cartera con tendencia» (agente 9), activas, con 500 $ cada una y sin decisiones: esperan a los cinco ETF.
+- `decision-carteras` programada (`50 14-20 1-7 * *`) y activa. `fn_decidir_cartera`, `fn_ciclo_carteras`, `fn_abrir_orden_cartera`, el disparador de las clases de activo y la excepción de G6, en su sitio.
+- Nada cambia para los demás: 48 activos en el universo, las mismas varas y ningún activo como `solo_cartera` todavía.
+
+### Pendiente del dueño
+- Dar de alta SPY, EFA, IEF, VNQ y DBC, comprobando antes que el broker los ofrece.
+
 ## [Sin publicar] - 2026-11-11 — 0062: agentes de cartera
 
 Decisión del dueño (doc `fase-4/00` §7): la vara viva y la tendencia sobre clases, conviviendo con el experimento; y la búsqueda de señales de entrada, cerrada.
