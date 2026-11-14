@@ -4,6 +4,13 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-14 — La 0064, aplicada
+
+### Comprobado
+- Aplicada a las 10:14 UTC. Los dos ETF tokenizados, suspendidos y sin seguidores, con un evento cada uno. El universo vuelve a 48 activos y el cripto a 15.
+- `v_mi_cartera` y `v_escaner_usuario` ya no filtran por usuario: 54 filas (48 del universo, las 4 clases de las carteras y los 2 índices). `rpc_abrir_orden` ya no exige seguir el activo.
+- `rpc_retirar_activo` se puede llamar desde el navegador y comprueba que quien llama es administrador; `fn_retirar_activo`, no.
+
 ## [Sin publicar] - 2026-11-14 — 0064: la cartera es de todos, y un activo se puede retirar
 
 Pedido por el dueño: no filtrar la cartera por usuario, y poder quitar de verdad los dos ETF tokenizados.

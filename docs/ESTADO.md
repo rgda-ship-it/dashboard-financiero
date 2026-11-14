@@ -97,7 +97,7 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| ⏭️ 👤 | Aplicar la 0064 | Hace común la cartera y el escáner, añade «Retirar» para administradores y retira los dos ETF tokenizados dados de alta por error (quitarlos de la cartera propia no los sacaba del catálogo). Al aplicarla, comprobar que el universo vuelve a 48 activos y que un usuario normal ve toda la cartera |
+| ✅ 👤 | Aplicar la 0064 (aplicada el 2026-11-14 a las 10:14 UTC) | Comprobado: los dos ETF tokenizados, suspendidos y sin seguidores; el universo vuelve a 48 activos y el cripto a 15. `v_mi_cartera` y `v_escaner_usuario` ya no filtran por usuario (54 filas: 48 del universo, 4 clases y 2 índices). `rpc_abrir_orden` no exige seguir el activo. `rpc_retirar_activo`, ejecutable por authenticated (comprueba admin dentro); `fn_retirar_activo`, no |
 | ✅ 👤 | La 0063 aplicada y GLD dado de alta (2026-11-14) | Comprobado: las dos carteras llevan `["SPY", "IEF", "VNQ", "GLD"]` al 25 %; los cuatro ETF, de Yahoo, con 501 cierres desde el 14-11-2024 y como solo de cartera; la vara «Clases de activo» cuenta cuatro |
 | ❌ | Tendencia sobre las cuatro clases del broker (doc fase-4/00 §8), 2026-11-14 | Sin ventaja: en validación supera al 32 % del azar y rinde menos Sharpe que mantener (0,67 frente a 0,82). Mantener: +8,9 % y +8,3 % al año, con caídas del 28 % y del 18 %. «Cartera con tendencia» sigue como experimento, con menos respaldo |
 | 🗓️ | Primera decisión de las carteras | Que las dos compren las cuatro clases el mismo día (unos 125 $ cada una), que ningún otro agente vea los ETF y que la vara «Clases de activo» aparezca en la comparativa |

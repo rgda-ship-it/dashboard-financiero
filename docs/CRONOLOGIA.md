@@ -58,8 +58,9 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | 2026-11-02 00:07 | **Adopción automática** en el corte semanal: Prudencia y Cadencia, la práctica 89; Audacia, la 97 (versiones 11, 10 y 9) | Nada todavía: hasta el 10-11 no les quitó ninguna entrada |
 | **2026-11-09 00:07** | **Adopción automática**: Prudencia y Cadencia, la 110 (versiones 12 y 11), sin efecto todavía; las tres v2, la 60, que exige acción y les cierra las cripto | Entradas de las v2: desde aquí dejan de ser su original más su filtro |
 | 2026-11-14 09:36 y 09:38 | Altas por error de dos ETF tokenizados de CoinGecko (el SPY de Dinari y el VNQ de rstock) como cripto activas | Universo y vara de cripto: de 48 a 50 activos hasta que se quiten. Ningún agente abrió nada en ellas |
-| Al aplicar la 0064 | Se retiran los dos ETF tokenizados dados de alta por error el 14-11; la cartera y el escáner pasan a ser comunes | Universo y vara de cripto: vuelven a 48 activos |
-| **2026-11-14 10:01** | 0063 | Las carteras pasan a cuatro clases al 25 %: SPY, IEF, VNQ y GLD (el broker no tiene EFA ni DBC) | Nada: ninguna cartera había operado |
+| **2026-11-14 10:14** | 0064 | Se retiran los dos ETF tokenizados dados de alta por error el 14-11; la cartera y el escáner pasan a ser comunes | Universo y vara de cripto: vuelven a 48 activos |
+| **2026-11-14 10:01
+** | 0063 | Las carteras pasan a cuatro clases al 25 %: SPY, IEF, VNQ y GLD (el broker no tiene EFA ni DBC) | Nada: ninguna cartera había operado |
 | **2026-11-12 06:58** | 0062 | Agentes de cartera («Cartera sin tocar» y «Cartera con tendencia»). SPY, EFA, IEF, VNQ y DBC quedan solo para ellos: no entran en el universo de los demás agentes ni en su vara | Nada del experimento: el universo del grupo de control y de las v2 no cambia |
 | **2026-11-10 15:11** | 0061 | Prácticas congeladas mientras `consecuencias_semanales = false` (ni se adoptan ni se evalúan); las v2 dejan la 60 y llevan las de su original (decisión del dueño, 2026-11-10) | Entradas de las v2 del 9-11 00:07 al 10-11 15:11 |
 | 2026-11-02 21:48 | 0054: «Ampliar mi riesgo…» y «Mi saldo queda atrapado…» rechazadas y sin reabrirse | Ocurrencias del backlog |
