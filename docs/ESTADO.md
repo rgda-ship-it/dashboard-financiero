@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I112), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I113), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -97,9 +97,10 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| ⏭️ 👤 | Dar de alta SPY, EFA, IEF, VNQ y DBC | Antes, comprobar que el broker los ofrece. Con la 0062 ya aplicada nacen como solo de cartera y el grupo de control no los ve. Las carteras empiezan solas en la primera sesión del mes siguiente a tener los cinco con 10 meses de historia |
-| 🗓️ | Primera decisión de las carteras | Que las dos compren las cinco clases el mismo día (unos 100 $ cada una), que ningún otro agente vea los ETF y que la vara «Cinco clases de activo» aparezca en la comparativa |
-| ⏸️ | Ideas nuevas de entrada en el laboratorio | Cerrada la búsqueda hasta que acabe el experimento (decisión del dueño, 2026-11-11; doc fase-4/00 §7). Van 41 ideas |
+| ⏭️ 👤 | Aplicar la 0063, dar de alta GLD y quitar los dos ETF tokenizados | El broker no tiene EFA ni DBC: la cartera queda en SPY, IEF, VNQ y GLD al 25 % (doc fase-4/00 §8). SPY, IEF y VNQ ya están dados de alta desde Yahoo (14-11). La 0063 va antes que GLD, para que nazca aislado. Quitar desde Cartera las dos altas por error de CoinGecko (`state-street-spdr-s-p-500-etf-trust-dinari-tokenized-etf` y `vanguard-real-estate-etf-rstock`): están en el universo cripto de los demás agentes |
+| ❌ | Tendencia sobre las cuatro clases del broker (doc fase-4/00 §8), 2026-11-14 | Sin ventaja: en validación supera al 32 % del azar y rinde menos Sharpe que mantener (0,67 frente a 0,82). Mantener: +8,9 % y +8,3 % al año, con caídas del 28 % y del 18 %. «Cartera con tendencia» sigue como experimento, con menos respaldo |
+| 🗓️ | Primera decisión de las carteras | Que las dos compren las cuatro clases el mismo día (unos 125 $ cada una), que ningún otro agente vea los ETF y que la vara «Clases de activo» aparezca en la comparativa |
+| ⏸️ | Ideas nuevas de entrada en el laboratorio | Cerrada la búsqueda hasta que acabe el experimento (decisión del dueño, 2026-11-11; doc fase-4/00 §7). Van 42 ideas, con la cartera del broker |
 | ✅ 👤 | Aplicar la 0062 (aplicada el 2026-11-12 a las 06:58 UTC) | Comprobado: «Cartera sin tocar» y «Cartera con tendencia» activas, con su cuenta de 500 $ y sin ninguna decisión todavía (esperan a los cinco ETF, que aún no están dados de alta). `decision-carteras` programada y activa. Las funciones nuevas y la excepción de G6, en su sitio. El universo sigue en 48 activos y las varas no cambian |
 | ✅ 👤 | Qué se hace con el replanteamiento (doc fase-4/00 §6 y §7), 2026-11-11 | A, B y C a la vez, conviviendo con el experimento: vara viva, cartera con tendencia y búsqueda de señales cerrada. La ventana de agentes separa cada grupo |
 | ❌ | Exposición mensual contra comprar y mantener (doc fase-4/00), 2026-11-11 | Sin demostrar: `tendencia_clases`, `volatilidad_objetivo_clases` y `tendencia_bitcoin` cumplen cinco condiciones de seis (mejor Sharpe que mantener en los dos tramos, menos caída, rejilla) y fallan la del azar: percentiles 91, 87 y 85 en validación, con el 98 exigido. Mantener las cinco clases: +4,4 % anual y −44 % de caída (2007–2020), +9,7 % y −16 % (2020–2026). Con tendencia: +3,2 % y −13 %; +7,3 % y −7 % |

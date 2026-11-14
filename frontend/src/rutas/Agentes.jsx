@@ -355,7 +355,7 @@ const NOMBRE_REFERENCIA = {
   acciones: "Acciones",
   sp500: "S&P 500",
   nasdaq100: "Nasdaq 100",
-  clases: "Cinco clases de activo",
+  clases: "Clases de activo",
   cripto: "Criptos",
   bitcoin: "Bitcoin",
 };

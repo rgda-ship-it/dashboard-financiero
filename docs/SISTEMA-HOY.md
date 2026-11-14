@@ -25,7 +25,7 @@ Un dashboard personal en la nube (coste 0 €) con:
 - **Simulador**: cuentas de 500 $ con dinero ficticio, apalancamiento con
   tope, spread y huecos reales.
 - **Agentes**: nueve cuentas que operan solas en el simulador: el grupo de
-  control, Tendencia cripto, las tres v2 (0060) y dos carteras (0062).
+  control, Tendencia cripto, las tres v2 (0060) y dos carteras (0062, 0063).
 - **Laboratorio**: reproduce años de velas diarias para decidir qué
   estrategia tiene ventaja antes de ponerla en un agente (doc fase-2/06).
 
@@ -123,10 +123,11 @@ reglas comunes del §2.1, con los ajustes y las consecuencias congelados:
 | Pausa | Si la caída desde el máximo supera el 35 % |
 | Veredicto | A las 30 operaciones (doc 07 §6) o el **2027-04-30**, lo que llegue antes; si no hay 30, con las que haya |
 
-### 2.3 Carteras (0062, doc fase-4/00 §7)
+### 2.3 Carteras (0062 y 0063, doc fase-4/00 §7 y §8)
 
-Dos agentes de `tipo = 'cartera'`, con 500 $ cada uno. Llevan cinco clases
-de activo (SPY, EFA, IEF, VNQ y DBC) al 20 %, a 1×, sin stop ni objetivo.
+Dos agentes de `tipo = 'cartera'`, con 500 $ cada uno. Llevan las cuatro
+clases de activo que ofrece el broker (SPY, IEF, VNQ y GLD) al 25 %, a
+1×, sin stop ni objetivo.
 
 | | Cartera sin tocar | Cartera con tendencia |
 |---|---|---|
@@ -136,12 +137,13 @@ de activo (SPY, EFA, IEF, VNQ y DBC) al 20 %, a 1×, sin stop ni objetivo.
 | Veredicto | No se juzga | Tras una caída del 15 % de la vara ya recuperada, o el 2031-11-30 |
 
 - **Deciden una vez al mes**, los dos a la vez, en la primera sesión con
-  precio fresco de los cinco. Hasta que los cinco ETF estén dados de alta
-  y con 10 meses de historia, no hacen nada.
-- **Los cinco ETF son solo suyos** (`activos.solo_cartera`): los demás
+  precio fresco de los cuatro. Hasta que los cuatro ETF estén dados de
+  alta y con 10 meses de historia, no hacen nada.
+- **Los cuatro ETF son solo suyos** (`activos.solo_cartera`, que pone un
+  disparador según `fn_es_clase_de_cartera`, 0063): los demás
   agentes no los ven (`estado_activo = 'cartera'`), no cuentan en la vara
   del universo y ninguna otra cuenta puede abrirlos. Tienen vara propia
-  («Cinco clases de activo»).
+  («Clases de activo»).
 - G6 no les aplica. El simulador no paga dividendos ni reequilibra la
   cartera sin tocar.
 
