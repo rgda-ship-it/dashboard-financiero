@@ -717,7 +717,7 @@ begin
     select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
     select array_agg(id order by simbolo) into v_ids from public.activos where clase = 'accion';
 
-    -- ── I24 · Cada uno ve solo su cartera; seguir va por RPC ──────────
+    -- ── I24 · La cartera es común (0064); seguir va por RPC ───────────
     perform pg_temp.como(v_x);
     perform public.rpc_seguir_activo(v_ids[1]);
     perform public.rpc_seguir_activo(v_ids[2]);
@@ -730,25 +730,24 @@ begin
     exception when insufficient_privilege then
         v_fallo := true;
     end;
-    select count(*) into v_conteo from public.v_mi_cartera;
+    select count(*) into v_conteo from public.v_mi_cartera where activo_id = any (v_ids[1:3]);
     perform pg_temp.como_dueno();
     if not v_fallo then
         raise exception 'I24 FALLO: Y insertó directamente en la cartera de X';
     end if;
-    if v_conteo <> 1 then
-        raise exception 'I24 FALLO: Y ve % activos en su cartera, se esperaba 1', v_conteo;
+    if v_conteo <> 3 then
+        raise exception 'I24 FALLO: Y ve % de los 3 activos seguidos; la cartera es común (0064)', v_conteo;
     end if;
 
-    -- El escáner de X solo trae señales de SU cartera.
+    -- El escáner de X trae las señales de todo, lo siga él o no (0064).
     insert into public.senales (activo_id, operable, leverage_tope,
            leverage_referencia_volatilidad, version_motor)
     select unnest(v_ids[1:4]), false, 5, 1, 'i24';
     perform pg_temp.como(v_x);
-    select count(*), count(*) filter (where activo_id not in (v_ids[1], v_ids[2]))
-      into v_conteo, v_id from public.v_escaner_usuario;
+    select count(*) into v_conteo from public.v_escaner_usuario where activo_id = any (v_ids[1:4]);
     perform pg_temp.como_dueno();
-    if v_conteo <> 2 or v_id <> 0 then
-        raise exception 'I24 FALLO: el escáner de X trae % filas (% ajenas)', v_conteo, v_id;
+    if v_conteo <> 4 then
+        raise exception 'I24 FALLO: el escáner de X trae % de las 4 señales; debía traerlas todas', v_conteo;
     end if;
 
     -- Dejar de seguir no borra el histórico global.
@@ -764,7 +763,7 @@ begin
        or (select seguidores from public.activos where id = v_ids[2]) <> 1 then
         raise exception 'I24 FALLO: el contador de seguidores no cuadra';
     end if;
-    raise notice 'PASS  I24 cada usuario ve solo su cartera y su escáner; seguir solo por RPC; dejar no borra histórico';
+    raise notice 'PASS  I24 la cartera y el escáner son comunes; seguir solo por RPC; dejar no borra histórico';
 
     -- ── I25 · Cuotas: 20 criptos globales y 25 por usuario ───────────
     insert into public.catalogo_coingecko (id, simbolo, nombre)
@@ -6202,6 +6201,88 @@ begin
     raise notice 'PASS  I113 las carteras llevan las cuatro clases del broker y solo_cartera sale de la lista';
 end
 $i113$;
+
+-- ═════════════════════════════════════════════════════════════════════
+-- I114 · Cartera común y retirar un activo (0064).
+--
+-- Un usuario que no sigue nada ve el activo en la cartera y en el
+-- escáner. Solo un administrador lo retira: queda suspendido, sin
+-- seguidores, fuera de las dos vistas y auditado. Una clase de activo de
+-- las carteras no se retira.
+-- ═════════════════════════════════════════════════════════════════════
+do $i114$
+declare
+    v_x     uuid := gen_random_uuid();
+    v_admin uuid;
+    v_a     bigint;
+    v_spy   bigint;
+    v_n     int;
+    v_m     int;
+    v_fallo boolean;
+begin
+    begin
+        insert into auth.users (id, email, email_confirmed_at) values (v_x, 'i114@ejemplo.com', now());
+        update public.perfiles set estado = 'aprobado' where id = v_x;
+        select id into v_admin from public.perfiles where rol = 'admin' and estado = 'aprobado' limit 1;
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('I114A', 'accion', 'yahoo', 'I114A', 'activo') returning id into v_a;
+        insert into public.senales (activo_id, operable, leverage_tope, leverage_referencia_volatilidad, version_motor)
+        values (v_a, false, 5, 1, 'i114');
+        perform public.fn_seguir(v_admin, v_a);
+
+        perform pg_temp.como(v_x);
+        select count(*) into v_n from public.v_mi_cartera where activo_id = v_a;
+        select count(*) into v_m from public.v_escaner_usuario where activo_id = v_a;
+        begin
+            perform public.rpc_retirar_activo(v_a);
+            v_fallo := false;
+        exception when insufficient_privilege then
+            v_fallo := true;
+        end;
+        perform pg_temp.como_dueno();
+        if v_n <> 1 or v_m <> 1 then
+            raise exception 'I114 FALLO: un usuario que no sigue el activo debía verlo en cartera (%) y escáner (%)', v_n, v_m;
+        end if;
+        if not v_fallo then
+            raise exception 'I114 FALLO: un usuario normal retiró un activo';
+        end if;
+
+        perform pg_temp.como(v_admin);
+        perform public.rpc_retirar_activo(v_a);
+        perform pg_temp.como(v_x);
+        select count(*) into v_n from public.v_mi_cartera where activo_id = v_a;
+        select count(*) into v_m from public.v_escaner_usuario where activo_id = v_a;
+        perform pg_temp.como_dueno();
+        if v_n <> 0 or v_m <> 0 then
+            raise exception 'I114 FALLO: el activo retirado sigue en cartera (%) o escáner (%)', v_n, v_m;
+        end if;
+        if not exists (select 1 from public.activos where id = v_a and estado = 'suspendido' and seguidores = 0)
+           or not exists (select 1 from public.auditoria_admin
+                           where accion = 'retirar_activo' and objetivo_id = v_a::text) then
+            raise exception 'I114 FALLO: el activo retirado debía quedar suspendido, sin seguidores y auditado';
+        end if;
+
+        insert into public.activos (simbolo, clase, proveedor, id_proveedor, estado)
+        values ('SPY', 'accion', 'yahoo', 'SPY', 'activo') returning id into v_spy;
+        begin
+            perform public.fn_retirar_activo(v_spy, 'prueba');
+            v_fallo := false;
+        exception when raise_exception then
+            v_fallo := true;
+        end;
+        if not v_fallo then
+            raise exception 'I114 FALLO: se retiró una clase de activo de las carteras';
+        end if;
+
+        raise exception 'I114 OK';
+    exception when others then
+        if sqlerrm <> 'I114 OK' then
+            raise;
+        end if;
+    end;
+    raise notice 'PASS  I114 la cartera es común y solo un administrador retira un activo';
+end
+$i114$;
 
 -- ═════════════════════════════════════════════════════════════════════
 -- I40 · Toda vista se puede LEER con el rol del navegador.

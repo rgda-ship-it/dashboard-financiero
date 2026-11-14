@@ -45,6 +45,10 @@ export const seguirActivo = (activoId) =>
 export const dejarActivo = (activoId) =>
   llamar(supabase.rpc("rpc_dejar_activo", { p_activo_id: activoId }));
 
+// 0064: saca un activo de la cartera de todos. Solo administradores.
+export const retirarActivo = (activoId) =>
+  llamar(supabase.rpc("rpc_retirar_activo", { p_activo_id: activoId }));
+
 export const solicitarActivo = (clase, identificador) =>
   llamar(supabase.rpc("rpc_solicitar_activo", { p_clase: clase, p_identificador: identificador }));
 
