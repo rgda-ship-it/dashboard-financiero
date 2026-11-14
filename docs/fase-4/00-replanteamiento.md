@@ -247,3 +247,43 @@ operación:
   que cuesta el seguro en el laboratorio).
 - **Pausa** sola si cae más de un 25 % desde su máximo: el doble de su
   peor caída en 20 años de laboratorio (12,9 %).
+
+## 8. La cartera que se puede comprar (2026-11-14)
+
+**El broker no tiene EFA ni DBC**, ni un sustituto de su clase (VEA,
+IEFA, PDBC). De lo que tiene, la cartera queda en **cuatro clases al
+25 %**: bolsa de EE. UU. (SPY), bonos del Tesoro a 7–10 años (IEF),
+inmobiliario (VNQ) y oro (GLD). Pierde la bolsa de fuera de EE. UU. y las
+materias primas amplias; el oro es una clase más estrecha. La 0063 cambia
+la lista; ninguna cartera había operado.
+
+Antes de fijarla se repitió la prueba con esa cartera
+(`tendencia_clases_broker`, registrada en el commit `ca686e2`, anterior a
+su resultado; van 42 ideas). Meses de 2005-11 a 2026-10, validación desde
+2020-07.
+
+| Tramo | Mantener: anual / caída máx. / Sharpe | Regla: anual / caída máx. / Sharpe | Supera al azar en |
+|---|---|---|---|
+| Diseño | +8,9 % / −27,8 % / 0,85 | +6,6 % / −15,7 % / 0,98 | 94 % |
+| **Validación** | +8,3 % / −18,5 % / 0,82 | +4,8 % / −13,7 % / 0,67 | **32 %** ❌ |
+
+Cumple tres condiciones de seis. Falla el azar, el Sharpe frente a
+mantener en validación y la rejilla (1 de 4).
+
+**Lectura**:
+
+1. **La cartera sin tocar sale mejor que con cinco clases**: +8,9 % y
+   +8,3 % al año, con caídas del 28 % y del 18 %. El oro subió en 2008 y
+   desde 2020, justo cuando lo demás caía.
+2. **La regla de tendencia sale peor**, y aquí el no es más claro: desde
+   2020 costó 3,5 puntos al año para ahorrar 5 de caída, y lo hizo peor
+   que dos de cada tres azares. Con una cartera que ya se compensa sola,
+   el seguro aporta poco y cuesta lo mismo.
+3. **Ojo con el oro**: está aquí porque es lo que hay, pero se elige
+   después de una década excelente para él. Lo esperable hacia delante es
+   menos que lo medido.
+
+**Qué cambia**: la vara viva sigue, y con más sentido. «Cartera con
+tendencia» sigue como se decidió, con el mismo criterio del §7, pero con
+menos respaldo que cuando se aprobó: es probable que rinda menos que la
+vara. Se puede pausar desde Administración sin tocar nada más.

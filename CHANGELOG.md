@@ -4,6 +4,29 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-14 — 0063: la cartera, con las cuatro clases del broker
+
+El broker no tiene EFA ni DBC, ni un sustituto de su clase. La cartera queda en SPY, IEF, VNQ y GLD al 25 % (doc `fase-4/00` §8).
+
+### Comprobado en producción (14-11)
+- SPY, IEF y VNQ, dados de alta desde Yahoo, con 501 cierres cada uno (desde el 14-11-2024), como solo de cartera: `estado_activo = 'cartera'`.
+- Dos altas por error desde CoinGecko, activas como cripto: `state-street-spdr-s-p-500-etf-trust-dinari-tokenized-etf` y `vanguard-real-estate-etf-rstock`. El universo pasó de 48 a 50 activos. Ningún agente abrió nada en ellas. Hay que quitarlas.
+
+### Laboratorio
+- `tendencia_clases_broker`, fijada antes de ejecutarla (van 42 ideas). **No pasa**: en validación supera al 32 % del azar, con Sharpe 0,67 frente a 0,82 de mantener; 1 de 4 en la rejilla.
+- Mantener las cuatro clases: +8,9 % al año (2005–2020, caída del 28 %) y +8,3 % (2020–2026, caída del 18 %). Mejor que con cinco clases, por el oro; elegido después de una década buena para él.
+
+### Cambiado
+- Las dos carteras llevan `["SPY", "IEF", "VNQ", "GLD"]` al 25 %. No habían operado.
+- `activos.solo_cartera` deja de ser una columna generada: la lista está en `fn_es_clase_de_cartera` y la aplica el disparador `activos_solo_cartera`. Cambiarla ya no obliga a borrar la columna.
+- «Cartera con tendencia» sigue como experimento con el criterio del §7, con menos respaldo que al aprobarse.
+
+### Pruebas
+- I112, con cuatro clases; invariante nueva I113. CI de migraciones en local: 113 PASS, concurrencia y cuadre.
+
+### Pendiente del dueño
+- Aplicar la 0063, dar de alta GLD y quitar los dos ETF tokenizados.
+
 ## [Sin publicar] - 2026-11-12 — La 0062, aplicada
 
 ### Comprobado
