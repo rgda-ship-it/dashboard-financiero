@@ -44,6 +44,11 @@ from laboratorio.datos import cargar, spread_de  # noqa: E402
 # aquí por lo que hizo después.
 CLASES = [("SPY", "accion"), ("EFA", "accion"), ("IEF", "accion"), ("VNQ", "accion"), ("DBC", "accion")]
 BITCOIN = [("bitcoin", "cripto")]
+# Lo que ofrece el broker (2026-11-14): no tiene EFA ni DBC, ni otro ETF de
+# bolsa desarrollada o de materias primas amplias. Quedan bolsa de EE. UU.,
+# bonos, inmobiliario y oro (GLD, de 2004). Elegida por disponibilidad, no
+# por resultados, pero después de ver los de las cinco clases.
+CLASES_BROKER = [("SPY", "accion"), ("IEF", "accion"), ("VNQ", "accion"), ("GLD", "accion")]
 
 # Meses de historia antes del primer mes medido: los de la media más larga
 # de la rejilla, para que todas las variantes y la vara compartan calendario.
@@ -54,6 +59,7 @@ PRUEBAS = {
     "tendencia_clases": (CLASES, "tendencia", 10, (6, 8, 10, 12)),
     "volatilidad_objetivo_clases": (CLASES, "volatilidad", 21, (21, 42, 63)),
     "tendencia_bitcoin": (BITCOIN, "tendencia", 10, (6, 8, 10, 12)),
+    "tendencia_clases_broker": (CLASES_BROKER, "tendencia", 10, (6, 8, 10, 12)),
 }
 
 

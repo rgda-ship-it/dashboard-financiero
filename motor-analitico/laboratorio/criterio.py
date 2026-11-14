@@ -80,6 +80,8 @@ REGISTRO: list[tuple[str, str, str]] = [
     ("tendencia_clases", "2026-11-11", "fase-4/00"),
     ("volatilidad_objetivo_clases", "2026-11-11", "fase-4/00"),
     ("tendencia_bitcoin", "2026-11-11", "fase-4/00"),
+    # La cartera que de verdad se puede comprar en el broker (2026-11-14).
+    ("tendencia_clases_broker", "2026-11-14", "fase-4/00 §8"),
 ]
 
 PERCENTIL_TECHO = 99
