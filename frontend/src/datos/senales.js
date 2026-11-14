@@ -127,7 +127,7 @@ export async function leerSenalesVigentes() {
     ? partes.length
       ? partes.join(" · ")
       : null
-    : "Tu cartera no tiene señales todavía. Añade activos desde Cartera; los recién " +
+    : "La cartera no tiene señales todavía. Añade activos desde Cartera; los recién " +
       "añadidos tardan 1-3 minutos en tener análisis.";
 
   return {

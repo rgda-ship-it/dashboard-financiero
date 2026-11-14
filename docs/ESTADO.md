@@ -33,7 +33,7 @@ continúa por el primer punto ⏭️»*.
 | Consultar producción | Claude | `scripts/consultar.py` con `SUPABASE_DB_URL_LECTURA` del `.env` (rol `analista_lectura`, sesión en solo lectura). Claude no usa la URL de administrador |
 | Revisión de los lunes | Claude o dueño | `python scripts/consultar.py -f scripts/revision_agentes.sql` (fase-3/07 §6) |
 | Laboratorio | Claude | `laboratorio.yml` en GitHub Actions, o en local con Python 3.12 |
-| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I113), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
+| Pruebas | Claude | `motor-analitico`: `python -m pytest -q` (330 en verde). SQL: `supabase/pruebas/01_invariantes.sql` (I1–I114), en la CI de migraciones; en local, sobre PostgreSQL 15 en Docker. Frontend: `npm test` y `vite build` |
 
 **Reglas que no se saltan**:
 
@@ -97,7 +97,8 @@ Lo que está hecho y aplicado está en el §4, con el mismo orden por bloques.
 
 | Estado | Tarea | Qué hace falta / notas |
 |---|---|---|
-| ⏭️ 👤 | Aplicar la 0063, dar de alta GLD y quitar los dos ETF tokenizados | El broker no tiene EFA ni DBC: la cartera queda en SPY, IEF, VNQ y GLD al 25 % (doc fase-4/00 §8). SPY, IEF y VNQ ya están dados de alta desde Yahoo (14-11). La 0063 va antes que GLD, para que nazca aislado. Quitar desde Cartera las dos altas por error de CoinGecko (`state-street-spdr-s-p-500-etf-trust-dinari-tokenized-etf` y `vanguard-real-estate-etf-rstock`): están en el universo cripto de los demás agentes |
+| ⏭️ 👤 | Aplicar la 0064 | Hace común la cartera y el escáner, añade «Retirar» para administradores y retira los dos ETF tokenizados dados de alta por error (quitarlos de la cartera propia no los sacaba del catálogo). Al aplicarla, comprobar que el universo vuelve a 48 activos y que un usuario normal ve toda la cartera |
+| ✅ 👤 | La 0063 aplicada y GLD dado de alta (2026-11-14) | Comprobado: las dos carteras llevan `["SPY", "IEF", "VNQ", "GLD"]` al 25 %; los cuatro ETF, de Yahoo, con 501 cierres desde el 14-11-2024 y como solo de cartera; la vara «Clases de activo» cuenta cuatro |
 | ❌ | Tendencia sobre las cuatro clases del broker (doc fase-4/00 §8), 2026-11-14 | Sin ventaja: en validación supera al 32 % del azar y rinde menos Sharpe que mantener (0,67 frente a 0,82). Mantener: +8,9 % y +8,3 % al año, con caídas del 28 % y del 18 %. «Cartera con tendencia» sigue como experimento, con menos respaldo |
 | 🗓️ | Primera decisión de las carteras | Que las dos compren las cuatro clases el mismo día (unos 125 $ cada una), que ningún otro agente vea los ETF y que la vara «Clases de activo» aparezca en la comparativa |
 | ⏸️ | Ideas nuevas de entrada en el laboratorio | Cerrada la búsqueda hasta que acabe el experimento (decisión del dueño, 2026-11-11; doc fase-4/00 §7). Van 42 ideas, con la cartera del broker |

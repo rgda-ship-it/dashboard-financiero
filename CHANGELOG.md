@@ -4,6 +4,26 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-14 — 0064: la cartera es de todos, y un activo se puede retirar
+
+Pedido por el dueño: no filtrar la cartera por usuario, y poder quitar de verdad los dos ETF tokenizados.
+
+### Comprobado en producción
+- La 0063, aplicada: las dos carteras con SPY, IEF, VNQ y GLD al 25 %. GLD dado de alta desde Yahoo a las 10:02 UTC, con 501 cierres, como solo de cartera.
+- Quitar un activo de la cartera propia no lo saca del catálogo: desde la 0029 el ETL y los agentes llevan todo lo activo, lo siga alguien o no. Había 9 activos activos sin seguidores, entre ellos los dos tokenizados.
+
+### Cambiado
+- `v_mi_cartera` y `v_escaner_usuario` enseñan a todo usuario aprobado lo que el sistema lleva: lo activo, lo pendiente de su primera carga y lo suspendido que alguien sigue.
+- `rpc_abrir_orden` ya no exige seguir el activo para operarlo en el simulador.
+- Las posiciones importadas, las cuentas del simulador y las órdenes siguen siendo de cada uno.
+
+### Añadido
+- `rpc_retirar_activo` (solo administradores, auditado) y el botón «Retirar» en Cartera: el activo queda suspendido y sin seguidores, fuera del ETL, del escáner y de los agentes. Conserva el histórico; si alguien lo vuelve a añadir, vuelve. No retira un activo con posiciones abiertas, ni un índice, ni una clase de las carteras.
+- La migración retira `state-street-spdr-s-p-500-etf-trust-dinari-tokenized-etf` y `vanguard-real-estate-etf-rstock`.
+
+### Pruebas
+- I24, adaptada a la cartera común; invariante nueva I114. CI de migraciones en local: 114 PASS, concurrencia y cuadre.
+
 ## [Sin publicar] - 2026-11-14 — 0063: la cartera, con las cuatro clases del broker
 
 El broker no tiene EFA ni DBC, ni un sustituto de su clase. La cartera queda en SPY, IEF, VNQ y GLD al 25 % (doc `fase-4/00` §8).

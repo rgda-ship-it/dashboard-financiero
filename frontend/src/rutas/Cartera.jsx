@@ -6,7 +6,7 @@ import { IconoBuscar, IconoSubir, IconoDescargar, IconoBorrar } from "../compone
 import { useSesion } from "../auth/sesion.jsx";
 import {
   buscarActivo,
-  dejarActivo,
+  retirarActivo,
   leerMiCartera,
   leerPosiciones,
   leerSolicitudes,
@@ -32,7 +32,6 @@ import {
  * Arriba, lo que sigues: el escáner solo muestra esto. Abajo, las
  * posiciones que declaras tener, importadas por CSV.
  */
-const LIMITE_PERSONAL = 25; // D7 — la BD es quien lo impone; esto solo lo muestra.
 const RELECTURA_MS = 10000; // mientras algo se está dando de alta
 
 const ESTADOS = {
@@ -323,8 +322,8 @@ export default function Cartera() {
 
   async function quitar(a) {
     try {
-      await dejarActivo(a.activo_id);
-      avisar(`${a.ticker} ya no está en tu cartera. Su histórico se conserva.`, "ok");
+      await retirarActivo(a.activo_id);
+      avisar(`${a.ticker} sale de la cartera de todos. Su histórico se conserva.`, "ok");
       cargar();
     } catch (e) {
       avisar(e.message, "neg");
@@ -343,7 +342,8 @@ export default function Cartera() {
   }
 
   const pnlTotal = useMemo(() => posiciones.reduce((s, p) => s + (Number(p.pnl) || 0), 0), [posiciones]);
-  const cuota = esAdmin ? `${activos.length} activos · sin tope personal (admin)` : `${activos.length} / ${LIMITE_PERSONAL} activos`;
+  // 0064: la cartera es común; el tope personal solo limita lo que añade cada uno.
+  const cuota = `${activos.length} activos · la cartera es de todos`;
 
   return (
     <div className="shell">
@@ -391,8 +391,8 @@ export default function Cartera() {
 
           {!cargando && activos.length === 0 ? (
             <p className="prosa cartera__vacio">
-              Tu cartera está vacía. Busca arriba cualquier acción o criptomoneda: el escáner solo
-              analiza lo que sigues.
+La cartera está vacía. Busca arriba cualquier acción o criptomoneda: el escáner analiza
+              todo lo que hay en ella.
             </p>
           ) : (
             <table className="cartera__tabla">
@@ -421,7 +421,16 @@ export default function Cartera() {
                     <td className="num">{a.ultimo_precio != null ? formatearPrecio(Number(a.ultimo_precio)) : "—"}</td>
                     <td className="cartera__cuando">{a.ultimo_etl_en ? tiempoRelativo(a.ultimo_etl_en) : "—"}</td>
                     <td className="cartera__accion">
-                      <button type="button" className="btn" onClick={() => quitar(a)}>Quitar</button>
+                      {esAdmin && (
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={() => quitar(a)}
+                          title="Lo saca de la cartera de todos, del escáner y de los agentes. Conserva el histórico."
+                        >
+                          Retirar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

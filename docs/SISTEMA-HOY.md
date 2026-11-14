@@ -22,6 +22,13 @@ Un dashboard personal en la nube (coste 0 €) con:
   Nasdaq) y 15 criptos, con el veredicto «Comprar / Esperar / No comprar»
   y sus niveles (doc fase-3/04). Además, dos índices **solo de referencia**
   (S&P 500 y Nasdaq 100, 0058): se leen para la vara y no se operan.
+- **Cartera común** (0064): todos los usuarios aprobados ven en Cartera y
+  en el escáner todo lo que el sistema lleva, y pueden operarlo en el
+  simulador, lo sigan o no. Un administrador puede **retirar** un activo
+  (`rpc_retirar_activo`): queda suspendido y sin seguidores, fuera del
+  ETL, del escáner y de los agentes, con su histórico intacto. Las
+  posiciones importadas y las cuentas del simulador siguen siendo de cada
+  uno.
 - **Simulador**: cuentas de 500 $ con dinero ficticio, apalancamiento con
   tope, spread y huecos reales.
 - **Agentes**: nueve cuentas que operan solas en el simulador: el grupo de
