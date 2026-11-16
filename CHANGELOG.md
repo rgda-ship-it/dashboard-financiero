@@ -4,6 +4,24 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-16 — Revisión del lunes 16-11: la 0061 aguanta y 36 stops con la regla de la 0030
+
+Datos del 9-11 a las 00:00 al 16-11 a las 21:15 UTC (con la 0043, la 0052, la 0053, la 0055 y la 0061; las v2 como su original, desde la 0061 el 10-11 a las 15:11). Las carteras (0062–0064) no han decidido todavía: su primera decisión es en diciembre.
+
+### Comprobado
+- **La 0061 aguanta**: el corte del 16-11 a las 00:07 calificó la semana W46 como «deficiente» en los seis agentes con metas, pero no adoptó ni evaluó ninguna práctica (`mp_adopciones` sin cambios desde el 10-11) y ninguna versión cambió (Prudencia 12, Cadencia 11, Audacia 9; las v2, 3).
+- **Las v2 vuelven a ser su original más su filtro**: desde la 0061, Prudencia v2 y Audacia v2 abren cripto y entran en lo mismo y a la vez que su original (avalanche el 10-11, EWY el 13-11). Cadencia v2 descarta cada día exactamente lo mismo que Cadencia: ninguna candidata ha llegado a su filtro de ADX, ni ninguna de Audacia v2 al de precio.
+- **Ninguna hipótesis, y es correcto**: `hipotesis.yml` se lanzó a las 02:00 (204). En la H3, con 90 días, los descartes por `rr` bajaron de −0,48 a −1,00 ATR en 5 sesiones frente a −0,34 del universo; los de `atr_alto` y `niveles_origen`, más aún. Los filtros protegen.
+- **Stops con la regla de la 0030: 36**, ya por encima de los 30 previstos para revisarlos. Del grupo de control, 23: 16 «salvo», 1 «corto», 4 «ninguno» y 2 pendientes. El 76 % de los resueltos salvó y el 5 % cortó, frente al 52–68 % y el 11–21 % del laboratorio. Es mejor que el laboratorio, pero en plena caída de cripto y con stops simultáneos en varias cuentas (avalanche en cuatro el 14-11, zcash en dos el 10-11): no son independientes. No apoya la pista de los stops anchos en Prudencia y Cadencia.
+- La semana, en R: Prudencia −1,30 en 5 cierres (cuatro por deterioro); Prudencia v2 −0,88 en 4; Audacia −3,00 en 3 (zcash, avalanche y QFIN, todas a su stop); Audacia v2 −2,00 en 2; Cadencia y Cadencia v2, sin cierres. Ningún hueco.
+- Tendencia cripto, sin operaciones: solo zcash está sobre su media de 200, y a 4,3 ATR de la ruptura. bitcoin, en 65.300 (81.100 el 23-10).
+- Escáner (desde la 0030): 49 «Comprar» de acciones dan −0,27 % a 5 sesiones y +0,67 % a 10, frente a −0,70 % y −0,98 % de todas las lecturas. Todavía pocos casos y solapados. En cripto todo baja, y «Comprar», más.
+- Salud en verde: los dos ETL sin fallos, 39/39 acciones (con los cuatro ETF de las carteras y los dos índices) y 15/15 cripto con señal, ninguna credencial por caducar y ningún fallo en la semana.
+- Backlog: Prudencia y Audacia piden dejar las prácticas 89 y 97 («ya no me funciona»). Con la 0061, se quedan hasta el final; las operaciones que cuentan son las hechas mientras la llevaban, no las que la práctica tocó (ninguna). Las v2 piden lo habitual (`rr`, la meta y la semana deficiente).
+
+### Hallazgo
+- **El token de MaxLinear nunca salió del universo**. La 0032 decía sacarlo, pero solo lo suspendía si nadie lo seguía, y tenía un seguidor. Está activo como cripto desde el 29-09: es uno de los «15 cripto» y de los 48 activos del universo y de su vara. No tiene historial para Tendencia cripto (`sin_datos` cada día) y nadie lo ha operado. Se quita con «Retirar» (0064); lo decide el dueño, porque toca el universo y la vara del grupo de control a mitad del experimento.
+
 ## [Sin publicar] - 2026-11-14 — La 0064, aplicada
 
 ### Comprobado
