@@ -19,7 +19,8 @@
 Un dashboard personal en la nube (coste 0 €) con:
 
 - **Escáner**: señales de confluencia técnica sobre 32 acciones (NYSE y
-  Nasdaq) y 15 criptos, con el veredicto «Comprar / Esperar / No comprar»
+  Nasdaq) y 15 cripto (14 criptos y el token de la acción de MaxLinear,
+  que la 0032 no llegó a quitar: ESTADO §3.00), con el veredicto «Comprar / Esperar / No comprar»
   y sus niveles (doc fase-3/04). Además, dos índices **solo de referencia**
   (S&P 500 y Nasdaq 100, 0058): se leen para la vara y no se operan.
 - **Cartera común** (0064): todos los usuarios aprobados ven en Cartera y
