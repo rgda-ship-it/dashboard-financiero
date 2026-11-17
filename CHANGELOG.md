@@ -4,6 +4,15 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-17 — MXL en lugar del token de MaxLinear
+
+Decisión del dueño, tras el hallazgo de la revisión del 16-11.
+
+### Comprobado en producción
+- El token `maxlinear-robinhood-tokenized-stock`, retirado a las 10:52 UTC con `rpc_retirar_activo`: suspendido, sin seguidores, con su evento y su fila en `auditoria_admin`.
+- **MXL**, dado de alta desde Yahoo: activo a las 10:53 con 500 velas (todas con rango real). Su primera señal, neutral y no operable, con un ATR del 14 %, a unos 52 $.
+- El universo sigue en 48 activos, pero ahora con 34 acciones y 14 cripto (antes, 33 y 15). MXL entra en el universo del grupo de control y de las v2, y en la vara de las acciones. Queda en `CRONOLOGIA.md` §1 como corte.
+
 ## [Sin publicar] - 2026-11-16 — Revisión del lunes 16-11: la 0061 aguanta y 36 stops con la regla de la 0030
 
 Datos del 9-11 a las 00:00 al 16-11 a las 21:15 UTC (con la 0043, la 0052, la 0053, la 0055 y la 0061; las v2 como su original, desde la 0061 el 10-11 a las 15:11). Las carteras (0062–0064) no han decidido todavía: su primera decisión es en diciembre.
