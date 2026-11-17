@@ -35,6 +35,7 @@ Lo más importante de este documento. Cada fila dice qué datos de antes
 | **2026-10-10 21:31** | **0030 (D21)**: stop y objetivo acotados en ATR (stop entre 1 y 2 ATR), el RSI no vota contra el MACD, riesgo abierto total (G6); R:R mínimo nuevo (Prudencia 2,0 → 1,5, Cadencia 1,5 → 1,3) | **Todo**: stops a 0,1 ATR antes, R de las órdenes, entradas, concordancia del laboratorio |
 | 2026-10-10 | 0031–0033: horizonte estimado, autodiagnóstico semanal, cripto prudente (D22), huecos reales en el simulador (M3') | Tamaño en cripto; cierres con hueco |
 | 2026-10-10 (0032) | El token de MaxLinear **no salió** del universo, como decía la 0032: solo se suspendía sin seguidores, y tenía uno (descubierto en la revisión del 16-11) | Nada que cortar: está activo desde el 29-09, así que todos los recuentos de «15 cripto» y de 48 activos lo incluyen. Nunca se ha operado |
+| **2026-11-17 10:52** | El dueño **retira el token de MaxLinear** (`rpc_retirar_activo`) y da de alta **MXL**, la acción, desde Yahoo (activa a las 10:53, con 500 velas) | Universo y vara: siguen siendo 48 activos, pero de 33 acciones y 15 cripto pasan a 34 y 14. MXL entra en el universo del grupo de control y de las v2 (ATR del 14 % el día del alta) |
 | 2026-10-10 / 10-11 | 0034–0036: el spread se cobra (D23) y se mide | Precio de entrada y salida, P&L |
 | 2026-10-09 → 10-13 | **Cuarentena** de los tres: solo fuerza alta, una posición; casi no operan | Frecuencia de entradas |
 | 2026-10-12 | Tendencia cripto decide (0037–0040); pausa por caída al 35 % (0039) | — (nace aquí) |
