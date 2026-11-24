@@ -4,6 +4,19 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-24 — Auditoría integral: las consultas A1–A4, en producción
+
+La auditoría del 21-11 (`docs/fase-4/01-auditoria-integral.md`) se escribió sin acceso a producción. Sus consultas, lanzadas en solo lectura con datos desde el 17-10 (0043); A4, desde la 0055.
+
+### Comprobado
+- **A1, el regalo de los stops**: en acciones, +0,021 R de media en 11 stops en sesión (3,59 $); en cripto, **+0,077 R en 21** (16,57 $), por encima del umbral de 0,05. Al revés de lo que suponía la auditoría: el efecto está en cripto, que se mueve las 24 horas entre lecturas del monitor. Con 21 de 37 cierres de cripto a stop, el resultado en vivo de cripto sale unos 0,04 R por operación mejor que la realidad. No cambia ningún veredicto: todos van por debajo de cero.
+- **A2**: Prudencia pierde sobre todo por deterioro (13 cierres a −0,17 R); los demás, a su stop. Los 5 cierres por hueco son de acciones (−1,21 R de media), 4 de Audacia.
+- **A3**: las dos rotadas (AGNC y NLY, de Audacia) tocaron luego su objetivo antes que su stop; la rotación les dejó unos 0,8 y 1,3 R. Dos casos: una anécdota.
+- **A4**: dos órdenes de Audacia por encima de 5×, ripple y solana a 5,6× el 23-11, con el riesgo por stop en el 5 % del equity.
+
+### Corregido
+- A3 leía `precio_max_post_cierre`, que no se rellena en las rotadas: ahora mira las velas diarias posteriores.
+
 ## [Sin publicar] - 2026-11-24 — Revisión del lunes 23-11: el filtro de Audacia v2 actúa por primera vez
 
 Datos del 17-11 a las 00:00 al 24-11 a las 19:40 UTC (con la 0043, la 0052, la 0053, la 0055 y la 0061; con MXL en el universo desde el 17-11 a las 10:53). Las carteras siguen sin decidir: su primera decisión es en diciembre.

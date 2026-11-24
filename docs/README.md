@@ -34,6 +34,7 @@ entender el pasado. Cada documento lleva su vigencia en la cabecera.
 | Doc | Tema | Vigencia |
 |---|---|---|
 | [`fase-4/00`](fase-4/00-replanteamiento.md) | Por qué 38 ideas de entrada dan cero y qué pregunta queda: cuánta cartera llevar, contra comprar y mantener. Tendencia y volatilidad sobre cinco clases de activo y tendencia en bitcoin: menos caída con algo menos de rentabilidad, sin demostrar frente al azar | Vigente |
+| [`fase-4/01`](fase-4/01-auditoria-integral.md) | Auditoría integral del requisito al código (21-11), con A1–A4 en producción (24-11): el simulador regala +0,08 R por stop en cripto; las dos rotadas llegaron luego al objetivo; dos órdenes de Audacia a 5,6× | Foto de ese día |
 
 ### Fase 3 (desde el 2026-10-24): fiabilidad y laboratorio
 
