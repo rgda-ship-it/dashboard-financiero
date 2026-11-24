@@ -4,6 +4,25 @@ Bitácora compartida de hallazgos y correcciones sobre `dashboard-financiero`,
 mantenida entre las herramientas que trabajan sobre este repo (Cowork y
 Claude Code) para no perder contexto entre sesiones.
 
+## [Sin publicar] - 2026-11-24 — Revisión del lunes 23-11: el filtro de Audacia v2 actúa por primera vez
+
+Datos del 17-11 a las 00:00 al 24-11 a las 19:40 UTC (con la 0043, la 0052, la 0053, la 0055 y la 0061; con MXL en el universo desde el 17-11 a las 10:53). Las carteras siguen sin decidir: su primera decisión es en diciembre.
+
+### Comprobado
+- **La 0061 aguanta**: el corte del 23-11 a las 00:07 calificó W47 como «deficiente» en los seis agentes con metas, sin adoptar, evaluar ni abandonar ninguna práctica (`mp_adopciones` sin cambios desde el 10-11). Versiones: Prudencia 12, Cadencia 11, Audacia 9; las v2, 3.
+- **El filtro de Audacia v2 actúa por primera vez**: el 18 y el 19-11 descartó por `precio_bajo` (90 y 78 veces) y no entró en QFIN (4,80 $), que Audacia abrió el 18-11 y cerró a su stop el 20-11 (−1 R, −15,61 $). Lo demás, igual que su original. El de Cadencia v2 (ADX) sigue sin actuar: no ha hecho ninguna operación.
+- **Ninguna hipótesis, y es correcto**: `hipotesis.yml` corrió a las 02:00 (204) y no encontró nada que probar. En la H3, con 90 días, los descartes por `rr` bajaron de −0,69 a −1,19 ATR en 5 sesiones frente a −0,47 del universo; los de `atr_alto` (Cadencia, −0,95) y `niveles_origen` (Prudencia, −1,49), más aún. Los filtros siguen protegiendo.
+- **Stops con la regla de la 0030: 45** (36 el 16-11). Del grupo de control, 28: 20 «salvo», 1 «corto», 4 «ninguno» y 3 pendientes; el 80 % de los resueltos salvó y el 4 % cortó, frente al 52–68 % y el 11–21 % del laboratorio. Las mismas reservas: caída de cripto y stops simultáneos en varias cuentas.
+- La semana, en R: Audacia −4,16 en 4 cierres (BAC, EWY, CAT y QFIN, todos a su stop); Audacia v2 −3,03 en 3 (BAC, EWY y CAT); Cadencia −0,10 en 1 (BAC, que había tomado un parcial de +5,75 $ el 29-10); Prudencia y Prudencia v2 +0,15 en 1 (ripple, por deterioro a las 2 horas). Cadencia v2, sin operaciones. **Dos huecos pequeños** en la apertura del 20-11: EWY (−1,03 R, en las dos Audacias) y CAT de Audacia (−1,13 R).
+- Audacia acumula −48 % (caída máxima del 39 %) y Audacia v2 −33 %, con 0 aciertos en 7 cierres. **Cadencia pasó sola a Fase 2** el 17-11 (8 operaciones en Fase 1) y **Audacia v2** el 20-11 (caída del 31 %): tope de 3×. Queda en `CRONOLOGIA.md` §1.
+- Tendencia cripto, sin operaciones: ninguna cripto está sobre su media de 200 (zcash también cayó por debajo). bitcoin, en 61.200 (65.300 el 16-11). La más cerca de la ruptura es tron, a 2,1 ATR, pero bajo su media.
+- Escáner (desde la 0030): 52 «Comprar» de acciones dan −0,63 % a 5 sesiones y −0,22 % a 10, frente a −1,74 % y −2,93 % de todas las lecturas. Sigue por delante, en una semana de caídas, con pocos casos y solapados. En cripto, «Comprar» (20) baja más que el resto: −7,4 % a 5 sesiones frente a −4,6 %.
+- Salud en verde: los dos ETL sin fallos, 40/40 acciones (34 del universo, los cuatro ETF de las carteras y los dos índices) y 14/14 cripto con señal, ninguna credencial por caducar y ningún fallo en la semana.
+- Backlog: nueva petición de Prudencia, «Operar en corto» (23-11, ya con una ocurrencia por agente), por tres días seguidos sin ninguna señal fresca alcista. El laboratorio ya la respondió: los cortos no tienen ventaja (doc fase-3/02). El resto, lo habitual (`rr`, la meta y la semana deficiente; las prácticas 89 y 97 se quedan hasta el final).
+
+### Hallazgo
+- El 19-11 a las 16:22 se intentó dar de alta **ANT**: Yahoo no lo reconoce y quedó como `invalido`, fuera del universo y sin efecto en nada.
+
 ## [Sin publicar] - 2026-11-17 — MXL en lugar del token de MaxLinear
 
 Decisión del dueño, tras el hallazgo de la revisión del 16-11.
